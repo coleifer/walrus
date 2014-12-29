@@ -857,9 +857,9 @@ class Executor(object):
             OP_EQ: self.execute_eq,
             OP_NE: self.execute_ne,
             #OP_GT: self.execute_gt,
-            #OP_GTE: self.execute_gte,
+            OP_GTE: self.execute_gte,
             #OP_LT: self.execute_lt,
-            #OP_LTE: self.execute_lte,
+            OP_LTE: self.execute_lte,
         }
 
     def execute(self, expression):
@@ -876,17 +876,33 @@ class Executor(object):
         exclude_set = index.get_key(lhs.db_value(rhs))
         return all_set.diffstore(self.database.get_temp_key(), exclude_set)
 
+    def execute_lte(self, lhs, rhs):
+        index = lhs.get_index(OP_LTE)
+        zset = index.get_key(lhs.db_value(rhs))
+        values = zset.range_by_score(0, lhs.db_value(rhs))
+        tmp_set = self.database.Set(self.database.get_temp_key())
+        tmp_set.add(*values)
+        return tmp_set
+
+    def execute_gte(self, lhs, rhs):
+        index = lhs.get_index(OP_GTE)
+        zset = index.get_key(lhs.db_value(rhs))
+        values = zset.range_by_score(lhs.db_value(rhs), float('inf'))
+        tmp_set = self.database.Set(self.database.get_temp_key())
+        tmp_set.add(*values)
+        return tmp_set
+
     def execute_or(self, lhs, rhs):
-        if not isinstance(lhs, Set):
+        if not isinstance(lhs, (Set, ZSet)):
             lhs = self.execute(lhs)
-        if not isinstance(rhs, Set):
+        if not isinstance(rhs, (Set, ZSet)):
             rhs = self.execute(rhs)
         return lhs.unionstore(self.database.get_temp_key(), rhs)
 
     def execute_and(self, lhs, rhs):
-        if not isinstance(lhs, Set):
+        if not isinstance(lhs, (Set, ZSet)):
             lhs = self.execute(lhs)
-        if not isinstance(rhs, Set):
+        if not isinstance(rhs, (Set, ZSet)):
             rhs = self.execute(rhs)
         return lhs.interstore(self.database.get_temp_key(), rhs)
 
