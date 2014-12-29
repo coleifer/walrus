@@ -441,7 +441,7 @@ class ZSet(Container):
         return self.database.zlexcount(self.key, low, high)
 
     def range(self, low, high, with_scores=False, reverse=False):
-        return self.database.zrange(self.key, low, high, reverse, with_socres)
+        return self.database.zrange(self.key, low, high, reverse, with_scores)
 
     def range_by_score(self, low, high, start=None, num=None,
                        with_scores=False, reverse=False):
@@ -586,15 +586,11 @@ OP_LTE = '<='
 OP_GT = '>'
 OP_GTE = '>='
 
-class Expression(object):
-    def __init__(self, lhs, op, rhs):
-        self.lhs = lhs
-        self.op = op
-        self.rhs = rhs
+ABSOLUTE = set([OP_EQ, OP_NE])
+CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE])
 
-    def __repr__(self):
-        return '(%s %s %s)' % (self.lhs, self.op, self.rhs)
 
+class Node(object):
     def _e(op, inv=False):
         def inner(self, rhs):
             if inv:
@@ -613,8 +609,67 @@ class Expression(object):
     __ge__ = _e(OP_GTE)
 
 
+class Expression(Node):
+    def __init__(self, lhs, op, rhs):
+        self.lhs = lhs
+        self.op = op
+        self.rhs = rhs
 
-class Field(object):
+    def __repr__(self):
+        return '(%s %s %s)' % (self.lhs, self.op, self.rhs)
+
+
+class BaseIndex(object):
+    operations = None
+
+    def __init__(self, field):
+        self.field = field
+        self.database = self.field.model_class.database
+        self.query_helper = self.field.model_class._query
+
+    def field_value(self, instance):
+        return self.field.db_value(getattr(instance, self.field.name))
+
+    def get_key(self, instance, value):
+        raise NotImplementedError
+
+    def store_instance(self, key, instance, value):
+        raise NotImplementedError
+
+    def save(self, instance):
+        value = self.field_value(instance)
+        key = self.get_key(value)
+        self.store_instance(key, instance, value)
+
+
+class AbsoluteIndex(BaseIndex):
+    operations = ABSOLUTE
+
+    def get_key(self, value):
+        key = self.query_helper.make_key(
+            self.field.name,
+            'absolute',
+            value)
+        return self.database.Set(key)
+
+    def store_instance(self, key, instance, value):
+        key.add(instance.get_hash_id())
+
+
+class ContinuousIndex(BaseIndex):
+    operations = CONTINUOUS
+
+    def get_key(self, value):
+        key = self.query_helper.make_key(
+            self.field.name,
+            'continuous')
+        return self.database.ZSet(key)
+
+    def store_instance(self, key, instance, value):
+        key[instance.get_hash_id()] = value
+
+
+class Field(Node):
     _coerce = None
 
     def __init__(self, index=False, as_json=False, primary_key=False,
@@ -660,9 +715,6 @@ class Field(object):
         self.name = name
         setattr(model_class, name, self)
 
-    def _get_indexed_operations(self):
-        return [OP_EQ, OP_NE]
-
     def __get__(self, instance, instance_type=None):
         if instance is not None:
             return instance._data[self.name]
@@ -671,12 +723,26 @@ class Field(object):
     def __set__(self, instance, value):
         instance._data[self.name] = value
 
+    def get_index(self, op):
+        indexes = self.get_indexes()
+        for index in indexes:
+            if op in index.operations:
+                return index
+
+        raise ValueError('Operation %s is not supported by an index.' % op)
+
+    def get_indexes(self):
+        return [AbsoluteIndex(self)]
+
+
 class _ScalarField(Field):
-    def _get_indexed_operations(self):
-        return [OP_EQ, OP_NE, OP_GT, OP_GTE, OP_LT, OP_LTE]
+    def get_indexes(self):
+        return [AbsoluteIndex(self), ContinuousIndex(self)]
+
 
 class IntegerField(_ScalarField):
     _coerce = int
+
 
 class AutoIncrementField(IntegerField):
     def __init__(self, *args, **kwargs):
@@ -689,11 +755,14 @@ class AutoIncrementField(IntegerField):
             self.name)
         return self.model_class.database.incr(key)
 
+
 class FloatField(_ScalarField):
     _coerce = float
 
+
 class ByteField(Field):
     _coerce = str
+
 
 class TextField(Field):
     def db_value(self, value):
@@ -708,12 +777,14 @@ class TextField(Field):
             return value.decode('utf-8')
         return value
 
+
 class BooleanField(Field):
     def db_value(self, value):
         return value and 1 or 0
 
     def python_value(self, value):
         return str(value) == '1'
+
 
 class UUIDField(Field):
     def __init__(self, **kwargs):
@@ -729,32 +800,25 @@ class UUIDField(Field):
     def _generate_key(self):
         return uuid.uuid4()
 
+
 class DateTimeField(_ScalarField):
-    formats = [
-        '%Y-%m-%d %H:%M:%S.%f',
-        '%Y-%m-%d %H:%M:%S',
-        '%Y-%m-%d']
-
     def db_value(self, value):
-        return value.strftime('%Y-%m-%d %H:%M:%S.%f')
+        timestamp = time.mktime(value.timetuple())
+        micro = value.microsecond * (10 ** -6)
+        return timestamp + micro
 
     def python_value(self, value):
-        if isinstance(value, basestring):
-            for fmt in self.formats:
-                try:
-                    return datetime.datetime.strptime(value, fmt)
-                except ValueError:
-                    pass
+        if isinstance(value, (basestring, int, float)):
+            return datetime.datetime.fromtimestamp(float(value))
         return value
 
-class DateField(_ScalarField):
-    def db_value(self, value):
-        return value.strftime('%Y-%m-%d')
 
+class DateField(DateTimeField):
     def python_value(self, value):
-        if isinstance(value, basestring):
-            return datetime.datetime.strptime(value, '%Y-%m-%d').date()
+        if isinstance(value, (basestring, int, float)):
+            return datetime.datetime.fromtimestamp(float(value)).date()
         return value
+
 
 class JSONField(Field):
     def __init__(self, *args, **kwargs):
@@ -765,9 +829,9 @@ class JSONField(Field):
 class Query(object):
     def __init__(self, model_class):
         self.model_class = model_class
-        self._base_key = self._get_base_key()
 
-    def _get_base_key(self):
+    @property
+    def _base_key(self):
         model_name = self.model_class.__name__.lower()
         if self.model_class.namespace:
             return '%s|%s:' % (self.model_class.namespace, model_name)
@@ -777,31 +841,55 @@ class Query(object):
         """Generate a namespaced key for the given path."""
         return '%s%s' % (self._base_key, '.'.join(map(str, parts)))
 
-    def get_index_keys_for_filters(self, filters):
-        # For the fields and filters, determine which indexes are appropriate,
-        # e.g. a scalar field supports lt/lte/gt/gte, so if the filter
-        # indicates this type of comparison then use the correct index.
-        return [
-            self.index_key(self.model_class._fields[key], value)
-            for key, value in filters.items()]
-
-    def convert_hash_key_to_primary_key(cls, hash_key):
-        return hash_key.rsplit('.', 1)[-1]
-
-    def index_key(self, field, value):
-        return self.make_key(
-            field.name,
-            field.db_value(value))
-
-    def get_index_keys(self, model_instance):
-        for indexed_field in self.model_class._indexes:
-            yield self.index_key(
-                indexed_field,
-                getattr(model_instance, indexed_field.name))
-
     def get_primary_hash_key(self, primary_key):
         pk_field = self.model_class._fields[self.model_class._primary_key]
-        return self.make_key(pk_field.db_value(primary_key))
+        return self.make_key('id', pk_field.db_value(primary_key))
+
+    def all_index(self):
+        return self.model_class.database.Set(self.make_key('all'))
+
+
+class Executor(object):
+    def __init__(self, database):
+        self.database = database
+        self._mapping = {
+            OP_OR: self.execute_or,
+            OP_AND: self.execute_and,
+            OP_EQ: self.execute_eq,
+            OP_NE: self.execute_ne,
+            #OP_GT: self.execute_gt,
+            #OP_GTE: self.execute_gte,
+            #OP_LT: self.execute_lt,
+            #OP_LTE: self.execute_lte,
+        }
+
+    def execute(self, expression):
+        op = expression.op
+        return self._mapping[op](expression.lhs, expression.rhs)
+
+    def execute_eq(self, lhs, rhs):
+        index = lhs.get_index(OP_EQ)
+        return index.get_key(lhs.db_value(rhs))
+
+    def execute_ne(self, lhs, rhs):
+        all_set = lhs.model_class._query.all_index()
+        index = lhs.get_index(OP_NE)
+        exclude_set = index.get_key(lhs.db_value(rhs))
+        return all_set.diffstore(self.database.get_temp_key(), exclude_set)
+
+    def execute_or(self, lhs, rhs):
+        if not isinstance(lhs, Set):
+            lhs = self.execute(lhs)
+        if not isinstance(rhs, Set):
+            rhs = self.execute(rhs)
+        return lhs.unionstore(self.database.get_temp_key(), rhs)
+
+    def execute_and(self, lhs, rhs):
+        if not isinstance(lhs, Set):
+            lhs = self.execute(lhs)
+        if not isinstance(rhs, Set):
+            rhs = self.execute(rhs)
+        return lhs.interstore(self.database.get_temp_key(), rhs)
 
 
 class BaseModel(type):
@@ -869,57 +957,14 @@ class Model(_with_metaclass(BaseModel)):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    def __repr__(self):
+        return '<%s: %s>' % (type(self).__name__, self.get_id())
+
     def _load_default_dict(self):
         for field_name, default in self._defaults.items():
             if callable(default):
                 default = default()
             setattr(self, field_name, default)
-
-    def __repr__(self):
-        return '<%s: %s>' % (type(self).__name__, self.get_id())
-
-    def to_hash(self):
-        return self.database.Hash(self.get_hash_id())
-
-    def indexes(self):
-        for index_key in self._query.get_index_keys(self):
-            yield self.database.ZSet(index_key)
-
-    @classmethod
-    def create(cls, **kwargs):
-        instance = cls(**kwargs)
-        instance.save()
-        return instance
-
-    @classmethod
-    def all(cls):
-        for result in cls.database.zrange(cls._query.make_key('all'), 0, -1):
-            yield cls.load(result, convert_key=False)
-
-    @classmethod
-    def filter(cls, **kwargs):
-        index_keys = cls._query.get_index_keys_for_filters(kwargs)
-        for result in cls.database.get_intersection(index_keys):
-            yield cls.load(result, convert_key=False)
-
-    @classmethod
-    def get(cls, **kwargs):
-        index_keys = cls._query.get_index_keys_for_filters(kwargs)
-        results = cls.database.get_intersection(index_keys, results_exact=1)
-        return cls.load(results[0], convert_key=False)
-
-    @classmethod
-    def load(cls, primary_key, convert_key=True):
-        if convert_key:
-            primary_key = cls._query.get_primary_hash_key(primary_key)
-        raw_data = cls.database.hgetall(primary_key)
-        data = {}
-        for name, field in cls._fields.items():
-            if name not in raw_data:
-                data[name] = None
-            else:
-                data[name] = field.python_value(raw_data[name])
-        return cls(**data)
 
     def get_id(self):
         return getattr(self, self._primary_key)
@@ -934,27 +979,66 @@ class Model(_with_metaclass(BaseModel)):
                 data[name] = field.db_value(self._data[name])
         return data
 
+    def to_hash(self):
+        return self.database.Hash(self.get_hash_id())
+
+    @classmethod
+    def create(cls, **kwargs):
+        instance = cls(**kwargs)
+        instance.save()
+        return instance
+
+    @classmethod
+    def all(cls):
+        for result in cls._query.all_index():
+            yield cls.load(result, convert_key=False)
+
+    @classmethod
+    def filter(cls, expression):
+        executor = Executor(cls.database)
+        return executor.execute(expression)
+
+    @classmethod
+    def get(cls, expression):
+        pass # FIXME.
+
+    @classmethod
+    def load(cls, primary_key, convert_key=True):
+        if convert_key:
+            primary_key = cls._query.get_primary_hash_key(primary_key)
+        raw_data = cls.database.hgetall(primary_key)
+        data = {}
+        for name, field in cls._fields.items():
+            if name not in raw_data:
+                data[name] = None
+            else:
+                data[name] = field.python_value(raw_data[name])
+        return cls(**data)
+
     def delete(self):
         hash_key = self.get_hash_id()
         original_instance = self.load(hash_key, convert_key=False)
-        pipeline = self.database.pipeline()
-        pipeline.delete(hash_key)
-        pipeline.zrem(self._query.make_key('all'), hash_key)
-        for index_key in self._query.get_index_keys(self):
-            pipeline.zrem(index_key, hash_key)
-        pipeline.execute()
+        # FIXME: implementation.
 
     def save(self):
         pk_field = self._fields[self._primary_key]
         if not self._data.get(self._primary_key):
             setattr(self, self._primary_key, pk_field._generate_key())
+            require_delete = False
+        else:
+            require_delete = True
 
-        hash_key = self.get_hash_id()
+        if require_delete:
+            self.delete()
 
-        self.delete()
-        pipeline = self.database.pipeline()
-        pipeline.zadd(self._query.make_key('all'), hash_key, time.time())
-        pipeline.hmset(hash_key, self._get_data_dict())
-        for index_key in self._query.get_index_keys(self):
-            pipeline.zadd(index_key, hash_key, time.time())
-        pipeline.execute()
+        data = self._get_data_dict()
+        hash_obj = self.to_hash()
+        hash_obj.clear()
+        hash_obj.update(data)
+
+        all_index = self._query.all_index()
+        all_index.add(self.get_hash_id())
+
+        for field in self._indexes:
+            for index in field.get_indexes():
+                index.save(self)
