@@ -750,9 +750,8 @@ class AutoIncrementField(IntegerField):
         return super(AutoIncrementField, self).__init__(*args, **kwargs)
 
     def _generate_key(self):
-        key = '%s.%s._sequence' % (
-            self.model_class.__name__,
-            self.name)
+        query_helper = self.model_class._query_helper
+        key = query_helper.make_key(self.name, '_sequence')
         return self.model_class.database.incr(key)
 
 
