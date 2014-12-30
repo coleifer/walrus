@@ -636,10 +636,18 @@ class BaseIndex(object):
     def store_instance(self, key, instance, value):
         raise NotImplementedError
 
+    def delete_instance(self, key, instance, value):
+        raise NotImplementedError
+
     def save(self, instance):
         value = self.field_value(instance)
         key = self.get_key(value)
         self.store_instance(key, instance, value)
+
+    def remove(self, instance):
+        value = self.field_value(instance)
+        key = self.get_key(value)
+        self.delete_instance(key, instance, value)
 
 
 class AbsoluteIndex(BaseIndex):
@@ -655,6 +663,9 @@ class AbsoluteIndex(BaseIndex):
     def store_instance(self, key, instance, value):
         key.add(instance.get_hash_id())
 
+    def delete_instance(self, key, instance, value):
+        key.remove(instance.get_hash_id())
+
 
 class ContinuousIndex(BaseIndex):
     operations = CONTINUOUS
@@ -667,6 +678,9 @@ class ContinuousIndex(BaseIndex):
 
     def store_instance(self, key, instance, value):
         key[instance.get_hash_id()] = value
+
+    def delete_instance(self, key, instance, value):
+        del key[instance.get_hash_id()]
 
 
 class Field(Node):
@@ -750,7 +764,7 @@ class AutoIncrementField(IntegerField):
         return super(AutoIncrementField, self).__init__(*args, **kwargs)
 
     def _generate_key(self):
-        query_helper = self.model_class._query_helper
+        query_helper = self.model_class._query
         key = query_helper.make_key(self.name, '_sequence')
         return self.model_class.database.incr(key)
 
@@ -849,8 +863,10 @@ class Query(object):
 
 
 class Executor(object):
-    def __init__(self, database):
+    def __init__(self, model_class, database, temp_key_expire=30):
+        self.model_class = model_class
         self.database = database
+        self.temp_key_expire = 30
         self._mapping = {
             OP_OR: self.execute_or,
             OP_AND: self.execute_and,
@@ -862,9 +878,13 @@ class Executor(object):
             OP_LTE: self.execute_lte,
         }
 
-    def execute(self, expression):
+    def execute(self, expression, require_one=False):
         op = expression.op
-        return self._mapping[op](expression.lhs, expression.rhs)
+        result = self._mapping[op](expression.lhs, expression.rhs)
+        if require_one and len(result) != 1:
+            raise ValueError('Got %s results, expected 1.' % len(result))
+        for hash_id in result:
+            yield self.model_class.load(hash_id, convert_key=False)
 
     def execute_eq(self, lhs, rhs):
         index = lhs.get_index(OP_EQ)
@@ -874,37 +894,49 @@ class Executor(object):
         all_set = lhs.model_class._query.all_index()
         index = lhs.get_index(OP_NE)
         exclude_set = index.get_key(lhs.db_value(rhs))
-        return all_set.diffstore(self.database.get_temp_key(), exclude_set)
+        tmp_set = all_set.diffstore(self.database.get_temp_key(), exclude_set)
+        tmp_set.expire(self.temp_key_expire)
+        return tmp_set
+
+    def _zset_score_filter(self, zset, low, high):
+        values = zset.range_by_score(low, high)
+        tmp_set = self.database.Set(self.database.get_temp_key())
+        tmp_set.add(*values)
+        tmp_set.expire(self.temp_key_expire)
+        return tmp_set
 
     def execute_lte(self, lhs, rhs):
         index = lhs.get_index(OP_LTE)
-        zset = index.get_key(lhs.db_value(rhs))
-        values = zset.range_by_score(0, lhs.db_value(rhs))
-        tmp_set = self.database.Set(self.database.get_temp_key())
-        tmp_set.add(*values)
-        return tmp_set
+        db_value = lhs.db_value(rhs)
+        zset = index.get_key(db_value)
+        return self._zset_score_filter(zset, float('-inf'), db_value)
 
     def execute_gte(self, lhs, rhs):
         index = lhs.get_index(OP_GTE)
-        zset = index.get_key(lhs.db_value(rhs))
-        values = zset.range_by_score(lhs.db_value(rhs), float('inf'))
-        tmp_set = self.database.Set(self.database.get_temp_key())
-        tmp_set.add(*values)
+        db_value = lhs.db_value(rhs)
+        zset = index.get_key(db_value)
+        return self._zset_score_filter(zset, db_value, float('inf'))
+
+    def _combine_sets(self, lhs, rhs, operation):
+        if not isinstance(lhs, (Set, ZSet)):
+            lhs = self.execute(lhs)
+        if not isinstance(rhs, (Set, ZSet)):
+            rhs = self.execute(rhs)
+        if operation == 'AND':
+            method = lhs.interstore
+        elif operation == 'OR':
+            method = lhs.unionstore
+        else:
+            raise ValueError('Unrecognized operation: "%s".' % operation)
+        tmp_set = method(self.database.get_temp_key(), rhs)
+        tmp_set.expire(self.temp_key_expire)
         return tmp_set
 
     def execute_or(self, lhs, rhs):
-        if not isinstance(lhs, (Set, ZSet)):
-            lhs = self.execute(lhs)
-        if not isinstance(rhs, (Set, ZSet)):
-            rhs = self.execute(rhs)
-        return lhs.unionstore(self.database.get_temp_key(), rhs)
+        return self._combine_sets(lhs, rhs, 'OR')
 
     def execute_and(self, lhs, rhs):
-        if not isinstance(lhs, (Set, ZSet)):
-            lhs = self.execute(lhs)
-        if not isinstance(rhs, (Set, ZSet)):
-            rhs = self.execute(rhs)
-        return lhs.interstore(self.database.get_temp_key(), rhs)
+        return self._combine_sets(lhs, rhs, 'AND')
 
 
 class BaseModel(type):
@@ -1010,12 +1042,13 @@ class Model(_with_metaclass(BaseModel)):
 
     @classmethod
     def filter(cls, expression):
-        executor = Executor(cls.database)
+        executor = Executor(cls, cls.database)
         return executor.execute(expression)
 
     @classmethod
     def get(cls, expression):
-        pass # FIXME.
+        executor = Executor(cls, cls.database)
+        return next(executor.execute(expression, require_one=True))
 
     @classmethod
     def load(cls, primary_key, convert_key=True):
@@ -1033,7 +1066,18 @@ class Model(_with_metaclass(BaseModel)):
     def delete(self):
         hash_key = self.get_hash_id()
         original_instance = self.load(hash_key, convert_key=False)
-        # FIXME: implementation.
+
+        # Remove from the `all` index.
+        all_index = self._query.all_index()
+        all_index.remove(hash_key)
+
+        # Remove from the secondary indexes.
+        for field in self._indexes:
+            for index in field.get_indexes():
+                index.remove(self)
+
+        # Remove the object itself.
+        self.database.delete(hash_key)
 
     def save(self):
         pk_field = self._fields[self._primary_key]

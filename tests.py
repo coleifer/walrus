@@ -18,7 +18,7 @@ class User(BaseModel):
 class Note(BaseModel):
     user = TextField(index=True)
     text = TextField()
-    timestamp = DateTimeField(default=datetime.datetime.now)
+    timestamp = DateTimeField(default=datetime.datetime.now, index=True)
     tags = JSONField()
 
 class Stat(BaseModel):
@@ -56,29 +56,31 @@ class TestModels(WalrusTestCase):
     def test_create(self):
         self.create_objects()
         self.assertEqual(
-            [user.username for user in User.all()],
+            sorted(user.username for user in User.all()),
             ['u1', 'u2', 'u3'])
 
-        notes = Note.filter(user='u1')
+        notes = Note.filter(Note.user == 'u1')
         self.assertEqual(
-            [note.text for note in notes],
+            sorted(note.text for note in notes),
             ['n1-1', 'n1-2', 'n1-3'])
 
-        notes = list(Note.filter(user='u2'))
+        notes = sorted(
+            Note.filter(Note.user == 'u2'),
+            key = lambda note: note._id)
         note = notes[2]
         self.assertEqual(note.tags, ['t1', 't2'])
 
     def test_filter(self):
         self.create_objects()
-        notes = Note.filter(user='u2')
+        notes = Note.filter(Note.user == 'u2')
         self.assertEqual(
-            [note.text for note in notes],
+            sorted(note.text for note in notes),
             ['n2-1', 'n2-2', 'n2-3'])
 
-        user = User.get(username='u3')
+        user = User.get(User.username == 'u3')
         self.assertEqual(user._data, {'username': 'u3'})
 
-        self.assertRaises(ValueError, User.get, username='ux')
+        self.assertRaises(ValueError, User.get, User.username == 'ux')
 
     def test_load(self):
         User.create(username='charlie')
@@ -93,7 +95,7 @@ class TestModels(WalrusTestCase):
         note.save()
 
         self.assertEqual(
-            [user.username for user in User.all()],
+            sorted(user.username for user in User.all()),
             ['charlie', 'huey'])
 
         notes = Note.all()
