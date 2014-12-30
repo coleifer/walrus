@@ -863,8 +863,7 @@ class Query(object):
 
 
 class Executor(object):
-    def __init__(self, model_class, database, temp_key_expire=30):
-        self.model_class = model_class
+    def __init__(self, database, temp_key_expire=30):
         self.database = database
         self.temp_key_expire = 30
         self._mapping = {
@@ -878,13 +877,9 @@ class Executor(object):
             OP_LTE: self.execute_lte,
         }
 
-    def execute(self, expression, require_one=False):
+    def execute(self, expression):
         op = expression.op
-        result = self._mapping[op](expression.lhs, expression.rhs)
-        if require_one and len(result) != 1:
-            raise ValueError('Got %s results, expected 1.' % len(result))
-        for hash_id in result:
-            yield self.model_class.load(hash_id, convert_key=False)
+        return self._mapping[op](expression.lhs, expression.rhs)
 
     def execute_eq(self, lhs, rhs):
         index = lhs.get_index(OP_EQ)
@@ -1042,13 +1037,18 @@ class Model(_with_metaclass(BaseModel)):
 
     @classmethod
     def filter(cls, expression):
-        executor = Executor(cls, cls.database)
-        return executor.execute(expression)
+        executor = Executor(cls.database)
+        result = executor.execute(expression)
+        for hash_id in result:
+            yield cls.load(hash_id, convert_key=False)
 
     @classmethod
     def get(cls, expression):
-        executor = Executor(cls, cls.database)
-        return next(executor.execute(expression, require_one=True))
+        executor = Executor(cls.database)
+        result = executor.execute(expression)
+        if len(result) != 1:
+            raise ValueError('Got %s results, expected 1.' % len(result))
+        return cls.load(result.pop(), convert_key=False)
 
     @classmethod
     def load(cls, primary_key, convert_key=True):

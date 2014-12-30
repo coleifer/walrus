@@ -82,6 +82,30 @@ class TestModels(WalrusTestCase):
 
         self.assertRaises(ValueError, User.get, User.username == 'ux')
 
+    def test_complex_filter(self):
+        usernames = ['charlie', 'huey', 'mickey', 'zaizee']
+        for username in usernames:
+            User.create(username=username)
+
+        def assertUsers(expr, expected):
+            users = User.filter(expr)
+            self.assertEqual(
+                sorted(user.username for user in users),
+                sorted(expected))
+
+        assertUsers(User.username == 'charlie', ['charlie'])
+        assertUsers(User.username != 'huey', ['charlie', 'mickey', 'zaizee'])
+        assertUsers(
+            ((User.username == 'charlie') | (User.username == 'mickey')),
+            ['charlie', 'mickey'])
+        assertUsers(
+            (User.username == 'charlie') | (User.username != 'mickey'),
+            ['charlie', 'huey', 'zaizee'])
+        expr = (
+            ((User.username != 'huey') & (User.username != 'zaizee')) |
+            (User.username == 'charlie'))
+        assertUsers(expr, ['charlie', 'mickey'])
+
     def test_load(self):
         User.create(username='charlie')
         u = User.load('charlie')
