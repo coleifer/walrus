@@ -896,7 +896,8 @@ class Executor(object):
     def _zset_score_filter(self, zset, low, high):
         values = zset.range_by_score(low, high)
         tmp_set = self.database.Set(self.database.get_temp_key())
-        tmp_set.add(*values)
+        if values:
+            tmp_set.add(*values)
         tmp_set.expire(self.temp_key_expire)
         return tmp_set
 

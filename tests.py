@@ -106,6 +106,59 @@ class TestModels(WalrusTestCase):
             (User.username == 'charlie'))
         assertUsers(expr, ['charlie', 'mickey'])
 
+    def test_scalar_filters(self):
+        """
+        class Stat(BaseModel):
+            key = AutoIncrementField()
+            stat_type = ByteField(index=True)
+            value = IntegerField(index=True)
+        """
+        data = [
+            ('t1', 1),
+            ('t1', 2),
+            ('t1', 3),
+            ('t2', 10),
+            ('t2', 11),
+            ('t2', 12),
+            ('t3', 0),
+        ]
+        for stat_type, value in data:
+            Stat.create(stat_type=stat_type, value=value)
+
+        stat_objects = sorted(
+            (stat for stat in Stat.all()),
+            key=lambda stat: stat.key)
+        self.assertEqual([stat._data for stat in stat_objects], [
+            {'key': 1, 'stat_type': 't1', 'value': 1},
+            {'key': 2, 'stat_type': 't1', 'value': 2},
+            {'key': 3, 'stat_type': 't1', 'value': 3},
+            {'key': 4, 'stat_type': 't2', 'value': 10},
+            {'key': 5, 'stat_type': 't2', 'value': 11},
+            {'key': 6, 'stat_type': 't2', 'value': 12},
+            {'key': 7, 'stat_type': 't3', 'value': 0},
+        ])
+
+        def assertStats(expr, expected):
+            stats = Stat.filter(expr)
+            self.assertEqual(
+                sorted(stat.key for stat in stats),
+                sorted(expected))
+
+        assertStats(Stat.value <= 3, [1, 2, 3, 7])
+        assertStats(Stat.value >= 10, [4, 5, 6])
+
+        assertStats(Stat.value == 3, [3])
+        assertStats(Stat.value >= 13, [])
+        assertStats(
+            (Stat.value <= 2) | (Stat.key >= 7),
+            [1, 2, 7])
+        assertStats(
+            ((Stat.value <= 2) & (Stat.key >= 7)) | (Stat.value >= 11),
+            [5, 6, 7])
+        assertStats(
+            ((Stat.value <= 2) | (Stat.key >= 7)) & (Stat.stat_type == 't1'),
+            [1, 2])
+
     def test_load(self):
         User.create(username='charlie')
         u = User.load('charlie')
