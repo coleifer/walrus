@@ -561,6 +561,12 @@ class Array(Container):
             keys=[self.key],
             args=[value])
 
+    def extend(self, *values):
+        self.database.run_script(
+            'array_extend',
+            keys=[self.key],
+            args=values)
+
     def pop(self, idx=None):
         if idx is not None:
             return self.database.run_script(
