@@ -59,20 +59,20 @@ class TestModels(WalrusTestCase):
             sorted(user.username for user in User.all()),
             ['u1', 'u2', 'u3'])
 
-        notes = Note.filter(Note.user == 'u1')
+        notes = Note.query(Note.user == 'u1')
         self.assertEqual(
             sorted(note.text for note in notes),
             ['n1-1', 'n1-2', 'n1-3'])
 
         notes = sorted(
-            Note.filter(Note.user == 'u2'),
+            Note.query(Note.user == 'u2'),
             key = lambda note: note._id)
         note = notes[2]
         self.assertEqual(note.tags, ['t1', 't2'])
 
-    def test_filter(self):
+    def test_query(self):
         self.create_objects()
-        notes = Note.filter(Note.user == 'u2')
+        notes = Note.query(Note.user == 'u2')
         self.assertEqual(
             sorted(note.text for note in notes),
             ['n2-1', 'n2-2', 'n2-3'])
@@ -82,13 +82,37 @@ class TestModels(WalrusTestCase):
 
         self.assertRaises(ValueError, User.get, User.username == 'ux')
 
-    def test_complex_filter(self):
+    def test_sorting(self):
+        self.create_objects()
+        all_notes = [
+            'n1-1', 'n1-2', 'n1-3', 'n2-1', 'n2-2', 'n2-3', 'n3-1', 'n3-2',
+            'n3-3']
+
+        notes = Note.query(order_by=Note.text)
+        self.assertEqual([note.text for note in notes], all_notes)
+
+        notes = Note.query(order_by=Note.text.desc())
+        self.assertEqual(
+            [note.text for note in notes],
+            list(reversed(all_notes)))
+
+        notes = Note.query(Note.user == 'u2', Note.text)
+        self.assertEqual(
+            [note.text for note in notes],
+            ['n2-1', 'n2-2', 'n2-3'])
+
+        notes = Note.query(Note.user == 'u2', Note.text.desc())
+        self.assertEqual(
+            [note.text for note in notes],
+            ['n2-3', 'n2-2', 'n2-1'])
+
+    def test_complex_query(self):
         usernames = ['charlie', 'huey', 'mickey', 'zaizee']
         for username in usernames:
             User.create(username=username)
 
         def assertUsers(expr, expected):
-            users = User.filter(expr)
+            users = User.query(expr)
             self.assertEqual(
                 sorted(user.username for user in users),
                 sorted(expected))
@@ -106,7 +130,7 @@ class TestModels(WalrusTestCase):
             (User.username == 'charlie'))
         assertUsers(expr, ['charlie', 'mickey'])
 
-    def test_scalar_filters(self):
+    def test_scalar_query(self):
         """
         class Stat(BaseModel):
             key = AutoIncrementField()
@@ -139,7 +163,7 @@ class TestModels(WalrusTestCase):
         ])
 
         def assertStats(expr, expected):
-            stats = Stat.filter(expr)
+            stats = Stat.query(expr)
             self.assertEqual(
                 sorted(stat.key for stat in stats),
                 sorted(expected))

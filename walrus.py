@@ -659,6 +659,12 @@ CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE])
 
 
 class Node(object):
+    def __init__(self):
+        self._ordering = None
+
+    def desc(self):
+        return Desc(self)
+
     def _e(op, inv=False):
         def inner(self, rhs):
             if inv:
@@ -675,6 +681,11 @@ class Node(object):
     __le__ = _e(OP_LTE)
     __gt__ = _e(OP_GT)
     __ge__ = _e(OP_GTE)
+
+
+class Desc(Node):
+    def __init__(self, node):
+        self.node = node
 
 
 class Expression(Node):
@@ -1106,9 +1117,26 @@ class Model(_with_metaclass(BaseModel)):
             yield cls.load(result, convert_key=False)
 
     @classmethod
-    def filter(cls, expression):
-        executor = Executor(cls.database)
-        result = executor.execute(expression)
+    def query(cls, expression=None, order_by=None):
+        if expression is not None:
+            executor = Executor(cls.database)
+            result = executor.execute(expression)
+        else:
+            result = cls._query.all_index()
+
+        if order_by is not None:
+            desc = False
+            if isinstance(order_by, Desc):
+                desc = True
+                order_by = order_by.node
+
+            alpha = not isinstance(order_by, _ScalarField)
+            result = cls.database.sort(
+                result.key,
+                by='*->%s' % order_by.name,
+                alpha=alpha,
+                desc=desc)
+
         for hash_id in result:
             yield cls.load(hash_id, convert_key=False)
 
