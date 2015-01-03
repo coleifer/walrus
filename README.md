@@ -10,6 +10,7 @@ Pythonic container objects for working with the primary Redis data-types:
 * ``Set``
 * ``ZSet`` (sorted set)
 * ``List``
+* ``Array`` (custom type)
 
 These objects are meant to look and act like their native Python equivalents, except sorted sets, which are kind of their own thing...
 

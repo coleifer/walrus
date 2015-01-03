@@ -490,5 +490,41 @@ class TestList(WalrusTestCase):
         self.assertEqual(self.lst[1:], ['i2', 'i3', 'i4'])
 
 
+class TestArray(WalrusTestCase):
+    def setUp(self):
+        super(TestArray, self).setUp()
+        self.arr = db.Array('my-arr')
+
+    def test_basic_apis(self):
+        self.arr.append('i1')
+        self.arr.append('i2')
+        self.arr.append('i3')
+        self.arr.append('i4')
+        self.assertEqual(len(self.arr), 4)
+
+        # Indexing works. Invalid indices return None.
+        self.assertEqual(self.arr[0], 'i1')
+        self.assertEqual(self.arr[3], 'i4')
+        self.assertEqual(self.arr[4], None)
+
+        # Negative indexing works and includes bounds-checking.
+        self.assertEqual(self.arr[-1], 'i4')
+        self.assertEqual(self.arr[-4], 'i1')
+        self.assertEqual(self.arr[-5], None)
+
+        self.assertEqual(self.arr.pop(1), 'i2')
+        self.assertEqual(list(self.arr), ['i1', 'i3', 'i4'])
+
+        self.assertEqual(self.arr.pop(), 'i4')
+        self.assertEqual(list(self.arr), ['i1', 'i3'])
+
+        self.arr[-1] = 'iy'
+        self.arr[0] = 'ix'
+        self.assertEqual(list(self.arr), ['ix', 'iy'])
+
+        self.assertTrue('iy' in self.arr)
+        self.assertFalse('i1' in self.arr)
+
+
 if __name__ == '__main__':
     unittest.main(argv=sys.argv)

@@ -9,8 +9,10 @@ __version__ = '0.1.0'
 from copy import deepcopy
 from functools import wraps
 import datetime
+import glob
 import hashlib
 import json
+import os
 import pickle
 import threading
 import time
@@ -24,12 +26,27 @@ except ImportError:
 
 class Database(Redis):
     def __init__(self, *args, **kwargs):
+        script_dir = kwargs.pop('script_dir', None)
         super(Database, self).__init__(*args, **kwargs)
         self.__mapping = {
             'list': self.List,
             'set': self.Set,
             'zset': self.ZSet,
             'hash': self.Hash}
+        self.init_scripts(script_dir=script_dir)
+
+    def init_scripts(self, script_dir=None):
+        self._scripts = {}
+        if not script_dir:
+            script_dir = os.path.join(os.path.dirname(__file__), 'scripts')
+        for filename in glob.glob(os.path.join(script_dir, '*.lua')):
+            with open(filename, 'r') as fh:
+                script_obj = self.register_script(fh.read())
+                script_name = os.path.splitext(os.path.basename(filename))[0]
+                self._scripts[script_name] = script_obj
+
+    def run_script(self, script_name, *args, **kwargs):
+        return self._scripts[script_name](*args, **kwargs)
 
     def get_temp_key(self):
         return 'temp.%s' % uuid.uuid4()
@@ -78,6 +95,9 @@ class Database(Redis):
 
     def HyperLogLog(self, key):
         return HyperLogLog(self, key)
+
+    def Array(self, key):
+        return Array(self, key)
 
     def listener(self, channels=None, patterns=None, async=False):
         def decorator(fn):
@@ -516,6 +536,54 @@ class HyperLogLog(Container):
         return HyperLogLog(self.database, dest)
 
 
+class Array(Container):
+    def __getitem__(self, idx):
+        return self.database.run_script(
+            'array_get',
+            keys=[self.key],
+            args=[idx])
+
+    def __setitem__(self, idx, value):
+        return self.database.run_script(
+            'array_set',
+            keys=[self.key],
+            args=[idx, value])
+
+    def __delitem__(self, idx):
+        return self.pop(idx)
+
+    def __len__(self):
+        return self.database.hlen(self.key)
+
+    def append(self, value):
+        self.database.run_script(
+            'array_append',
+            keys=[self.key],
+            args=[value])
+
+    def pop(self, idx=None):
+        if idx is not None:
+            return self.database.run_script(
+                'array_remove',
+                keys=[self.key],
+                args=[idx])
+        else:
+            return self.database.run_script(
+                'array_pop',
+                keys=[self.key],
+                args=[])
+
+    def __contains__(self, item):
+        for value in self:
+            if value == item:
+                return True
+        return False
+
+    def __iter__(self):
+        return iter(
+            item[1] for item in sorted(self.database.hscan_iter(self.key)))
+
+
 class Cache(object):
     def __init__(self, database, name='cache', default_timeout=None):
         self.database = database
@@ -894,10 +962,11 @@ class Executor(object):
         return tmp_set
 
     def _zset_score_filter(self, zset, low, high):
-        values = zset.range_by_score(low, high)
         tmp_set = self.database.Set(self.database.get_temp_key())
-        if values:
-            tmp_set.add(*values)
+        self.database.run_script(
+            'zset_score_filter',
+            keys=[zset.key, tmp_set.key],
+            args=[low, high])
         tmp_set.expire(self.temp_key_expire)
         return tmp_set
 
