@@ -549,7 +549,7 @@ class TestArray(WalrusTestCase):
         self.assertTrue('iy' in self.arr)
         self.assertFalse('i1' in self.arr)
 
-        self.arr.extend('foo', 'bar', 'baz')
+        self.arr.extend(['foo', 'bar', 'baz'])
         self.assertEqual(list(self.arr), ['ix', 'iy', 'foo', 'bar', 'baz'])
 
 

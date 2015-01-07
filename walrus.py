@@ -253,6 +253,10 @@ class Container(object):
 
 
 class Hash(Container):
+    """
+    Redis Hash object wrapper. Supports a dictionary-like interface
+    with some modifications.
+    """
     def __repr__(self):
         l = len(self)
         if l > 5:
@@ -263,36 +267,68 @@ class Hash(Container):
         return '<Hash "%s": %s>' % (self.key, data)
 
     def __getitem__(self, item):
+        """
+        Retrieve the value at the given key. To retrieve multiple
+        values at once, you can specify multiple keys as a tuple or
+        list:
+
+        .. code-block:: python
+
+            hsh = db.Hash('my-hash')
+            first, last = hsh['first_name', 'last_name']
+        """
         if isinstance(item, (list, tuple)):
             return self.database.hmget(self.key, item)
         else:
             return self.database.hget(self.key, item)
 
     def __setitem__(self, key, value):
+        """Set the value of the given key."""
         return self.database.hset(self.key, key, value)
 
     def __delitem__(self, key):
+        """Delete the key from the hash."""
         return self.database.hdel(self.key, key)
 
     def __contains__(self, key):
+        """
+        Return a boolean valud indicating whether the given key
+        exists.
+        """
         return self.database.hexists(self.key, key)
 
     def __len__(self):
+        """Return the number of keys in the hash."""
         return self.database.hlen(self.key)
 
     def __iter__(self):
+        """Iterate over the items in the hash."""
         return iter(self.database.hscan_iter(self.key))
 
     def search(self, pattern, count=None):
+        """
+        Search the keys of the given hash using the specified pattern.
+
+        :param str pattern: Pattern used to match keys.
+        :param int count: Limit number of results returned.
+        :returns: An iterator yielding matching key/value pairs.
+        """
         return self.database.hscan_iter(self.key, pattern, count)
 
     def keys(self):
+        """Return the keys of the hash."""
         return self.database.hkeys(self.key)
 
     def values(self):
+        """Return the values stored in the hash."""
         return self.database.hvals(self.key)
 
     def items(self, lazy=False):
+        """
+        Like Python's ``dict.items()`` but supports an optional
+        parameter ``lazy`` which will return a generator rather than
+        a list.
+        """
         if lazy:
             return self.database.hscan_iter(self.key)
         else:
@@ -300,19 +336,30 @@ class Hash(Container):
 
     @chainable_method
     def update(self, *args, **kwargs):
+        """
+        Update the hash using the given dictionary or key/value pairs.
+        """
         if args:
             self.database.hmset(self.key, *args)
         else:
             self.database.hmset(self.key, kwargs)
 
     def as_dict(self):
+        """
+        Return a dictionary containing all the key/value pairs in the
+        hash.
+        """
         return self.database.hgetall(self.key)
 
     def incr(self, key, incr_by=1):
+        """Increment the key by the given amount."""
         return self.database.hincrby(self.key, key, incr_by)
 
 
 class List(Container):
+    """
+    Redis List object wrapper. Supports a list-like interface.
+    """
     def __repr__(self):
         l = len(self)
         n_items = min(l, 10)
@@ -322,6 +369,10 @@ class List(Container):
             n_items < l and '...' or '')
 
     def __getitem__(self, item):
+        """
+        Retrieve an item from the list by index. In addition to
+        integer indexes, you can also pass a ``slice``.
+        """
         if isinstance(item, slice):
             start = item.start or 0
             stop = item.stop
@@ -333,9 +384,16 @@ class List(Container):
         return self.database.lindex(self.key, item)
 
     def __setitem__(self, idx, value):
+        """Set the value of the given index."""
         return self.database.lset(self.key, idx, value)
 
     def __delitem__(self, item):
+        """
+        By default Redis treats deletes as delete by value, as
+        opposed to delete by index. If an integer is passed into the
+        function, it will be treated as an index, otherwise it will
+        be treated as a value.
+        """
         if isinstance(item, int):
             item = self[item]
             if item is None:
@@ -343,33 +401,48 @@ class List(Container):
         return self.database.lrem(self.key, item)
 
     def __len__(self):
+        """Return the length of the list."""
         return self.database.llen(self.key)
 
     def __iter__(self):
+        """Iterate over the items in the list."""
         return iter(self.database.lrange(self.key, 0, -1))
 
     def append(self, value):
+        """Add the given value to the end of the list."""
         return self.database.rpush(self.key, value)
 
     def prepend(self, value):
+        """Add the given value to the beginning of the list."""
         return self.database.lpush(self.key, value)
 
     def extend(self, value):
+        """Extend the list by the given value."""
         return self.database.rpush(self.key, *value)
 
     def insert(self, value, pivot, where):
         return self.database.linsert(self.key, where, pivot, value)
 
     def insert_before(self, value, key):
+        """
+        Insert the given value into the list before the index
+        containing ``key``.
+        """
         self.insert(value, key, 'before')
 
     def insert_after(self, value, key):
+        """
+        Insert the given value into the list after the index
+        containing ``key``.
+        """
         self.insert(value, key, 'after')
 
     def popleft(self):
+        """Remove the first item from the list."""
         return self.database.lpop(self.key)
 
     def popright(self):
+        """Remove the last item from the list."""
         return self.database.rpop(self.key)
     pop = popright
 
@@ -378,46 +451,80 @@ class List(Container):
 
 
 class Set(Container):
+    """
+    Redis Set object wrapper. Supports a set-like interface.
+    """
     def __repr__(self):
         return '<Set "%s": %s items>' % (self.key, len(self))
 
     def add(self, *items):
+        """Add the given items to the set."""
         return self.database.sadd(self.key, *items)
 
     def __delitem__(self, item):
+        """Remove the given item from the set."""
         return self.remove(item)
 
     def remove(self, *items):
+        """Remove the given item(s) from the set."""
         return self.database.srem(self.key, *items)
 
     def pop(self):
+        """Remove an element from the set."""
         return self.database.spop(self.key)
 
     def __contains__(self, item):
+        """
+        Return a boolean value indicating whether the given item is
+        a member of the set.
+        """
         return self.database.sismember(self.key, item)
 
     def __len__(self):
+        """Return the number of items in the set."""
         return self.database.scard(self.key)
 
     def __iter__(self):
+        """Return an iterable that yields the items of the set."""
         return iter(self.database.sscan_iter(self.key))
 
     def search(self, pattern, count=None):
+        """
+        Search the values of the given set using the specified pattern.
+
+        :param str pattern: Pattern used to match keys.
+        :param int count: Limit number of results returned.
+        :returns: An iterator yielding matching values.
+        """
         return self.database.sscan_iter(self.key, pattern, count)
 
     def members(self):
+        """Return a ``set()`` containing the members of the set."""
         return self.database.smembers(self.key)
 
     def random(self, n=None):
+        """Return a random member of the given set."""
         return self.database.srandmember(self.key, n)
 
     def __sub__(self, other):
+        """
+        Return the set difference of the current set and the left-
+        hand :py:class:`Set` object.
+        """
         return self.database.sdiff(self.key, other.key)
 
     def __or__(self, other):
+        """
+        Return the set union of the current set and the left-hand
+        :py:class:`Set` object.
+        """
         return self.database.sunion(self.key, other.key)
 
     def __and__(self, other):
+        """
+        Return the set intersection of the current set and the left-
+        hand :py:class:`Set` object.
+        """
         return self.database.sinter(self.key, other.key)
 
     @chainable_method
@@ -433,18 +540,42 @@ class Set(Container):
         self.interstore(self.key, other)
 
     def diffstore(self, dest, *others):
+        """
+        Store the set difference of the current set and one or more
+        others in a new key.
+
+        :param dest: the name of the key to store set difference
+        :param others: One or more :py:class:`Set` instances
+        :returns: A :py:class:`Set` referencing ``dest``.
+        """
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.sdiffstore(dest, keys)
         return Set(self.database, dest)
 
     def interstore(self, dest, *others):
+        """
+        Store the intersection of the current set and one or more
+        others in a new key.
+
+        :param dest: the name of the key to store intersection
+        :param others: One or more :py:class:`Set` instances
+        :returns: A :py:class:`Set` referencing ``dest``.
+        """
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.sinterstore(dest, keys)
         return Set(self.database, dest)
 
     def unionstore(self, dest, *others):
+        """
+        Store the union of the current set and one or more
+        others in a new key.
+
+        :param dest: the name of the key to store union
+        :param others: One or more :py:class:`Set` instances
+        :returns: A :py:class:`Set` referencing ``dest``.
+        """
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.sunionstore(dest, keys)
@@ -452,6 +583,9 @@ class Set(Container):
 
 
 class ZSet(Container):
+    """
+    Redis ZSet object wrapper. Acts like a set and a dictionary.
+    """
     def __repr__(self):
         l = len(self)
         n_items = min(l, 5)
@@ -461,6 +595,10 @@ class ZSet(Container):
             n_items < l and '...' or '')
 
     def add(self, *args, **kwargs):
+        """
+        Add the given item/score pairs to the ZSet. Arguments are
+        specified as ``item1, score1, item2, score2...``.
+        """
         return self.database.zadd(self.key, *args, **kwargs)
 
     def _convert_slice(self, s):
@@ -487,6 +625,29 @@ class ZSet(Container):
         return start, stop
 
     def __getitem__(self, item):
+        """
+        Retrieve the given values from the sorted set. Accepts a
+        variety of parameters for the input:
+
+        .. code-block:: python
+
+            zs = db.ZSet('my-zset')
+
+            # Return the first 10 elements with their scores.
+            zs[:10, True]
+
+            # Return the first 10 elements without scores.
+            zs[:10]
+            zs[:10, False]
+
+            # Return the range of values between 'k1' and 'k10' along
+            # with their scores.
+            zs['k1':'k10', True]
+
+            # Return the range of items preceding and including 'k5'
+            # without scores.
+            zs[:'k5', False]
+        """
         if isinstance(item, tuple) and len(item) == 2:
             item, withscores = item
         else:
@@ -504,9 +665,15 @@ class ZSet(Container):
             withscores=withscores)
 
     def __setitem__(self, item, score):
+        """Add item to the set with the given score."""
         return self.database.zadd(self.key, item, score)
 
     def __delitem__(self, item):
+        """
+        Delete the given item(s) from the set. Like
+        :py:meth:`~ZSet.__getitem__`, this method supports a wide
+        variety of indexing and slicing options.
+        """
         if isinstance(item, slice):
             start, stop = self._convert_slice(item)
             return self.database.zremrangebyrank(self.key, start, stop)
@@ -514,28 +681,50 @@ class ZSet(Container):
             return self.remove(item)
 
     def remove(self, *items):
+        """Remove the given items from the ZSet."""
         return self.database.zrem(self.key, *items)
 
     def __contains__(self, item):
+        """
+        Return a boolean indicating whether the given item is in the
+        sorted set.
+        """
         return not (self.rank(item) is None)
 
     def __len__(self):
+        """Return the number of items in the sorted set."""
         return self.database.zcard(self.key)
 
     def __iter__(self):
+        """
+        Return an iterator that will yield (item, score) tuples.
+        """
         return iter(self.database.zscan_iter(self.key))
 
     def search(self, pattern, count=None):
+        """
+        Search the set, returning items that match the given search
+        pattern.
+
+        :param str pattern: Search pattern using wildcards.
+        :param int count: Limit result set size.
+        :returns: Iterator that yields matching item/score tuples.
+        """
         return self.database.zscan_iter(self.key, pattern, count)
 
     def score(self, item):
+        """Return the score of the given item."""
         return self.database.zscore(self.key, item)
 
     def rank(self, item, reverse=False):
+        """Return the rank of the given item."""
         fn = reverse and self.database.zrevrank or self.database.zrank
         return fn(self.key, item)
 
     def count(self, low, high=None):
+        """
+        Return the number of items between the given bounds.
+        """
         if high is None:
             high = low
         return self.database.zcount(self.key, low, high)
@@ -548,6 +737,17 @@ class ZSet(Container):
         return self.database.zlexcount(self.key, low, high)
 
     def range(self, low, high, with_scores=False, reverse=False):
+        """
+        Return a range of items between ``low`` and ``high``. By
+        default scores will not be included, but this can be controlled
+        via the ``with_scores`` parameter.
+
+        :param low: Lower bound.
+        :param high: Upper bound.
+        :param bool with_scores: Whether the range should include the
+            scores along with the items.
+        :param bool reverse: Whether to return the range in reverse.
+        """
         return self.database.zrange(self.key, low, high, reverse, with_scores)
 
     def range_by_score(self, low, high, start=None, num=None,
@@ -567,11 +767,23 @@ class ZSet(Container):
         return fn(self.key, low, high, start, num)
 
     def remove_by_rank(self, low, high=None):
+        """
+        Remove elements from the ZSet by their rank (relative position).
+
+        :param low: Lower bound.
+        :param high: Upper bound.
+        """
         if high is None:
             high = low
         return self.database.zremrangebyrank(self.key, low, high)
 
     def remove_by_score(self, low, high=None):
+        """
+        Remove elements from the ZSet by their score.
+
+        :param low: Lower bound.
+        :param high: Upper bound.
+        """
         if high is None:
             high = low
         return self.database.zremrangebyscore(self.key, low, high)
@@ -580,6 +792,12 @@ class ZSet(Container):
         return self.database.zremrangebylex(self.key, low, high)
 
     def incr(self, key, incr_by=1):
+        """
+        Increment the score of an item in the ZSet.
+
+        :param key: Item to increment.
+        :param incr_by: Amount to increment item's score.
+        """
         return self.database.zincrby(self.key, key, incr_by)
 
     @chainable_method
@@ -593,12 +811,28 @@ class ZSet(Container):
         return self
 
     def interstore(self, dest, *others, **kwargs):
+        """
+        Store the intersection of the current zset and one or more
+        others in a new key.
+
+        :param dest: the name of the key to store intersection
+        :param others: One or more :py:class:`ZSet` instances
+        :returns: A :py:class:`ZSet` referencing ``dest``.
+        """
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.zinterstore(dest, keys, **kwargs)
         return ZSet(self.database, dest)
 
     def unionstore(self, dest, *others, **kwargs):
+        """
+        Store the union of the current set and one or more
+        others in a new key.
+
+        :param dest: the name of the key to store union
+        :param others: One or more :py:class:`ZSet` instances
+        :returns: A :py:class:`ZSet` referencing ``dest``.
+        """
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.zunionstore(dest, keys, **kwargs)
@@ -607,6 +841,9 @@ class ZSet(Container):
 
 class HyperLogLog(Container):
     def add(self, *items):
+        """
+        Add the given items to the HyperLogLog.
+        """
         return self.database.pfadd(self.key, *items)
 
     def __len__(self):
@@ -618,43 +855,70 @@ class HyperLogLog(Container):
         return self.merge(self.key, *other)
 
     def merge(self, dest, *others):
-        items = (self.key,) + others
+        """
+        Merge one or more :py:class:`HyperLogLog` instances.
+
+        :param dest: Key to store merged result.
+        :param others: One or more ``HyperLogLog`` instances.
+        """
+        items = [self.key]
+        items.extend([other.key for other in others])
         self.database.pfmerge(dest, *items)
         return HyperLogLog(self.database, dest)
 
 
 class Array(Container):
+    """
+    Custom container that emulates an array (as opposed to the
+    linked-list implementation of :py:class:`List`). This gives:
+
+    * O(1) append, get, len, pop last, set
+    * O(n) remove from middle
+
+    :py:class:`Array` is built on top of the hash data type and
+    is implemented using lua scripts.
+    """
     def __getitem__(self, idx):
+        """Get the value stored in the given index."""
         return self.database.run_script(
             'array_get',
             keys=[self.key],
             args=[idx])
 
     def __setitem__(self, idx, value):
+        """Set the value at the given index."""
         return self.database.run_script(
             'array_set',
             keys=[self.key],
             args=[idx, value])
 
     def __delitem__(self, idx):
+        """Delete the given index."""
         return self.pop(idx)
 
     def __len__(self):
+        """Return the number of items in the array."""
         return self.database.hlen(self.key)
 
     def append(self, value):
+        """Append a new value to the end of the array."""
         self.database.run_script(
             'array_append',
             keys=[self.key],
             args=[value])
 
-    def extend(self, *values):
+    def extend(self, values):
+        """Extend the array, appending the given values."""
         self.database.run_script(
             'array_extend',
             keys=[self.key],
             args=values)
 
     def pop(self, idx=None):
+        """
+        Remove an item from the array. By default this will be the
+        last item by index, but any index can be specified.
+        """
         if idx is not None:
             return self.database.run_script(
                 'array_remove',
@@ -667,18 +931,32 @@ class Array(Container):
                 args=[])
 
     def __contains__(self, item):
+        """
+        Return a boolean indicating whether the given item is stored
+        in the array. O(n).
+        """
         for value in self:
             if value == item:
                 return True
         return False
 
     def __iter__(self):
+        """Return an iterable that yields array items."""
         return iter(
             item[1] for item in sorted(self.database.hscan_iter(self.key)))
 
 
 class Cache(object):
+    """
+    Cache implementation with simple ``get``/``set`` operations,
+    and a decorator.
+    """
     def __init__(self, database, name='cache', default_timeout=None):
+        """
+        :param database: :py:class:`Database` instance.
+        :param name: Namespace for this cache.
+        :param int default_timeout: Default cache timeout.
+        """
         self.database = database
         self.name = name
         self.default_timeout = default_timeout
@@ -687,6 +965,10 @@ class Cache(object):
         return ':'.join((self.name, s))
 
     def get(self, key, default=None):
+        """
+        Retreive a value from the cache. In the event the value
+        does not exist, return the ``default``.
+        """
         key = self.make_key(key)
         try:
             value = self.database[key]
@@ -696,6 +978,10 @@ class Cache(object):
             return pickle.loads(value)
 
     def set(self, key, value, timeout=None):
+        """
+        Cache the given ``value`` in the specified ``key``. If no
+        timeout is specified, the default timeout will be used.
+        """
         key = self.make_key(key)
         if timeout is None:
             timeout = self.default_timeout
@@ -707,12 +993,17 @@ class Cache(object):
             return self.database.set(key, pickled_value)
 
     def delete(self, key):
+        """Remove the given key from the cache."""
         self.database.delete(self.make_key(key))
 
     def keys(self):
+        """
+        Return all keys for cached values.
+        """
         return self.database.keys(self.make_key('') + '*')
 
     def flush(self):
+        """Remove all cached objects from the database."""
         return self.database.delete(*self.keys())
 
     def incr(self, key, delta=1):
@@ -722,6 +1013,29 @@ class Cache(object):
         return hashlib.md5(pickle.dumps((a, k))).hexdigest()
 
     def cached(self, key_fn=_key_fn, timeout=3600):
+        """
+        Decorator that will transparently cache calls to the
+        wrapped function. By default, the cache key will be made
+        up of the arguments passed in (like memoize), but you can
+        override this by specifying a custom ``key_fn``.
+
+        Usage::
+
+            cache = Cache(my_database)
+
+            @cache.cached(timeout=60)
+            def add_numbers(a, b):
+                return a + b
+
+            print add_numbers(3, 4)  # Function is called.
+            print add_numbers(3, 4)  # Not called, value is cached.
+
+            add_numbers.bust(3, 4)  # Clear cache for (3, 4).
+            print add_numbers(3, 4)  # Function is called.
+
+        The decorated function also gains a new attribute named
+        ``bust`` which will clear the cache for the given args.
+        """
         def decorator(fn):
             def bust(*args, **kwargs):
                 return self.delete(key_fn(args, kwargs))
@@ -856,18 +1170,24 @@ class ContinuousIndex(BaseIndex):
 
 
 class Field(Node):
+    """
+    Named attribute on a model that will hold a value of the given
+    type.
+    """
     _coerce = None
 
     def __init__(self, index=False, as_json=False, primary_key=False,
                  pickled=False, default=None):
         """
-        :param bool index: Use this field as an index. Indexed fields will
-            support :py:meth:`Model.get` lookups.
-        :param bool as_json: Whether the value should be serialized as JSON
-            when storing in the database. Useful for collections or objects.
+        :param bool index: Use this field as an index. Indexed
+            fields will support :py:meth:`Model.get` lookups.
+        :param bool as_json: Whether the value should be serialized
+            as JSON when storing in the database. Useful for
+            collections or objects.
         :param bool primary_key: Use this field as the primary key.
-        :param bool pickled: Whether the value should be pickled when storing
-            in the database. Useful for non-primitive content types.
+        :param bool pickled: Whether the value should be pickled when
+            storing in the database. Useful for non-primitive content
+            types.
         """
         self._index = index or primary_key
         self._as_json = as_json
@@ -927,10 +1247,12 @@ class _ScalarField(Field):
 
 
 class IntegerField(_ScalarField):
+    """Store integer values."""
     _coerce = int
 
 
 class AutoIncrementField(IntegerField):
+    """Auto-incrementing primary key field."""
     def __init__(self, *args, **kwargs):
         kwargs['primary_key'] = True
         return super(AutoIncrementField, self).__init__(*args, **kwargs)
@@ -942,14 +1264,17 @@ class AutoIncrementField(IntegerField):
 
 
 class FloatField(_ScalarField):
+    """Store floating point values."""
     _coerce = float
 
 
 class ByteField(Field):
+    """Store arbitrary bytes."""
     _coerce = str
 
 
 class TextField(Field):
+    """Store unicode strings, encoded as UTF-8."""
     def db_value(self, value):
         if value is None:
             return value
@@ -964,6 +1289,7 @@ class TextField(Field):
 
 
 class BooleanField(Field):
+    """Store boolean values."""
     def db_value(self, value):
         return value and 1 or 0
 
@@ -972,6 +1298,7 @@ class BooleanField(Field):
 
 
 class UUIDField(Field):
+    """Store unique IDs. Can be used as primary key."""
     def __init__(self, **kwargs):
         kwargs['index'] = True
         super(UUIDField, self).__init__(**kwargs)
@@ -987,6 +1314,7 @@ class UUIDField(Field):
 
 
 class DateTimeField(_ScalarField):
+    """Store Python datetime objects."""
     def db_value(self, value):
         timestamp = time.mktime(value.timetuple())
         micro = value.microsecond * (10 ** -6)
@@ -999,6 +1327,7 @@ class DateTimeField(_ScalarField):
 
 
 class DateField(DateTimeField):
+    """Store Python date objects."""
     def python_value(self, value):
         if isinstance(value, (basestring, int, float)):
             return datetime.datetime.fromtimestamp(float(value)).date()
@@ -1006,6 +1335,7 @@ class DateField(DateTimeField):
 
 
 class JSONField(Field):
+    """Store arbitrary JSON data."""
     def __init__(self, *args, **kwargs):
         kwargs['as_json'] = True
         super(JSONField, self).__init__(*args, **kwargs)
@@ -1164,7 +1494,30 @@ def _with_metaclass(meta, base=object):
 
 
 class Model(_with_metaclass(BaseModel)):
+    """
+    A collection of fields to be stored in the database. Walrus
+    stores model instance data in hashes keyed by a combination of
+    model name and primary key value. Instance attributes are
+    automatically converted to values suitable for storage in Redis
+    (i.e., datetime becomes timestamp), and vice-versa.
+
+    Additionally, model fields can be ``indexed``, which allows
+    filtering. There are two types of indexes:
+
+    * Absolute
+    * Scalar
+
+    Absolute indexes are used for values like strings or UUIDs and
+    support only equality and inequality checks.
+
+    Scalar indexes are for numeric values as well as datetimes,
+    and support equality, inequality, and greater or less-than.
+    """
+    #: **Required**: the :py:class:`Database` instance to use to
+    #: persist model data.
     database = None
+
+    #: **Optional**: namespace to use for model data.
     namespace = None
 
     def __init__(self, *args, **kwargs):
@@ -1196,21 +1549,64 @@ class Model(_with_metaclass(BaseModel)):
         return data
 
     def to_hash(self):
+        """
+        Return a :py:class:`Hash` instance corresponding to the
+        raw model data.
+        """
         return self.database.Hash(self.get_hash_id())
 
     @classmethod
     def create(cls, **kwargs):
+        """
+        Create a new model instance and save it to the database.
+        Values are passed in as keyword arguments.
+
+        Example::
+
+            User.create(first_name='Charlie', last_name='Leifer')
+        """
         instance = cls(**kwargs)
         instance.save()
         return instance
 
     @classmethod
     def all(cls):
+        """
+        Return an iterator that successively yields saved model
+        instances. Models are saved in an unordered :py:class:`Set`,
+        so the iterator will return them in arbitrary order.
+
+        To return models in sorted order, see :py:meth:`Model.query`.
+        """
         for result in cls._query.all_index():
             yield cls.load(result, convert_key=False)
 
     @classmethod
     def query(cls, expression=None, order_by=None):
+        """
+        Return model instances matching the given expression (if
+        specified). Additionally, matching instances can be returned
+        sorted by field value.
+
+        Example::
+
+            # Get administrators sorted by username.
+            admin_users = User.query(
+                (User.admin == True),
+                order_by=User.username)
+
+            # List blog entries newest to oldest.
+            entries = Entry.query(order_by=Entry.timestamp.desc())
+
+            # Perform a complex filter.
+            values = StatData.query(
+                (StatData.timestamp < datetime.date.today()) &
+                ((StatData.type == 'pv') | (StatData.type == 'cv')))
+
+        :param expression: A boolean expression to filter by.
+        :param order_by: A field whose value should be used to
+            sort returned instances.
+        """
         if expression is not None:
             executor = Executor(cls.database)
             result = executor.execute(expression)
@@ -1235,6 +1631,13 @@ class Model(_with_metaclass(BaseModel)):
 
     @classmethod
     def get(cls, expression):
+        """
+        Retrieve the model instance matching the given expression.
+        If the number of matching results is not equal to one, then
+        a ``ValueError`` will be raised.
+
+        :param expression: A boolean expression to filter by.
+        """
         executor = Executor(cls.database)
         result = executor.execute(expression)
         if len(result) != 1:
@@ -1243,6 +1646,11 @@ class Model(_with_metaclass(BaseModel)):
 
     @classmethod
     def load(cls, primary_key, convert_key=True):
+        """
+        Retrieve a model instance by primary key.
+
+        :param primary_key: The primary key of the model instance.
+        """
         if convert_key:
             primary_key = cls._query.get_primary_hash_key(primary_key)
         raw_data = cls.database.hgetall(primary_key)
@@ -1255,6 +1663,9 @@ class Model(_with_metaclass(BaseModel)):
         return cls(**data)
 
     def delete(self):
+        """
+        Delete the given model instance.
+        """
         hash_key = self.get_hash_id()
         original_instance = self.load(hash_key, convert_key=False)
 
@@ -1271,6 +1682,10 @@ class Model(_with_metaclass(BaseModel)):
         self.database.delete(hash_key)
 
     def save(self):
+        """
+        Save the given model instance. If the model does not have
+        a primary key value, one will be generated automatically.
+        """
         pk_field = self._fields[self._primary_key]
         if not self._data.get(self._primary_key):
             setattr(self, self._primary_key, pk_field._generate_key())
