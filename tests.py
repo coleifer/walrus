@@ -170,6 +170,8 @@ class TestModels(WalrusTestCase):
 
         assertStats(Stat.value <= 3, [1, 2, 3, 7])
         assertStats(Stat.value >= 10, [4, 5, 6])
+        assertStats(Stat.value < 3, [1, 2, 7])
+        assertStats(Stat.value > 10, [5, 6])
 
         assertStats(Stat.value == 3, [3])
         assertStats(Stat.value >= 13, [])

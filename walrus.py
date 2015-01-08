@@ -256,6 +256,8 @@ class Hash(Container):
     """
     Redis Hash object wrapper. Supports a dictionary-like interface
     with some modifications.
+
+    See `Hash commands <http://redis.io/commands#hash>`_ for more info.
     """
     def __repr__(self):
         l = len(self)
@@ -359,6 +361,8 @@ class Hash(Container):
 class List(Container):
     """
     Redis List object wrapper. Supports a list-like interface.
+
+    See `List commands <http://redis.io/commands#list>`_ for more info.
     """
     def __repr__(self):
         l = len(self)
@@ -453,6 +457,8 @@ class List(Container):
 class Set(Container):
     """
     Redis Set object wrapper. Supports a set-like interface.
+
+    See `Set commands <http://redis.io/commands#set>`_ for more info.
     """
     def __repr__(self):
         return '<Set "%s": %s items>' % (self.key, len(self))
@@ -585,6 +591,9 @@ class Set(Container):
 class ZSet(Container):
     """
     Redis ZSet object wrapper. Acts like a set and a dictionary.
+
+    See `Sorted set commands <http://redis.io/commands#sorted_set>`_
+    for more info.
     """
     def __repr__(self):
         l = len(self)
@@ -840,6 +849,12 @@ class ZSet(Container):
 
 
 class HyperLogLog(Container):
+    """
+    Redis HyperLogLog object wrapper.
+
+    See `HyperLogLog commands <http://redis.io/commands#hyperloglog>`_
+    for more info.
+    """
     def add(self, *items):
         """
         Add the given items to the HyperLogLog.
@@ -1328,6 +1343,9 @@ class DateTimeField(_ScalarField):
 
 class DateField(DateTimeField):
     """Store Python date objects."""
+    def db_value(self, value):
+        return time.mktime(value.timetuple())
+
     def python_value(self, value):
         if isinstance(value, (basestring, int, float)):
             return datetime.datetime.fromtimestamp(float(value)).date()
@@ -1373,9 +1391,9 @@ class Executor(object):
             OP_AND: self.execute_and,
             OP_EQ: self.execute_eq,
             OP_NE: self.execute_ne,
-            #OP_GT: self.execute_gt,
+            OP_GT: self.execute_gt,
             OP_GTE: self.execute_gte,
-            #OP_LT: self.execute_lt,
+            OP_LT: self.execute_lt,
             OP_LTE: self.execute_lte,
         }
 
@@ -1415,6 +1433,18 @@ class Executor(object):
         db_value = lhs.db_value(rhs)
         zset = index.get_key(db_value)
         return self._zset_score_filter(zset, db_value, float('inf'))
+
+    def execute_lt(self, lhs, rhs):
+        index = lhs.get_index(OP_LTE)
+        db_value = lhs.db_value(rhs)
+        zset = index.get_key(db_value)
+        return self._zset_score_filter(zset, float('-inf'), '(%s' % db_value)
+
+    def execute_gt(self, lhs, rhs):
+        index = lhs.get_index(OP_GTE)
+        db_value = lhs.db_value(rhs)
+        zset = index.get_key(db_value)
+        return self._zset_score_filter(zset, '(%s' % db_value, float('inf'))
 
     def _combine_sets(self, lhs, rhs, operation):
         if not isinstance(lhs, (Set, ZSet)):
