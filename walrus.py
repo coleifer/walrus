@@ -4,7 +4,7 @@ Lightweight Python utilities for working with Redis.
 
 __author__ = 'Charles Leifer'
 __license__ = 'MIT'
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 from copy import deepcopy
 from functools import wraps
