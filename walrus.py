@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pickle
+import re
 import threading
 import time
 import uuid
@@ -710,6 +711,15 @@ class ZSet(Container):
         """
         return iter(self.database.zscan_iter(self.key))
 
+    def iterator(self, with_scores=False, reverse=False):
+        if with_scores and not reverse:
+            return self.database.search(None)
+        return self.range(
+            0,
+            -1,
+            with_scores=with_scores,
+            reverse=reverse)
+
     def search(self, pattern, count=None):
         """
         Search the set, returning items that match the given search
@@ -761,18 +771,22 @@ class ZSet(Container):
 
     def range_by_score(self, low, high, start=None, num=None,
                        with_scores=False, reverse=False):
-        fn = (reverse and
-              self.database.zrevrangebyscore or
-              self.database.zrangebyscore)
+        if reverse:
+            fn = self.database.zrevrangebyscore
+            low, high = high, low
+        else:
+            fn = self.database.zrangebyscore
         return fn(self.key, low, high, start, num, with_scores)
 
     def range_by_lex(self, low, high, start=None, num=None, reverse=False):
         """
         Return a range of members in a sorted set, by lexicographical range.
         """
-        fn = (reverse and
-              self.database.zrevrangebylex or
-              self.database.zrangebylex)
+        if reverse:
+            fn = self.database.zrevrangebylex
+            low, high = high, low
+        else:
+            fn = self.database.zrangebylex
         return fn(self.key, low, high, start, num)
 
     def remove_by_rank(self, low, high=None):
@@ -1076,9 +1090,11 @@ OP_LTE = '<='
 OP_GT = '>'
 OP_GTE = '>='
 OP_BETWEEN = 'between'
+OP_MATCH = 'match'
 
 ABSOLUTE = set([OP_EQ, OP_NE])
 CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE])
+FTS = set([OP_MATCH])
 
 
 class Node(object):
@@ -1090,6 +1106,9 @@ class Node(object):
 
     def between(self, low, high):
         return Expression(self, OP_BETWEEN, (low, high))
+
+    def match(self, search):
+        return Expression(self, OP_MATCH, search)
 
     def _e(op, inv=False):
         def inner(self, rhs):
@@ -1229,7 +1248,19 @@ class ByteField(Field):
 
 
 class TextField(Field):
-    """Store unicode strings, encoded as UTF-8."""
+    """
+    Store unicode strings, encoded as UTF-8. :py:class:`TextField`
+    also supports full-text search through the optional ``fts``
+    parameter.
+
+    :param bool fts: Enable simple full-text search.
+    """
+    def __init__(self, *args, **kwargs):
+        self._fts = kwargs.pop('fts', False)
+        super(TextField, self).__init__(*args, **kwargs)
+        if self._fts:
+            self._index = True
+
     def db_value(self, value):
         if value is None:
             return value
@@ -1241,6 +1272,12 @@ class TextField(Field):
         if value:
             return value.decode('utf-8')
         return value
+
+    def get_indexes(self):
+        indexes = super(TextField, self).get_indexes()
+        if self._fts:
+            indexes.append(FullTextIndex(self))
+        return indexes
 
 
 class BooleanField(Field):
@@ -1386,6 +1423,55 @@ class ContinuousIndex(BaseIndex):
         del key[instance.get_hash_id()]
 
 
+class FullTextIndex(BaseIndex):
+    operations = FTS
+    _stopwords = set()
+    _stopwords_file = 'stopwords.txt'
+
+    def __init__(self, *args, **kwargs):
+        super(FullTextIndex, self).__init__(*args, **kwargs)
+        self._load_stopwords()
+
+    def _load_stopwords(self):
+        stopwords = load_stopwords(self._stopwords_file)
+        if stopwords:
+            self._stopwords = set(stopwords.splitlines())
+
+    def tokenize(self, value):
+        value = re.sub('[\.,;:"\'\\/!@#\$%\*\(\)]', ' ', value)
+        words = value.lower().split()
+        fraction = 1. / len(words)
+        scores = {}
+        for token in words:
+            token = token.strip()
+            if token in self._stopwords:
+                continue
+            scores.setdefault(token, 0)
+            scores[token] += fraction
+        return scores
+
+    def get_key(self, value):
+        key = self.query_helper.make_key(
+            self.field.name,
+            'fts',
+            value)
+        return self.database.ZSet(key)
+
+    def store_instance(self, key, instance, value):
+        hash_id = instance.get_hash_id()
+        for word, score in self.tokenize(value).items():
+            key = self.get_key(word)
+            key[instance.get_hash_id()] = score
+
+    def delete_instance(self, key, instance, value):
+        hash_id = instance.get_hash_id()
+        for word in self.tokenize(value):
+            key = self.get_key(word)
+            del key[instance.get_hash_id()]
+            if len(key) == 0:
+                key.clear()
+
+
 class Executor(object):
     def __init__(self, database, temp_key_expire=30):
         self.database = database
@@ -1400,6 +1486,7 @@ class Executor(object):
             OP_LT: self.execute_lt,
             OP_LTE: self.execute_lte,
             OP_BETWEEN: self.execute_between,
+            OP_MATCH: self.execute_match,
         }
 
     def execute(self, expression):
@@ -1456,6 +1543,18 @@ class Executor(object):
         db_value = lhs.db_value(rhs)
         zset = index.get_key(db_value)
         return self._zset_score_filter(zset, '(%s' % db_value, float('inf'))
+
+    def execute_match(self, lhs, rhs):
+        index = lhs.get_index(OP_MATCH)
+        db_value = lhs.db_value(rhs)
+        words = index.tokenize(db_value)
+        index_keys = []
+        for word in words:
+            index_keys.append(index.get_key(word).key)
+
+        results = self.database.ZSet(self.database.get_temp_key())
+        self.database.zinterstore(results.key, index_keys)
+        return results
 
     def _combine_sets(self, lhs, rhs, operation):
         if not isinstance(lhs, (Set, ZSet)):
@@ -1666,6 +1765,8 @@ class Model(_with_metaclass(BaseModel)):
                 by='*->%s' % order_by.name,
                 alpha=alpha,
                 desc=desc)
+        elif isinstance(result, ZSet):
+            result = result.iterator(reverse=True)
 
         for hash_id in result:
             yield cls.load(hash_id, convert_key=False)
@@ -1748,3 +1849,28 @@ class Model(_with_metaclass(BaseModel)):
         for field in self._indexes:
             for index in field.get_indexes():
                 index.save(self)
+
+
+class memoize(dict):
+    def __init__(self, fn):
+        self._fn = fn
+
+    def __call__(self, *args):
+        return self[args]
+
+    def __missing__(self, key):
+        result = self[key] = self._fn(*key)
+        return result
+
+
+@memoize
+def load_stopwords(stopwords_file):
+    path, filename = os.path.split(stopwords_file)
+    if not path:
+        path = os.path.dirname(__file__)
+    filename = os.path.join(path, filename)
+    if not os.path.exists(filename):
+        return
+
+    with open(filename) as fh:
+        return fh.read()

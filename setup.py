@@ -21,7 +21,8 @@ setup(
     py_modules=['walrus'],
     package_data={
         'walrus': [
-            'scripts/*'
+            'scripts/*',
+            'stopwords.txt',
         ],
     },
     classifiers=[

@@ -21,6 +21,10 @@ class Note(BaseModel):
     timestamp = DateTimeField(default=datetime.datetime.now, index=True)
     tags = JSONField()
 
+class Message(BaseModel):
+    content = TextField(fts=True)
+    status = IntegerField(default=1)
+
 class Stat(BaseModel):
     key = AutoIncrementField()
     stat_type = ByteField(index=True)
@@ -94,7 +98,7 @@ class TestModels(WalrusTestCase):
         notes = Note.query(order_by=Note.text.desc())
         self.assertEqual(
             [note.text for note in notes],
-            list(reversed(all_notes)))
+            all_notes[::-1])
 
         notes = Note.query(Note.user == 'u2', Note.text)
         self.assertEqual(
@@ -187,6 +191,32 @@ class TestModels(WalrusTestCase):
 
         assertStats(Stat.value.between(2, 11), [2, 3, 4, 5])
         assertStats(Stat.value.between(4, 12), [4, 5, 6])
+
+    def test_full_text_search(self):
+        messages = [
+            ('A faith is a necessity to a man. Woe to him who believes in '
+             'nothing.'),
+            ('All who call on God in true faith, earnestly from the heart, '
+             'will certainly be heard, and will receive what they have asked '
+             'and desired.'),
+            ('Be faithful in small things because it is in them that your '
+             'strength lies.'),
+            ('Faith consists in believing when it is beyond the power of '
+             'reason to believe.'),
+            ('Faith has to do with things that are not seen and hope with '
+             'things that are not at hand.')]
+        for idx, message in enumerate(messages):
+            Message.create(content=message, status=1 + (idx % 2))
+
+        def assertMatches(search, indexes):
+            query = Message.query(Message.content.match(search))
+            results = [message.content for message in query]
+            self.assertEqual(results, [messages[i] for i in indexes])
+
+        assertMatches('faith', [3, 0, 4, 1])
+        assertMatches('faith man', [0])
+        assertMatches('things', [4, 2])
+        assertMatches('blah', [])
 
     def test_load(self):
         User.create(username='charlie')
