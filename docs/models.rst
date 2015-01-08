@@ -162,6 +162,42 @@ You can combine filters with ordering:
     Mickey
     Huey
 
+Full-text search
+----------------
+
+I've added a really (really) simple full-text search index type. Here is how to use it:
+
+.. code-block:: pycon
+
+    >>> class Note(Model):
+    ...     database = db
+    ...     content = TextField(fts=True)  # Note the "fts=True".
+
+    >>> Note.create('this is a test of walrus FTS.')
+    >>> Note.create('favorite food is walrus-mix.')
+    >>> Note.create('do not forget to take the walrus for a walk.')
+
+    >>> for note in Note.query(Note.content.match('walrus')):
+    ...     print note.content
+    favorite food is walrus-mix.
+    this is a test of walrus FTS.
+    do not forget to take the walrus for a walk.
+
+    >>> for note in Note.query(Note.content.match('walk walrus')):
+    ...     print note.content
+    do not forget to take the walrus for a walk.
+
+    >>> for note in Note.query(Note.content.match('walrus mix')):
+    ...     print note.content
+    favorite food is walrus-mix.
+
+It is very limited in terms of what it does, but I hope to make it better as time goes on. Currently there is no stemming, which is the biggest problem and which I plan to address soon by adding a porter stemming implementation. The limitations are:
+
+* No stemming, so plural/singular forms are considered separate words.
+* Default conjunction is *AND* and there is no way to override this. I plan on supporting *OR* but I'm not sure yet on the API.
+* Partial strings are not matched.
+* Very naive scoring function.
+
 Need more power?
 ----------------
 

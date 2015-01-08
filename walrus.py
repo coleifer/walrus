@@ -1438,7 +1438,7 @@ class FullTextIndex(BaseIndex):
             self._stopwords = set(stopwords.splitlines())
 
     def tokenize(self, value):
-        value = re.sub('[\.,;:"\'\\/!@#\$%\*\(\)]', ' ', value)
+        value = re.sub('[\.,;:"\'\\/!@#\$%\*\(\)\-\=_]', ' ', value)
         words = value.lower().split()
         fraction = 1. / len(words)
         scores = {}
