@@ -162,6 +162,46 @@ You can combine filters with ordering:
     Mickey
     Huey
 
+.. _container-fields:
+
+Container Fields
+----------------
+
+Up until now the fields we've used have been simple key/value pairs that are stored directly in the hash of model data. In this section we'll look at a group of special fields that correspond to Redis container types.
+
+Let's create a model for storing personal notes. The notes will have a text field for the content and a timestamp, and as an interesting flourish we'll add a :py:class:`SetField` to store a collection of tags.
+
+.. code-block:: python
+
+    class Note(Model):
+        database = db
+        text = TextField()
+        timestamp = DateTimeField(
+            default=datetime.datetime.now,
+            index=True)
+        tags = SetField()
+
+.. note:: Container fields cannot be used as a secondary index, nor can they be used as the primary key for a model. Finally, they do not accept a default value.
+
+.. warning:: Due to the implementation, it is necessary that the model instance have a primary key value before you can access the container field. This is because the key identifying the container field needs to be associated with the instance, and the way we do that is with the primary key.
+
+Here is how we might use the new note model:
+
+.. code-block:: pycon
+
+    >>> note = Note.create(content='my first note')
+    >>> note.tags
+    <Set "note:container.tags.note:id.3": 0 items>
+    >>> note.tags.add('testing', 'walrus')
+
+    >>> Note.load(note._id).tags
+    <Set "note:container.tags.note:id.3": 0 items>
+
+In addition to :py:class:`SetField`, there is also :py:class:`HashField`, :py:class:`ListField`, :py:class:`ZSetField`.
+
+
+.. _fts:
+
 Full-text search
 ----------------
 

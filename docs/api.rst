@@ -185,3 +185,15 @@ Field types
 
 .. autoclass:: JSONField
     :members:
+
+.. autoclass:: HashField
+    :members:
+
+.. autoclass:: ListField
+    :members:
+
+.. autoclass:: SetField
+    :members:
+
+.. autoclass:: ZSetField
+    :members:

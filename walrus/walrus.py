@@ -1336,6 +1336,62 @@ class JSONField(Field):
         super(JSONField, self).__init__(*args, **kwargs)
 
 
+class _ContainerField(Field):
+    container_class = None
+
+    def __init__(self, *args, **kwargs):
+        super(_ContainerField, self).__init__(*args, **kwargs)
+        if self._primary_key:
+            raise ValueError('Container fields cannot be primary keys.')
+        if self._index:
+            raise ValueError('Container fields cannot be indexed.')
+
+    def _get_container(self, instance):
+        return self.container_class(
+            self.model_class.database,
+            self.__key__(instance))
+
+    def __key__(self, instance):
+        return self.model_class._query.make_key(
+            'container',
+            self.name,
+            instance.get_hash_id())
+
+    def __get__(self, instance, instance_type=None):
+        if instance is not None:
+            if not instance.get_id():
+                raise ValueError('Model must have a primary key before '
+                                 'container attributes can be accessed.')
+            return self._get_container(instance)
+        return self
+
+    def __set__(self, instance, instance_type=None):
+        raise ValueError('Cannot set the value of a container field.')
+
+    def _delete(self, instance):
+        self._get_container(instance).clear()
+
+
+class HashField(_ContainerField):
+    """Store values in a Redis hash."""
+    container_class = Hash
+
+
+class ListField(_ContainerField):
+    """Store values in a Redis list."""
+    container_class = List
+
+
+class SetField(_ContainerField):
+    """Store values in a Redis set."""
+    container_class = Set
+
+
+class ZSetField(_ContainerField):
+    """Store values in a Redis sorted set."""
+    container_class = ZSet
+
+
 class Query(object):
     def __init__(self, model_class):
         self.model_class = model_class
@@ -1652,6 +1708,10 @@ class Model(_with_metaclass(BaseModel)):
 
     Scalar indexes are for numeric values as well as datetimes,
     and support equality, inequality, and greater or less-than.
+
+    There is a final type of index, FullText, which can only be used
+    with :py:class:`TextField`. FullText indexes allow search using
+    the ``match()`` method. For more info, see :ref:`fts`.
     """
     #: **Required**: the :py:class:`Database` instance to use to
     #: persist model data.
@@ -1676,7 +1736,10 @@ class Model(_with_metaclass(BaseModel)):
             setattr(self, field_name, default)
 
     def get_id(self):
-        return getattr(self, self._primary_key)
+        try:
+            return getattr(self, self._primary_key)
+        except KeyError:
+            return None
 
     def get_hash_id(self):
         return self._query.get_primary_hash_key(self.get_id())
@@ -1798,10 +1861,13 @@ class Model(_with_metaclass(BaseModel)):
         raw_data = cls.database.hgetall(primary_key)
         data = {}
         for name, field in cls._fields.items():
-            if name not in raw_data:
+            if isinstance(field, _ContainerField):
+                continue
+            elif name not in raw_data:
                 data[name] = None
             else:
                 data[name] = field.python_value(raw_data[name])
+
         return cls(**data)
 
     def delete(self):

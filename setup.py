@@ -1,6 +1,8 @@
 import os
 
+from setuptools import find_packages
 from setuptools import setup
+
 
 cur_dir = os.path.dirname(__file__)
 readme = os.path.join(cur_dir, 'README.md')
@@ -17,8 +19,8 @@ setup(
     long_description=long_description,
     author='Charles Leifer',
     author_email='coleifer@gmail.com',
-    url='http://github.com/coleifer/',
-    py_modules=['walrus'],
+    url='http://github.com/coleifer/walrus/',
+    packages=find_packages(),
     package_data={
         'walrus': [
             'scripts/*',
@@ -32,5 +34,5 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
     ],
-    test_suite='walrus',
+    test_suite='walrus.tests',
 )
