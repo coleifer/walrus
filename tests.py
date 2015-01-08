@@ -185,6 +185,9 @@ class TestModels(WalrusTestCase):
             ((Stat.value <= 2) | (Stat.key >= 7)) & (Stat.stat_type == 't1'),
             [1, 2])
 
+        assertStats(Stat.value.between(2, 11), [2, 3, 4, 5])
+        assertStats(Stat.value.between(4, 12), [4, 5, 6])
+
     def test_load(self):
         User.create(username='charlie')
         u = User.load('charlie')

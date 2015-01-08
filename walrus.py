@@ -1075,6 +1075,7 @@ OP_LT = '<'
 OP_LTE = '<='
 OP_GT = '>'
 OP_GTE = '>='
+OP_BETWEEN = 'between'
 
 ABSOLUTE = set([OP_EQ, OP_NE])
 CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE])
@@ -1086,6 +1087,9 @@ class Node(object):
 
     def desc(self):
         return Desc(self)
+
+    def between(self, low, high):
+        return Expression(self, OP_BETWEEN, (low, high))
 
     def _e(op, inv=False):
         def inner(self, rhs):
@@ -1118,70 +1122,6 @@ class Expression(Node):
 
     def __repr__(self):
         return '(%s %s %s)' % (self.lhs, self.op, self.rhs)
-
-
-class BaseIndex(object):
-    operations = None
-
-    def __init__(self, field):
-        self.field = field
-        self.database = self.field.model_class.database
-        self.query_helper = self.field.model_class._query
-
-    def field_value(self, instance):
-        return self.field.db_value(getattr(instance, self.field.name))
-
-    def get_key(self, instance, value):
-        raise NotImplementedError
-
-    def store_instance(self, key, instance, value):
-        raise NotImplementedError
-
-    def delete_instance(self, key, instance, value):
-        raise NotImplementedError
-
-    def save(self, instance):
-        value = self.field_value(instance)
-        key = self.get_key(value)
-        self.store_instance(key, instance, value)
-
-    def remove(self, instance):
-        value = self.field_value(instance)
-        key = self.get_key(value)
-        self.delete_instance(key, instance, value)
-
-
-class AbsoluteIndex(BaseIndex):
-    operations = ABSOLUTE
-
-    def get_key(self, value):
-        key = self.query_helper.make_key(
-            self.field.name,
-            'absolute',
-            value)
-        return self.database.Set(key)
-
-    def store_instance(self, key, instance, value):
-        key.add(instance.get_hash_id())
-
-    def delete_instance(self, key, instance, value):
-        key.remove(instance.get_hash_id())
-
-
-class ContinuousIndex(BaseIndex):
-    operations = CONTINUOUS
-
-    def get_key(self, value):
-        key = self.query_helper.make_key(
-            self.field.name,
-            'continuous')
-        return self.database.ZSet(key)
-
-    def store_instance(self, key, instance, value):
-        key[instance.get_hash_id()] = value
-
-    def delete_instance(self, key, instance, value):
-        del key[instance.get_hash_id()]
 
 
 class Field(Node):
@@ -1382,6 +1322,70 @@ class Query(object):
         return self.model_class.database.Set(self.make_key('all'))
 
 
+class BaseIndex(object):
+    operations = None
+
+    def __init__(self, field):
+        self.field = field
+        self.database = self.field.model_class.database
+        self.query_helper = self.field.model_class._query
+
+    def field_value(self, instance):
+        return self.field.db_value(getattr(instance, self.field.name))
+
+    def get_key(self, instance, value):
+        raise NotImplementedError
+
+    def store_instance(self, key, instance, value):
+        raise NotImplementedError
+
+    def delete_instance(self, key, instance, value):
+        raise NotImplementedError
+
+    def save(self, instance):
+        value = self.field_value(instance)
+        key = self.get_key(value)
+        self.store_instance(key, instance, value)
+
+    def remove(self, instance):
+        value = self.field_value(instance)
+        key = self.get_key(value)
+        self.delete_instance(key, instance, value)
+
+
+class AbsoluteIndex(BaseIndex):
+    operations = ABSOLUTE
+
+    def get_key(self, value):
+        key = self.query_helper.make_key(
+            self.field.name,
+            'absolute',
+            value)
+        return self.database.Set(key)
+
+    def store_instance(self, key, instance, value):
+        key.add(instance.get_hash_id())
+
+    def delete_instance(self, key, instance, value):
+        key.remove(instance.get_hash_id())
+
+
+class ContinuousIndex(BaseIndex):
+    operations = CONTINUOUS
+
+    def get_key(self, value):
+        key = self.query_helper.make_key(
+            self.field.name,
+            'continuous')
+        return self.database.ZSet(key)
+
+    def store_instance(self, key, instance, value):
+        key[instance.get_hash_id()] = value
+
+    def delete_instance(self, key, instance, value):
+        del key[instance.get_hash_id()]
+
+
 class Executor(object):
     def __init__(self, database, temp_key_expire=30):
         self.database = database
@@ -1395,6 +1399,7 @@ class Executor(object):
             OP_GTE: self.execute_gte,
             OP_LT: self.execute_lt,
             OP_LTE: self.execute_lte,
+            OP_BETWEEN: self.execute_between,
         }
 
     def execute(self, expression):
@@ -1421,6 +1426,12 @@ class Executor(object):
             args=[low, high])
         tmp_set.expire(self.temp_key_expire)
         return tmp_set
+
+    def execute_between(self, lhs, rhs):
+        index = lhs.get_index(OP_LT)
+        low, high = map(lhs.db_value, rhs)
+        zset = index.get_key(None)  # No value necessary.
+        return self._zset_score_filter(zset, low, high)
 
     def execute_lte(self, lhs, rhs):
         index = lhs.get_index(OP_LTE)

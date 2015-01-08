@@ -130,6 +130,13 @@ We can combine multiple filters using bitwise *and* and *or*:
     2011-06-01
     2007-08-01
 
+    >>> query = User.query(User.dob.between(low, high))  # Equivalent to above.
+    >>> for user in query:
+    ...     print user.dob
+
+    2011-06-01
+    2007-08-01
+
     >>> query = User.query(
     ...     (User.dob <= low) |
     ...     (User.dob >= high))
