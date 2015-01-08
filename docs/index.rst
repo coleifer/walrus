@@ -8,6 +8,8 @@ walrus
 
 .. py:module:: walrus
 
+.. image:: http://media.charlesleifer.com/blog/photos/p1420698394.77.jpg
+
 Lightweight Python utilities for working with `Redis <http://redis.io>`_.
 
 The purpose of `walrus <https://github.com/coleifer/walrus>`_ is to make working with Redis in Python a little easier by wrapping rich objects in Pythonic containers. walrus consists of:
