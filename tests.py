@@ -23,7 +23,7 @@ class Note(BaseModel):
 
 class Message(BaseModel):
     content = TextField(fts=True)
-    status = IntegerField(default=1)
+    status = IntegerField(default=1, index=True)
 
 class Stat(BaseModel):
     key = AutoIncrementField()
@@ -217,6 +217,11 @@ class TestModels(WalrusTestCase):
         assertMatches('faith man', [0])
         assertMatches('things', [4, 2])
         assertMatches('blah', [])
+
+        query = Message.query(
+            Message.content.match('faith') & (Message.status == 1))
+        results = [message.content for message in query]
+        self.assertEqual(results, [messages[0], messages[4]])
 
     def test_load(self):
         User.create(username='charlie')
