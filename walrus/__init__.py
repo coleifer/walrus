@@ -22,4 +22,13 @@ __version__ = '0.1.3'
 #      `-=``      `:    |   /-/-/`
 #                   `.__/
 
-from walrus.tusk import *
+from walrus.cache import Cache
+from walrus.containers import Array
+from walrus.containers import Container
+from walrus.containers import Hash
+from walrus.containers import HyperLogLog
+from walrus.containers import List
+from walrus.containers import Set
+from walrus.containers import ZSet
+from walrus.database import Database
+from walrus.models import *

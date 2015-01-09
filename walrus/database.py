@@ -1,0 +1,211 @@
+from functools import wraps
+import glob
+import os
+import threading
+import uuid
+
+try:
+    from redis import Redis
+except ImportError:
+    Redis = None
+
+from walrus.cache import Cache
+from walrus.containers import Array
+from walrus.containers import Hash
+from walrus.containers import HyperLogLog
+from walrus.containers import List
+from walrus.containers import Set
+from walrus.containers import ZSet
+
+
+class TransactionLocal(threading.local):
+    def __init__(self, **kwargs):
+        super(TransactionLocal, self).__init__(**kwargs)
+        self._pipe = None
+
+
+class Database(Redis):
+    """
+    Redis-py client with some extras.
+    """
+    def __init__(self, *args, **kwargs):
+        """
+        :param args: Arbitrary positional arguments to pass to the
+            base ``Redis`` instance.
+        :param kwargs: Arbitrary keyword arguments to pass to the
+            base ``Redis`` instance.
+        :param str script_dir: Path to directory containing walrus
+            scripts.
+        """
+        script_dir = kwargs.pop('script_dir', None)
+        super(Database, self).__init__(*args, **kwargs)
+        self.__mapping = {
+            'list': self.List,
+            'set': self.Set,
+            'zset': self.ZSet,
+            'hash': self.Hash}
+        self._transaction_local = TransactionLocal()
+        self.init_scripts(script_dir=script_dir)
+
+    def init_scripts(self, script_dir=None):
+        self._scripts = {}
+        if not script_dir:
+            script_dir = os.path.join(os.path.dirname(__file__), 'scripts')
+        for filename in glob.glob(os.path.join(script_dir, '*.lua')):
+            with open(filename, 'r') as fh:
+                script_obj = self.register_script(fh.read())
+                script_name = os.path.splitext(os.path.basename(filename))[0]
+                self._scripts[script_name] = script_obj
+
+    def run_script(self, script_name, keys=None, args=None):
+        """
+        Execute a walrus script with the given arguments.
+
+        :param script_name: The base name of the script to execute.
+        :param list keys: Keys referenced by the script.
+        :param list args: Arguments passed in to the script.
+        :returns: Return value of script.
+
+        .. note:: Redis scripts require two parameters, ``keys``
+            and ``args``, which are referenced in lua as ``KEYS``
+            and ``ARGV``.
+        """
+        return self._scripts[script_name](keys, args)
+
+    def get_temp_key(self):
+        """
+        Generate a temporary random key using UUID4.
+        """
+        return 'temp.%s' % uuid.uuid4()
+
+    def __iter__(self):
+        """
+        Iterate over the keys of the selected database.
+        """
+        return iter(self.scan_iter())
+
+    def search(self, pattern):
+        """
+        Search the keyspace of the selected database using the
+        given search pattern.
+
+        :param str pattern: Search pattern using wildcards.
+        :returns: Iterator that yields matching keys.
+        """
+        return self.scan_iter(pattern)
+
+    def get_key(self, key):
+        """
+        Return a rich object for the given key. For instance, if
+        a hash key is requested, then a :py:class:`Hash` will be
+        returned.
+
+        :param str key: Key to retrieve.
+        :returns: A hash, set, list, zset or array.
+        """
+        return self.__mapping.get(self.type(key), self.__getitem__)(key)
+
+    def cache(self, name='cache', default_timeout=3600):
+        """
+        Create a cache instance.
+
+        :param str name: The name used to prefix keys used to
+            store cached data.
+        :param int default_timeout: The default key expiry.
+        :returns: A :py:class:`Cache` instance.
+        """
+        return Cache(self, name=name, default_timeout=default_timeout)
+
+    def List(self, key):
+        """
+        Create a :py:class:`List` instance wrapping the given key.
+        """
+        return List(self, key)
+
+    def Hash(self, key):
+        """
+        Create a :py:class:`Hash` instance wrapping the given key.
+        """
+        return Hash(self, key)
+
+    def Set(self, key):
+        """
+        Create a :py:class:`Set` instance wrapping the given key.
+        """
+        return Set(self, key)
+
+    def ZSet(self, key):
+        """
+        Create a :py:class:`ZSet` instance wrapping the given key.
+        """
+        return ZSet(self, key)
+
+    def HyperLogLog(self, key):
+        """
+        Create a :py:class:`HyperLogLog` instance wrapping the given
+        key.
+        """
+        return HyperLogLog(self, key)
+
+    def Array(self, key):
+        """
+        Create a :py:class:`Array` instance wrapping the given key.
+        """
+        return Array(self, key)
+
+    def listener(self, channels=None, patterns=None, async=False):
+        """
+        Decorator for wrapping functions used to listen for Redis
+        pub-sub messages.
+
+        The listener will listen until the decorated function
+        raises a ``StopIteration`` exception.
+
+        :param list channels: Channels to listen on.
+        :param list patterns: Patterns to match.
+        :param bool async: Whether to start the listener in a
+            separate thread.
+        """
+        def decorator(fn):
+            _channels = channels or []
+            _patterns = patterns or []
+
+            @wraps(fn)
+            def inner():
+                pubsub = self.pubsub()
+
+                def listen():
+                    for channel in _channels:
+                        pubsub.subscribe(channel)
+                    for pattern in _patterns:
+                        pubsub.psubscribe(pattern)
+
+                    for data_dict in pubsub.listen():
+                        try:
+                            ret = fn(**data_dict)
+                        except StopIteration:
+                            pubsub.close()
+                            break
+
+                if async:
+                    worker = threading.Thread(target=listen)
+                    worker.start()
+                    return worker
+                else:
+                    listen()
+
+            return inner
+        return decorator
+
+    def stream_log(self, callback, connection_id='monitor'):
+        """
+        Stream Redis activity one line at a time to the given
+        callback.
+
+        :param callback: A function that accepts a single argument,
+            the Redis command.
+        """
+        conn = self.connection_pool.get_connection(connection_id, None)
+        conn.send_command('monitor')
+        while callback(conn.read_response()):
+            pass
