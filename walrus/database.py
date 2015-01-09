@@ -21,7 +21,8 @@ from walrus.containers import ZSet
 class TransactionLocal(threading.local):
     def __init__(self, **kwargs):
         super(TransactionLocal, self).__init__(**kwargs)
-        self._pipe = None
+        self.pipe = None
+        self.stack_depth = 0
 
 
 class Database(Redis):
@@ -45,7 +46,66 @@ class Database(Redis):
             'zset': self.ZSet,
             'hash': self.Hash}
         self._transaction_local = TransactionLocal()
+        self._transaction_lock = threading.RLock()
         self.init_scripts(script_dir=script_dir)
+
+    def get_transaction(self, increase_stack_depth=True):
+        """
+        Get the currently active transaction (Pipeline). If one does
+        not exist for the current thread, one will be created.
+
+        :returns: The Pipeline associated with the current thread, if
+            it exists. If not, a new Pipeline will be created.
+        """
+        with self._transaction_lock:
+            local = self._transaction_local
+            if increase_stack_depth:
+                local.stack_depth += 1
+            if local.pipe is None:
+                local.pipe = self.pipeline()
+            return local.pipe
+
+    def commit_transaction(self):
+        """
+        Commit the currently active transaction (Pipeline). If no
+        transaction is active in the current thread, this will no-op.
+
+        :returns: The return value of executing the Pipeline.
+        :raises: ``ValueError`` if no transaction is active.
+        """
+        with self._transaction_lock:
+            local = self._transaction_local
+            if local.stack_depth <= 0:
+                raise ValueError('No transaction is currently active.')
+
+            local.stack_depth -= 1
+            if local.stack_depth == 0:
+                try:
+                    return local.pipe.execute()
+                finally:
+                    local.pipe = None
+
+    def clear_transaction(self):
+        """
+        Clear the currently active transaction (if exists). If the
+        transaction stack is not empty, then a new pipeline will
+        be initialized.
+
+        :returns: No return value.
+        :raises: ``ValueError`` if no transaction is active.
+        """
+        with self._transaction_lock:
+            local = self._transaction_local
+            if local.stack_depth <= 0:
+                raise ValueError('No transaction is currently active.')
+
+            local.stack_depth -= 1
+            local.pipe = None
+            if local.stack_depth != 0:
+                self.get_transaction(increase_stack_depth=False)
+
+    def atomic(self):
+        return _Atomic(self)
 
     def init_scripts(self, script_dir=None):
         self._scripts = {}
@@ -209,3 +269,31 @@ class Database(Redis):
         conn.send_command('monitor')
         while callback(conn.read_response()):
             pass
+
+
+class _Atomic(object):
+    def __init__(self, db):
+        self.db = db
+
+    @property
+    def pipe(self):
+        return self.db._transaction_local.pipe
+
+    def __enter__(self):
+        self.db.get_transaction()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.clear(False)
+        else:
+            self.commit(False)
+
+    def commit(self, begin_new=True):
+        ret = self.db.commit_transaction()
+        if begin_new:
+            self.db.get_transaction()
+        return ret
+
+    def clear(self, begin_new=True):
+        self.db.clear_transaction()

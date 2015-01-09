@@ -46,9 +46,13 @@ def now(seed=None):
 class WalrusTestCase(unittest.TestCase):
     def setUp(self):
         db.flushdb()
+        db._transaction_local.pipe = None
+        db._transaction_local.stack_depth = 0
 
     def tearDown(self):
         db.flushdb()
+        db._transaction_local.pipe = None
+        db._transaction_local.stack_depth = 0
 
 
 class TestModels(WalrusTestCase):
@@ -635,6 +639,66 @@ class TestArray(WalrusTestCase):
 
         self.arr.extend(['foo', 'bar', 'baz'])
         self.assertEqual(list(self.arr), ['ix', 'iy', 'foo', 'bar', 'baz'])
+
+
+class TestWalrus(WalrusTestCase):
+    def test_atomic(self):
+        def assertDepth(depth):
+            self.assertEqual(db._transaction_local.stack_depth, depth)
+
+        assertDepth(0)
+        with db.atomic() as p1:
+            assertDepth(1)
+            with db.atomic() as p2:
+                assertDepth(2)
+                with db.atomic() as p3:
+                    assertDepth(3)
+                    p3.pipe.set('k3', 'v3')
+
+                assertDepth(2)
+                self.assertRaises(KeyError, lambda: db['k3'])
+
+                p2.pipe.set('k2', 'v2')
+
+            assertDepth(1)
+            self.assertRaises(KeyError, lambda: db['k3'])
+            self.assertRaises(KeyError, lambda: db['k2'])
+            p1.pipe.set('k1', 'v1')
+
+        assertDepth(0)
+        self.assertEqual(db['k1'], 'v1')
+        self.assertEqual(db['k2'], 'v2')
+        self.assertEqual(db['k3'], 'v3')
+
+    def test_atomic_exception(self):
+        def do_atomic(k, v, exc=False):
+            with db.atomic() as a:
+                a.pipe.set(k, v)
+                if exc:
+                    raise TypeError('foo')
+
+        do_atomic('k', 'v')
+        self.assertEqual(db['k'], 'v')
+
+        self.assertRaises(TypeError, do_atomic, 'k2', 'v2', True)
+        self.assertRaises(KeyError, lambda: db['k2'])
+        self.assertEqual(db._transaction_local.pipe, None)
+        self.assertEqual(db._transaction_local.stack_depth, 0)
+
+        # Try nested failure.
+        with db.atomic() as outer:
+            # These guys get rolled back.
+            outer.pipe.set('k2', 'v2')
+            self.assertRaises(TypeError, do_atomic, 'k3', 'v3', True)
+
+            # Only this will be set.
+            outer.pipe.set('k4', 'v4')
+
+        self.assertEqual(db._transaction_local.pipe, None)
+        self.assertEqual(db._transaction_local.stack_depth, 0)
+        self.assertRaises(KeyError, lambda: db['k2'])
+        self.assertRaises(KeyError, lambda: db['k3'])
+        self.assertEqual(db['k4'], 'v4')
 
 
 if __name__ == '__main__':
