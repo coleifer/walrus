@@ -30,7 +30,7 @@ Contents:
    cache
    models
    api
-
+   contributing
 
 
 Indices and tables

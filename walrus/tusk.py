@@ -16,6 +16,15 @@ try:
 except ImportError:
     Redis = None
 
+from walrus.search.metaphone import dm as double_metaphone
+from walrus.search.porter import PorterStemmer
+
+
+class TransactionLocal(threading.local):
+    def __init__(self, **kwargs):
+        super(TransactionLocal, self).__init__(**kwargs)
+        self._pipe = None
+
 
 class Database(Redis):
     """
@@ -37,6 +46,7 @@ class Database(Redis):
             'set': self.Set,
             'zset': self.ZSet,
             'hash': self.Hash}
+        self._transaction_local = TransactionLocal()
         self.init_scripts(script_dir=script_dir)
 
     def init_scripts(self, script_dir=None):
@@ -1246,12 +1256,23 @@ class TextField(Field):
     parameter.
 
     :param bool fts: Enable simple full-text search.
+    :param bool stemmer: Use porter stemmer to process words.
+    :param bool metaphone: Use the double metaphone algorithm to
+        process words.
+    :param str stopwords_file: File containing stopwords, one per
+        line. If not specified, the default stopwords will be used.
+    :param int min_word_length: Minimum length (inclusive) of word
+        to be included in search index.
     """
-    def __init__(self, *args, **kwargs):
-        self._fts = kwargs.pop('fts', False)
+    def __init__(self, fts=False, stemmer=True, metaphone=False,
+                 stopwords_file=None, min_word_length=None, *args, **kwargs):
         super(TextField, self).__init__(*args, **kwargs)
-        if self._fts:
-            self._index = True
+        self._fts = fts
+        self._stemmer = stemmer
+        self._metaphone = metaphone
+        self._stopwords_file = stopwords_file
+        self._min_word_length = min_word_length
+        self._index = self._index or self._fts
 
     def db_value(self, value):
         if value is None:
@@ -1268,7 +1289,12 @@ class TextField(Field):
     def get_indexes(self):
         indexes = super(TextField, self).get_indexes()
         if self._fts:
-            indexes.append(FullTextIndex(self))
+            indexes.append(FullTextIndex(
+                self,
+                self._stemmer,
+                self._metaphone,
+                self._stopwords_file,
+                self._min_word_length))
         return indexes
 
 
@@ -1476,26 +1502,66 @@ class FullTextIndex(BaseIndex):
     _stopwords = set()
     _stopwords_file = 'stopwords.txt'
 
-    def __init__(self, *args, **kwargs):
-        super(FullTextIndex, self).__init__(*args, **kwargs)
+    def __init__(self, field, stemmer=True, metaphone=False,
+                 stopwords_file=None, min_word_length=None):
+        super(FullTextIndex, self).__init__(field)
+        self._stemmer = stemmer
+        self._metaphone = metaphone
+        if stopwords_file:
+            self._stopwords_file = stopwords_file
+        self._min_word_length = min_word_length
         self._load_stopwords()
+        self._symbols_re = re.compile(
+            '[\.,;:"\'\\/!@#\$%\?\*\(\)\-=+\[\]\{\}_]')
 
     def _load_stopwords(self):
         stopwords = load_stopwords(self._stopwords_file)
         if stopwords:
             self._stopwords = set(stopwords.splitlines())
 
+    def split_phrase(self, phrase):
+        return self._symbols_re.sub(' ', phrase).split()
+
+    def stem(self, words):
+        stemmer = PorterStemmer()
+        _stem = stemmer.stem
+        for word in words:
+            yield _stem(word, 0, len(word) - 1)
+
+    def metaphone(self, words):
+        for word in words:
+            r = 0
+            for w in double_metaphone(word):
+                if w:
+                    w = w.strip()
+                    if w:
+                        r += 1
+                        yield w
+            if not r:
+                yield word
+
+    def filter_stop_words(self, words):
+        filter_fn = lambda w: w not in self._stopwords
+        return filter(filter_fn, words)
+
     def tokenize(self, value):
-        value = re.sub('[\.,;:"\'\\/!@#\$%\*\(\)\-\=_]', ' ', value)
-        words = value.lower().split()
-        fraction = 1. / len(words)
+        words = self.split_phrase(value.lower())
+        words = self.filter_stop_words(words)
+
+        fraction = 1. / (len(words) + 1)  # Prevent division by zero.
+
+        # Apply optional transformations.
+        if self._min_word_length:
+            words = [w for w in words if len(w) >= self._min_word_length]
+        if self._stemmer:
+            words = self.stem(words)
+        if self._metaphone:
+            words = self.metaphone(words)
+
         scores = {}
-        for token in words:
-            token = token.strip()
-            if token in self._stopwords:
-                continue
-            scores.setdefault(token, 0)
-            scores[token] += fraction
+        for word in words:
+            scores.setdefault(word, 0)
+            scores[word] += fraction
         return scores
 
     def get_key(self, value):

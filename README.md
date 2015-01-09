@@ -19,3 +19,9 @@ The purpose of [walrus](https://github.com/coleifer/walrus) is to make working w
 ### Models
 
 Persistent structures implemented on top of Hashes. Supports secondary indexes to allow filtering on equality, inequality, ranges, less/greater-than, and a really basic full-text search index.
+
+### Found a bug?
+
+![](http://media.charlesleifer.com/blog/photos/p1420743625.21.png)
+
+Please open a [github issue](https://github.com/coleifer/walrus/issues/new) and I will try my best to fix it!

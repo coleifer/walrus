@@ -25,6 +25,10 @@ class Message(BaseModel):
     content = TextField(fts=True)
     status = IntegerField(default=1, index=True)
 
+class FTSOptions(BaseModel):
+    content = TextField(fts=True, stemmer=True)
+    metaphone = TextField(fts=True, stemmer=True, metaphone=True)
+
 class Stat(BaseModel):
     key = AutoIncrementField()
     stat_type = ByteField(index=True)
@@ -193,7 +197,7 @@ class TestModels(WalrusTestCase):
         assertStats(Stat.value.between(4, 12), [4, 5, 6])
 
     def test_full_text_search(self):
-        messages = [
+        phrases = [
             ('A faith is a necessity to a man. Woe to him who believes in '
              'nothing.'),
             ('All who call on God in true faith, earnestly from the heart, '
@@ -205,23 +209,63 @@ class TestModels(WalrusTestCase):
              'reason to believe.'),
             ('Faith has to do with things that are not seen and hope with '
              'things that are not at hand.')]
-        for idx, message in enumerate(messages):
+
+        for idx, message in enumerate(phrases):
             Message.create(content=message, status=1 + (idx % 2))
 
-        def assertMatches(search, indexes):
-            query = Message.query(Message.content.match(search))
+        def assertMatches(query, indexes):
             results = [message.content for message in query]
-            self.assertEqual(results, [messages[i] for i in indexes])
+            self.assertEqual(results, [phrases[i] for i in indexes])
 
-        assertMatches('faith', [3, 0, 4, 1])
-        assertMatches('faith man', [0])
-        assertMatches('things', [4, 2])
-        assertMatches('blah', [])
+        def assertSearch(search, indexes):
+            assertMatches(
+                Message.query(Message.content.match(search)),
+                indexes)
+
+        assertSearch('faith', [4, 3, 2, 0, 1])
+        assertSearch('faith man', [0])
+        assertSearch('things', [4, 2])
+        assertSearch('blah', [])
 
         query = Message.query(
             Message.content.match('faith') & (Message.status == 1))
-        results = [message.content for message in query]
-        self.assertEqual(results, [messages[0], messages[4]])
+        assertMatches(query, [4, 2, 0])
+
+    def test_full_text_options(self):
+        phrases = [
+            'building web applications with python and flask',
+            'modern web development with python',
+            'unit testing with python',
+            'writing better tests for your application',
+            'applications for the web',
+        ]
+
+        for phrase in phrases:
+            FTSOptions.create(content=phrase, metaphone=phrase)
+
+        def assertMatches(search, indexes, use_metaphone=False):
+            if use_metaphone:
+                field = FTSOptions.metaphone
+            else:
+                field = FTSOptions.content
+            query = FTSOptions.query(field.match(search))
+            results = [message.content for message in query]
+            self.assertEqual(results, [phrases[i] for i in indexes])
+
+        assertMatches('web application', [4, 0])
+        assertMatches('web application', [4, 0], True)
+
+        assertMatches('python', [2, 1, 0])
+        assertMatches('python', [2, 1, 0], True)
+
+        assertMatches('testing', [3, 2])
+        assertMatches('testing', [3, 2], True)
+
+        # Test behavior of the metaphone algorithm.
+        assertMatches('python flasck', [0], True)
+        assertMatches('pithon devellepment', [], False)
+        assertMatches('pithon devellepment', [1], True)
+        assertMatches('younit tessts', [2], True)
 
     def test_load(self):
         User.create(username='charlie')
