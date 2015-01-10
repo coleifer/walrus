@@ -297,6 +297,66 @@ class TestModels(WalrusTestCase):
         charlie.delete()
         self.assertEqual([user.username for user in User.all()], ['huey'])
 
+    def test_delete_indexes(self):
+        self.assertEqual(set(db.keys()), set())
+
+        Message.create(content='charlie message', status=1)
+        Message.create(content='huey message', status=2)
+
+        keys = set(db.keys())
+        charlie = Message.load(1)
+        charlie.delete()
+
+        huey_keys = set(db.keys())
+        diff = keys - huey_keys
+
+        make_key = Message._query.make_key
+        self.assertEqual(diff, set([
+            make_key('_id', 'absolute', 1),
+            make_key('content', 'absolute', 'charlie message'),
+            make_key('content', 'fts', 'charli'),
+            make_key('id', 1),
+            make_key('status', 'absolute', 1),
+        ]))
+
+        # Ensure we cannot query for Charlie, but that we can query for Huey.
+        expressions = [
+            (Message.status == 1),
+            (Message.status != 2),
+            (Message._id == 1),
+            (Message._id != 2),
+            (Message.content == 'charlie message'),
+            (Message.content != 'huey message'),
+            (Message.content.match('charlie')),
+        ]
+        for expression in expressions:
+            self.assertRaises(ValueError, Message.get, expression)
+
+        expressions = [
+            (Message.status == 2),
+            (Message.status > 1),
+            (Message._id == 2),
+            (Message._id != 1),
+            (Message.content == 'huey message'),
+            (Message.content != 'charlie'),
+            (Message.content.match('huey')),
+            (Message.content.match('message')),
+        ]
+        for expression in expressions:
+            obj = Message.get(expression)
+            self.assertEqual(obj._data, {
+                '_id': 2,
+                'content': 'huey message',
+                'status': 2,
+            })
+
+        huey = Message.load(2)
+        huey.delete()
+
+        final_keys = set(key for key in db.keys()
+                         if not key.startswith('temp'))
+        self.assertEqual(final_keys, set([make_key('_id', '_sequence')]))
+
 
 class TestCache(WalrusTestCase):
     def test_cache_apis(self):

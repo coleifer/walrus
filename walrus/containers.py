@@ -270,6 +270,9 @@ class Set(Container):
         """Remove an element from the set."""
         return self.database.spop(self.key)
 
+    def _first_or_any(self):
+        return self.pop()
+
     def __contains__(self, item):
         """
         Return a boolean value indicating whether the given item is
@@ -612,6 +615,11 @@ class ZSet(Container):
         :param incr_by: Amount to increment item's score.
         """
         return self.database.zincrby(self.key, key, incr_by)
+
+    def _first_or_any(self):
+        item = self[0]
+        if item:
+            return item[0]
 
     @chainable_method
     def __ior__(self, other):

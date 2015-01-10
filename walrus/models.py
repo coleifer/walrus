@@ -465,6 +465,8 @@ class AbsoluteIndex(BaseIndex):
 
     def delete_instance(self, key, instance, value):
         key.remove(instance.get_hash_id())
+        if len(key) == 0:
+            key.clear()
 
 
 class ContinuousIndex(BaseIndex):
@@ -481,6 +483,8 @@ class ContinuousIndex(BaseIndex):
 
     def delete_instance(self, key, instance, value):
         del key[instance.get_hash_id()]
+        if len(key) == 0:
+            key.clear()
 
 
 class FullTextIndex(BaseIndex):
@@ -957,7 +961,7 @@ class Model(_with_metaclass(BaseModel)):
         result = executor.execute(expression)
         if len(result) != 1:
             raise ValueError('Got %s results, expected 1.' % len(result))
-        return cls.load(result.pop(), convert_key=False)
+        return cls.load(result._first_or_any(), convert_key=False)
 
     @classmethod
     def load(cls, primary_key, convert_key=True):
