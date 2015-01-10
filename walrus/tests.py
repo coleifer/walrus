@@ -46,13 +46,11 @@ def now(seed=None):
 class WalrusTestCase(unittest.TestCase):
     def setUp(self):
         db.flushdb()
-        db._transaction_local.pipe = None
-        db._transaction_local.stack_depth = 0
+        db._transaction_local.pipes = []
 
     def tearDown(self):
         db.flushdb()
-        db._transaction_local.pipe = None
-        db._transaction_local.stack_depth = 0
+        db._transaction_local.pipes = []
 
 
 class TestModels(WalrusTestCase):
@@ -644,7 +642,7 @@ class TestArray(WalrusTestCase):
 class TestWalrus(WalrusTestCase):
     def test_atomic(self):
         def assertDepth(depth):
-            self.assertEqual(db._transaction_local.stack_depth, depth)
+            self.assertEqual(len(db._transaction_local.pipes), depth)
 
         assertDepth(0)
         with db.atomic() as p1:
@@ -656,13 +654,13 @@ class TestWalrus(WalrusTestCase):
                     p3.pipe.set('k3', 'v3')
 
                 assertDepth(2)
-                self.assertRaises(KeyError, lambda: db['k3'])
+                self.assertEqual(db['k3'], 'v3')
 
                 p2.pipe.set('k2', 'v2')
 
             assertDepth(1)
-            self.assertRaises(KeyError, lambda: db['k3'])
-            self.assertRaises(KeyError, lambda: db['k2'])
+            self.assertEqual(db['k3'], 'v3')
+            self.assertEqual(db['k2'], 'v2')
             p1.pipe.set('k1', 'v1')
 
         assertDepth(0)
@@ -683,11 +681,9 @@ class TestWalrus(WalrusTestCase):
         self.assertRaises(TypeError, do_atomic, 'k2', 'v2', True)
         self.assertRaises(KeyError, lambda: db['k2'])
         self.assertEqual(db._transaction_local.pipe, None)
-        self.assertEqual(db._transaction_local.stack_depth, 0)
 
         # Try nested failure.
         with db.atomic() as outer:
-            # These guys get rolled back.
             outer.pipe.set('k2', 'v2')
             self.assertRaises(TypeError, do_atomic, 'k3', 'v3', True)
 
@@ -695,10 +691,35 @@ class TestWalrus(WalrusTestCase):
             outer.pipe.set('k4', 'v4')
 
         self.assertEqual(db._transaction_local.pipe, None)
-        self.assertEqual(db._transaction_local.stack_depth, 0)
-        self.assertRaises(KeyError, lambda: db['k2'])
+        self.assertEqual(db['k2'], 'v2')
         self.assertRaises(KeyError, lambda: db['k3'])
         self.assertEqual(db['k4'], 'v4')
+
+    def test_clear_transaction(self):
+        with db.atomic() as a1:
+            a1.pipe.set('k1', 'v1')
+            with db.atomic() as a2:
+                a2.pipe.set('k2', 'v2')
+                a2.clear()
+
+        self.assertEqual(db['k1'], 'v1')
+        self.assertRaises(KeyError, lambda: db['k2'])
+
+        with db.atomic() as a1:
+            a1.pipe.set('k3', 'v3')
+            with db.atomic() as a2:
+                self.assertRaises(KeyError, lambda: db['k3'])
+
+                a2.pipe.set('k4', 'v4')
+                a2.clear()
+
+            a1.pipe.set('k5', 'v5')
+
+        self.assertEqual(db['k3'], 'v3')
+        self.assertRaises(KeyError, lambda: db['k4'])
+        self.assertEqual(db['k5'], 'v5')
+
+        self.assertEqual(db._transaction_local.pipe, None)
 
 
 if __name__ == '__main__':

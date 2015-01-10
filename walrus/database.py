@@ -21,8 +21,20 @@ from walrus.containers import ZSet
 class TransactionLocal(threading.local):
     def __init__(self, **kwargs):
         super(TransactionLocal, self).__init__(**kwargs)
-        self.pipe = None
-        self.stack_depth = 0
+        self.pipes = []
+
+    @property
+    def pipe(self):
+        if len(self.pipes):
+            return self.pipes[-1]
+
+    def commit(self):
+        pipe = self.pipes.pop()
+        return pipe.execute()
+
+    def abort(self):
+        pipe = self.pipes.pop()
+        pipe.reset()
 
 
 class Database(Redis):
@@ -49,41 +61,26 @@ class Database(Redis):
         self._transaction_lock = threading.RLock()
         self.init_scripts(script_dir=script_dir)
 
-    def get_transaction(self, increase_stack_depth=True):
-        """
-        Get the currently active transaction (Pipeline). If one does
-        not exist for the current thread, one will be created.
-
-        :returns: The Pipeline associated with the current thread, if
-            it exists. If not, a new Pipeline will be created.
-        """
+    def get_transaction(self):
         with self._transaction_lock:
             local = self._transaction_local
-            if increase_stack_depth:
-                local.stack_depth += 1
-            if local.pipe is None:
-                local.pipe = self.pipeline()
+            local.pipes.append(self.pipeline())
             return local.pipe
 
     def commit_transaction(self):
         """
         Commit the currently active transaction (Pipeline). If no
-        transaction is active in the current thread, this will no-op.
+        transaction is active in the current thread, an exception
+        will be raised.
 
         :returns: The return value of executing the Pipeline.
         :raises: ``ValueError`` if no transaction is active.
         """
         with self._transaction_lock:
             local = self._transaction_local
-            if local.stack_depth <= 0:
+            if not local.pipes:
                 raise ValueError('No transaction is currently active.')
-
-            local.stack_depth -= 1
-            if local.stack_depth == 0:
-                try:
-                    return local.pipe.execute()
-                finally:
-                    local.pipe = None
+            return local.commit()
 
     def clear_transaction(self):
         """
@@ -96,13 +93,9 @@ class Database(Redis):
         """
         with self._transaction_lock:
             local = self._transaction_local
-            if local.stack_depth <= 0:
+            if not local.pipes:
                 raise ValueError('No transaction is currently active.')
-
-            local.stack_depth -= 1
-            local.pipe = None
-            if local.stack_depth != 0:
-                self.get_transaction(increase_stack_depth=False)
+            local.abort()
 
     def atomic(self):
         return _Atomic(self)
@@ -297,3 +290,5 @@ class _Atomic(object):
 
     def clear(self, begin_new=True):
         self.db.clear_transaction()
+        if begin_new:
+            self.db.get_transaction()
