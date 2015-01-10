@@ -80,6 +80,12 @@ class TestModels(WalrusTestCase):
         note = notes[2]
         self.assertEqual(note.tags, ['t1', 't2'])
 
+    def test_exceptions(self):
+        self.assertRaises(KeyError, User.load, 'charlie')
+        User.create(username='charlie')
+        user = User.load('charlie')
+        self.assertEqual(user.username, 'charlie')
+
     def test_query(self):
         self.create_objects()
         notes = Note.query(Note.user == 'u2')

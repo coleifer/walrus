@@ -155,6 +155,7 @@ Field types
 .. autoclass:: Field
     :members:
       __init__
+      get_indexes
 
 .. autoclass:: IntegerField
     :members:

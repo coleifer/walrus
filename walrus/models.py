@@ -83,7 +83,49 @@ class Expression(Node):
 class Field(Node):
     """
     Named attribute on a model that will hold a value of the given
-    type.
+    type. Fields are declared as attributes on a model class.
+
+    Example::
+
+        walrus_db = Database()
+
+        class User(Model):
+            database = walrus_db
+            namespace = 'my-app'
+
+            # Use the user's email address as the primary key.
+            # All primary key fields will also get a secondary
+            # index, so there's no need to specify index=True.
+            email = TextField(primary_key=True)
+
+            # Store the user's interests in a free-form text
+            # field. Also create a secondary full-text search
+            # index on this field.
+            interests = TextField(
+                fts=True,
+                stemmer=True,
+                min_word_length=3)
+
+        class Note(Model):
+            database = walrus_app
+            namespace = 'my-app'
+
+            # A note is associated with a user. We will create a
+            # secondary index on this field so we can efficiently
+            # retrieve all notes created by a specific user.
+            user_email = TextField(index=True)
+
+            # Store the note content in a searchable text field. Use
+            # the double-metaphone algorithm to index the content.
+            content = TextField(
+                fts=True,
+                stemmer=True,
+                metaphone=True)
+
+            # Store the timestamp the note was created automatically.
+            # Note that we do not call `now()`, but rather pass the
+            # function itself.
+            timestamp = DateTimeField(default=datetime.datetime.now)
     """
     _coerce = None
 
@@ -149,6 +191,12 @@ class Field(Node):
         raise ValueError('Operation %s is not supported by an index.' % op)
 
     def get_indexes(self):
+        """
+        Return a list of secondary indexes to create for the
+        field. For instance, a TextField might have a full-text
+        search index, whereas an IntegerField would have a scalar
+        index that supported range queries.
+        """
         return [AbsoluteIndex(self)]
 
 
@@ -189,6 +237,9 @@ class TextField(Field):
     Store unicode strings, encoded as UTF-8. :py:class:`TextField`
     also supports full-text search through the optional ``fts``
     parameter.
+
+    .. note:: If full-text search is enabled for the field, then
+        the ``index`` argument is implied.
 
     :param bool fts: Enable simple full-text search.
     :param bool stemmer: Use porter stemmer to process words.
@@ -455,15 +506,47 @@ class FullTextIndex(BaseIndex):
             self._stopwords = set(stopwords.splitlines())
 
     def split_phrase(self, phrase):
+        """Split the document or search query into tokens."""
         return self._symbols_re.sub(' ', phrase).split()
 
     def stem(self, words):
+        """
+        Use the porter stemmer to generate consistent forms of
+        words, e.g.::
+
+            from walrus.search.utils import PorterStemmer
+            stemmer = PorterStemmer()
+            for word in ['faith', 'faiths', 'faithful']:
+                print s.stem(word, 0, len(word) - 1)
+
+            # Prints:
+            # faith
+            # faith
+            # faith
+        """
         stemmer = PorterStemmer()
         _stem = stemmer.stem
         for word in words:
             yield _stem(word, 0, len(word) - 1)
 
     def metaphone(self, words):
+        """
+        Apply the double metaphone algorithm to the given words.
+        Using metaphone allows the search index to tolerate
+        misspellings and small typos.
+
+        Example::
+
+            >>> from walrus.search.metaphone import dm as metaphone
+            >>> print metaphone('walrus')
+            ('ALRS', 'FLRS')
+
+            >>> print metaphone('python')
+            ('P0N', 'PTN')
+
+            >>> print metaphone('pithonn')
+            ('P0N', 'PTN')
+        """
         for word in words:
             r = 0
             for w in double_metaphone(word):
@@ -476,10 +559,19 @@ class FullTextIndex(BaseIndex):
                 yield word
 
     def filter_stop_words(self, words):
+        """Remove any stop-words from the collection of words."""
         filter_fn = lambda w: w not in self._stopwords
         return filter(filter_fn, words)
 
     def tokenize(self, value):
+        """
+        Split the incoming value into tokens and process each token,
+        optionally stemming or running metaphone.
+
+        :returns: A ``dict`` mapping token to score. The score is
+            based on the relative frequency of the word in the
+            document.
+        """
         words = self.split_phrase(value.lower())
         words = self.filter_stop_words(words)
 
@@ -522,9 +614,17 @@ class FullTextIndex(BaseIndex):
 
 
 class Executor(object):
-    def __init__(self, database, temp_key_expire=30):
+    """
+    Given an arbitrarily complex expression, recursively execute
+    it and return the resulting set (or sorted set). The set will
+    correspond to the primary hash keys of matching objects.
+
+    The executor works *only on fields with secondary indexes* or
+    the global "all" index created for all models.
+    """
+    def __init__(self, database, temp_key_expire=15):
         self.database = database
-        self.temp_key_expire = 30
+        self.temp_key_expire = temp_key_expire
         self._mapping = {
             OP_OR: self.execute_or,
             OP_AND: self.execute_and,
@@ -632,6 +732,7 @@ class BaseModel(type):
         if not bases:
             return super(BaseModel, cls).__new__(cls, name, bases, attrs)
 
+        # Declarative base juju.
         ignore = set()
         primary_key = None
 
@@ -691,10 +792,11 @@ class Model(_with_metaclass(BaseModel)):
     (i.e., datetime becomes timestamp), and vice-versa.
 
     Additionally, model fields can be ``indexed``, which allows
-    filtering. There are two types of indexes:
+    filtering. There are three types of indexes:
 
     * Absolute
     * Scalar
+    * Full-text search
 
     Absolute indexes are used for values like strings or UUIDs and
     support only equality and inequality checks.
@@ -702,8 +804,8 @@ class Model(_with_metaclass(BaseModel)):
     Scalar indexes are for numeric values as well as datetimes,
     and support equality, inequality, and greater or less-than.
 
-    There is a final type of index, FullText, which can only be used
-    with :py:class:`TextField`. FullText indexes allow search using
+    The final type of index, FullText, can only be used with the
+    :py:class:`TextField`. FullText indexes allow search using
     the ``match()`` method. For more info, see :ref:`fts`.
     """
     #: **Required**: the :py:class:`Database` instance to use to
@@ -729,6 +831,10 @@ class Model(_with_metaclass(BaseModel)):
             setattr(self, field_name, default)
 
     def get_id(self):
+        """
+        Return the primary key for the model instance. If the
+        model is unsaved, then this value will be ``None``.
+        """
         try:
             return getattr(self, self._primary_key)
         except KeyError:
@@ -759,7 +865,7 @@ class Model(_with_metaclass(BaseModel)):
 
         Example::
 
-            User.create(first_name='Charlie', last_name='Leifer')
+            user = User.create(first_name='Charlie', last_name='Leifer')
         """
         instance = cls(**kwargs)
         instance.save()
@@ -772,7 +878,16 @@ class Model(_with_metaclass(BaseModel)):
         instances. Models are saved in an unordered :py:class:`Set`,
         so the iterator will return them in arbitrary order.
 
+        Example::
+
+            for note in Note.all():
+                print note.content
+
         To return models in sorted order, see :py:meth:`Model.query`.
+        Example returning all records, sorted newest to oldest::
+
+            for note in Note.query(order_by=Note.timestamp.desc()):
+                print note.timestamp, note.content
         """
         for result in cls._query.all_index():
             yield cls.load(result, convert_key=False)
@@ -835,6 +950,8 @@ class Model(_with_metaclass(BaseModel)):
         a ``ValueError`` will be raised.
 
         :param expression: A boolean expression to filter by.
+        :returns: The matching :py:class:`Model` instance.
+        :raises: ``ValueError`` if result set size is not 1.
         """
         executor = Executor(cls.database)
         result = executor.execute(expression)
@@ -848,9 +965,14 @@ class Model(_with_metaclass(BaseModel)):
         Retrieve a model instance by primary key.
 
         :param primary_key: The primary key of the model instance.
+        :returns: Corresponding :py:class:`Model` instance.
+        :raises: ``KeyError`` if object with given primary key does
+            not exist.
         """
         if convert_key:
             primary_key = cls._query.get_primary_hash_key(primary_key)
+        if not cls.database.exists(primary_key):
+            raise KeyError('Object not found.')
         raw_data = cls.database.hgetall(primary_key)
         data = {}
         for name, field in cls._fields.items():
@@ -868,7 +990,10 @@ class Model(_with_metaclass(BaseModel)):
         Delete the given model instance.
         """
         hash_key = self.get_hash_id()
-        original_instance = self.load(hash_key, convert_key=False)
+        try:
+            original_instance = self.load(hash_key, convert_key=False)
+        except KeyError:
+            return
 
         # Remove from the `all` index.
         all_index = self._query.all_index()
@@ -885,7 +1010,9 @@ class Model(_with_metaclass(BaseModel)):
     def save(self):
         """
         Save the given model instance. If the model does not have
-        a primary key value, one will be generated automatically.
+        a primary key value, Walrus will call the primary key field's
+        ``generate_key()`` method to attempt to generate a suitable
+        value.
         """
         pk_field = self._fields[self._primary_key]
         if not self._data.get(self._primary_key):
