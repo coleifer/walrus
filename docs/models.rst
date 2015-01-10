@@ -231,9 +231,18 @@ I've added a really (really) simple full-text search index type. Here is how to 
     ...     print note.content
     favorite food is walrus-mix.
 
-It is very limited in terms of what it does, but I hope to make it better as time goes on. Currently there is no stemming, which is the biggest problem and which I plan to address soon by adding a porter stemming implementation. The limitations are:
+It is very limited in terms of what it does, but I hope to make it better as time goes on.
 
-* No stemming, so plural/singular forms are considered separate words.
+Features
+^^^^^^^^
+
+* Automatic removal of stop-words
+* Porter stemmer on by default
+* Optional double-metaphone implementation
+
+Limitations
+^^^^^^^^^^^
+
 * Default conjunction is *AND* and there is no way to override this. I plan on supporting *OR* but I'm not sure yet on the API.
 * Partial strings are not matched.
 * Very naive scoring function.
