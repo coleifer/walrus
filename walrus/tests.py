@@ -350,12 +350,44 @@ class TestModels(WalrusTestCase):
                 'status': 2,
             })
 
+        after_filter_keys = set(db.keys())
+        symm_diff = huey_keys ^ after_filter_keys
+        self.assertTrue(all(key.startswith('temp') for key in symm_diff))
+
         huey = Message.load(2)
         huey.delete()
 
         final_keys = set(key for key in db.keys()
                          if not key.startswith('temp'))
         self.assertEqual(final_keys, set([make_key('_id', '_sequence')]))
+
+    def test_get_regression(self):
+        Message.create(content='huey', status=1)
+        Message.create(content='charlie', status=2)
+
+        def assertMessage(msg, data):
+            self.assertEqual(msg._data, data)
+
+        huey = {'_id': 1, 'content': 'huey', 'status': 1}
+        charlie = {'_id': 2, 'content': 'charlie', 'status': 2}
+        assertMessage(Message.load(1), huey)
+        assertMessage(Message.load(2), charlie)
+
+        for i in range(3):
+            assertMessage(Message.get(Message._id == 1), huey)
+            assertMessage(Message.get(Message._id == 2), charlie)
+
+            assertMessage(Message.get(Message.status == 1), huey)
+            assertMessage(Message.get(Message.status == 2), charlie)
+            assertMessage(Message.get(Message.status != 1), charlie)
+            assertMessage(Message.get(Message.status != 2), huey)
+
+            messages = list(Message.query(Message.status == 1))
+            self.assertEqual(len(messages), 1)
+            assertMessage(messages[0], huey)
+            messages = list(Message.query(Message.status != 1))
+            self.assertEqual(len(messages), 1)
+            assertMessage(messages[0], charlie)
 
 
 class TestCache(WalrusTestCase):

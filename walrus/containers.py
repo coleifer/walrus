@@ -271,7 +271,7 @@ class Set(Container):
         return self.database.spop(self.key)
 
     def _first_or_any(self):
-        return self.pop()
+        return self.random()
 
     def __contains__(self, item):
         """
