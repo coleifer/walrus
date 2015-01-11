@@ -1,0 +1,3 @@
+{% set msg_user = message.get_user() %}
+<a class="avatar" href="{{ url_for('user_detail', username=message.username) }}"><img src="{{ msg_user.gravatar_url() }}" /></a>
+<p class="message-content">{{ message.content|urlize }}</p>
