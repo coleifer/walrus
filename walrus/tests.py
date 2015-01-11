@@ -3,6 +3,8 @@ import sys
 import unittest
 
 from walrus import *
+from walrus.query import OP_AND
+from walrus.query import OP_OR
 
 
 db = Database(db=15)
@@ -274,6 +276,57 @@ class TestModels(WalrusTestCase):
         assertMatches('pithon devellepment', [], False)
         assertMatches('pithon devellepment', [1], True)
         assertMatches('younit tessts', [2], True)
+
+    def test_fts_query_parser(self):
+        messages = [
+            'foo green',
+            'bar green',
+            'baz blue',
+            'nug blue',
+            'nize yellow',
+            'huey greener',
+            'mickey greens',
+            'zaizee',
+        ]
+        for message in messages:
+            Message.create(content=message)
+
+        def assertMatches(query, expected, default_conjunction=OP_AND):
+            expression = Message.content.search(query, default_conjunction)
+            messages = Message.query(expression, order_by=Message.content)
+            results = [msg.content for msg in messages]
+            self.assertEqual(results, expected)
+
+        assertMatches('foo', ['foo green'])
+        assertMatches('foo OR baz', ['baz blue', 'foo green'])
+        assertMatches('green OR blue', [
+            'bar green',
+            'baz blue',
+            'foo green',
+            'mickey greens',
+            'nug blue',
+        ])
+        assertMatches('green AND (bar OR mickey OR nize)', [
+            'bar green',
+            'mickey greens',
+        ])
+        assertMatches('zaizee OR (blue AND nug) OR (green AND bar)', [
+            'bar green',
+            'nug blue',
+            'zaizee',
+        ])
+        assertMatches('(blue AND (baz OR (nug OR huey OR mickey))', [
+            'baz blue',
+            'nug blue',
+        ])
+        assertMatches(
+            '(blue OR foo) AND (green OR (huey OR (baz AND mickey)))',
+            ['foo green'])
+
+        assertMatches('(green AND nug) OR (blue AND bar)', [])
+        assertMatches('nuglet', [])
+        assertMatches('foobar', [])
+        assertMatches('', sorted(messages))
 
     def test_load(self):
         User.create(username='charlie')

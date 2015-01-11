@@ -1,3 +1,5 @@
+import re
+
 from walrus.containers import Set
 from walrus.containers import ZSet
 
@@ -18,6 +20,67 @@ CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE])
 FTS = set([OP_MATCH])
 
 
+class sentinel(object): pass
+
+
+def tokenize(s):
+    for token in re.split('(\".+?\"|\(|\s+|\))', s):
+        token = token.strip()
+        if token:
+            yield token
+
+
+def parse(s, field=None, default_conjunction=OP_AND):
+    if not s.strip():
+        return None
+
+    stack = []
+    stacks = [stack]
+
+    def add_to_top(obj):
+        cur_stack = stacks[-1]
+        if not cur_stack:
+            cur_stack.append(obj)
+            return
+
+        top = cur_stack[-1]
+        if isinstance(top, Node):
+            if top.lhs is sentinel:
+                top.lhs = obj
+            elif top.rhs is sentinel:
+                top.rhs = obj
+            else:
+                cur_stack.append(Expression(
+                    cur_stack.pop(),
+                    default_conjunction,
+                    obj))
+        else:
+            cur_stack.append(Expression(
+                cur_stack.pop(),
+                default_conjunction,
+                obj))
+
+    for token in tokenize(s):
+        cur_stack = stacks[-1]
+        if token == 'AND':
+            lhs = cur_stack.pop()
+            cur_stack.append(Expression(lhs, OP_AND, sentinel))
+        elif token == 'OR':
+            lhs = cur_stack.pop()
+            cur_stack.append(Expression(lhs, OP_OR, sentinel))
+        elif token == '(':
+            stacks.append([])
+        elif token == ')':
+            top = stacks.pop()
+            add_to_top(top[-1])
+        else:
+            if field is not None:
+                token = field.match(token)
+            add_to_top(token)
+
+    return stacks[-1][-1]
+
+
 class Node(object):
     def __init__(self):
         self._ordering = None
@@ -28,8 +91,11 @@ class Node(object):
     def between(self, low, high):
         return Expression(self, OP_BETWEEN, (low, high))
 
-    def match(self, search):
-        return Expression(self, OP_MATCH, search)
+    def match(self, term):
+        return Expression(self, OP_MATCH, term)
+
+    def search(self, search_query, default_conjunction=OP_AND):
+        return parse(search_query, self, default_conjunction)
 
     def _e(op, inv=False):
         def inner(self, rhs):
