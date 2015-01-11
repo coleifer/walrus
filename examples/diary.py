@@ -36,7 +36,7 @@ def add_entry():
 def view_entries(search_query=None):
     """View previous entries"""
     if search_query:
-        expr = Entry.content.match(search_query)
+        expr = Entry.content.search(search_query)
     else:
         expr = None
 
