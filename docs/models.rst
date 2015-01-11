@@ -213,25 +213,38 @@ I've added a really (really) simple full-text search index type. Here is how to 
     ...     database = db
     ...     content = TextField(fts=True)  # Note the "fts=True".
 
-    >>> Note.create('this is a test of walrus FTS.')
-    >>> Note.create('favorite food is walrus-mix.')
-    >>> Note.create('do not forget to take the walrus for a walk.')
+    >>> Note.create(content='this is a test of walrus FTS.')
+    >>> Note.create(content='favorite food is walrus-mix.')
+    >>> Note.create(content='do not forget to take the walrus for a walk.')
 
-    >>> for note in Note.query(Note.content.match('walrus')):
+    >>> for note in Note.query(Note.content.search('walrus')):
     ...     print note.content
-    favorite food is walrus-mix.
+    do not forget to take the walrus for a walk.
     this is a test of walrus FTS.
-    do not forget to take the walrus for a walk.
+    favorite food is walrus-mix.
 
-    >>> for note in Note.query(Note.content.match('walk walrus')):
+    >>> for note in Note.query(Note.content.search('walk walrus')):
     ...     print note.content
     do not forget to take the walrus for a walk.
 
-    >>> for note in Note.query(Note.content.match('walrus mix')):
+    >>> for note in Note.query(Note.content.search('walrus mix')):
     ...     print note.content
     favorite food is walrus-mix.
 
-It is very limited in terms of what it does, but I hope to make it better as time goes on.
+We can also specify complex queries using ``AND`` and ``OR`` conjunctions:
+
+.. code-block:: pycon
+
+    >>> for note in Note.query(Note.content.search('walrus AND (mix OR fts)')):
+    ...     print note.content
+    this is a test of walrus FTS.
+    favorite food is walrus-mix.
+
+    >>> query = '(test OR food OR walk) AND walrus AND (favorite OR forget)'
+    >>> for note in Note.query(Note.content.search(query)):
+    ...     print note.content
+    do not forget to take the walrus for a walk.
+    favorite food is walrus-mix.
 
 Features
 ^^^^^^^^
@@ -239,13 +252,14 @@ Features
 * Automatic removal of stop-words
 * Porter stemmer on by default
 * Optional double-metaphone implementation
+* Default conjunction is *AND*, but there is also support for *OR*.
 
 Limitations
 ^^^^^^^^^^^
 
-* Default conjunction is *AND* and there is no way to override this. I plan on supporting *OR* but I'm not sure yet on the API.
 * Partial strings are not matched.
 * Very naive scoring function.
+* Quoted multi-word matches do not work.
 
 Need more power?
 ----------------
