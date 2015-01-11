@@ -172,6 +172,26 @@ Field types
 .. autoclass:: TextField
     :members:
 
+    .. py:method:: search(query[, default_conjunction='and'])
+
+        :param str query: Search query.
+        :param str default_conjunction: Either ``'and'`` or ``'or'``.
+
+        Create an expression corresponding to the given search query. Search queries can contain conjunctions (``AND`` and ``OR``).
+
+        Example:
+
+        .. code-block:: python
+
+            class Message(Model):
+                database = my_db
+                content = TextField(fts=True)
+
+            expression = Message.content.search('python AND (redis OR walrus)')
+            messages = Message.query(expression)
+            for message in messages:
+                print message.content
+
 .. autoclass:: BooleanField
     :members:
 

@@ -213,9 +213,17 @@ I've added a really (really) simple full-text search index type. Here is how to 
     ...     database = db
     ...     content = TextField(fts=True)  # Note the "fts=True".
 
+When a field contains an full-text index, then the index will be populated when new objects are added to the database:
+
+.. code-block:: pycon
+
     >>> Note.create(content='this is a test of walrus FTS.')
     >>> Note.create(content='favorite food is walrus-mix.')
     >>> Note.create(content='do not forget to take the walrus for a walk.')
+
+Use :py:meth:`TextField.search` to create a search expression, which is then passed to the :py:meth:`Model.query` method:
+
+.. code-block:: pycon
 
     >>> for note in Note.query(Note.content.search('walrus')):
     ...     print note.content
