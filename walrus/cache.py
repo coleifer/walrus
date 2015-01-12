@@ -8,15 +8,18 @@ class Cache(object):
     Cache implementation with simple ``get``/``set`` operations,
     and a decorator.
     """
-    def __init__(self, database, name='cache', default_timeout=None):
+    def __init__(self, database, name='cache', default_timeout=None,
+                 debug=False):
         """
         :param database: :py:class:`Database` instance.
         :param name: Namespace for this cache.
         :param int default_timeout: Default cache timeout.
+        :param debug: Disable cache for debugging purposes. Cache will no-op.
         """
         self.database = database
         self.name = name
         self.default_timeout = default_timeout
+        self.debug = debug
 
     def make_key(self, s):
         return ':'.join((self.name, s))
@@ -27,6 +30,10 @@ class Cache(object):
         does not exist, return the ``default``.
         """
         key = self.make_key(key)
+
+        if self.debug:
+            return default
+
         try:
             value = self.database[key]
         except KeyError:
@@ -43,6 +50,9 @@ class Cache(object):
         if timeout is None:
             timeout = self.default_timeout
 
+        if self.debug:
+            return True
+
         pickled_value = pickle.dumps(value)
         if timeout:
             return self.database.setex(key, pickled_value, int(timeout))
@@ -51,7 +61,8 @@ class Cache(object):
 
     def delete(self, key):
         """Remove the given key from the cache."""
-        self.database.delete(self.make_key(key))
+        if not self.debug:
+            self.database.delete(self.make_key(key))
 
     def keys(self):
         """
