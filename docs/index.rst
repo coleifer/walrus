@@ -8,7 +8,7 @@ walrus
 
 .. py:module:: walrus
 
-.. image:: http://media.charlesleifer.com/blog/photos/p1420698394.77.jpg
+.. image:: http://media.charlesleifer.com/blog/photos/walrus-logo.png
 
 Lightweight Python utilities for working with `Redis <http://redis.io>`_.
 

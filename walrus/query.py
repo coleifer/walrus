@@ -16,7 +16,7 @@ OP_BETWEEN = 'between'
 OP_MATCH = 'match'
 
 ABSOLUTE = set([OP_EQ, OP_NE])
-CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE])
+CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE, OP_BETWEEN])
 FTS = set([OP_MATCH])
 
 
@@ -181,7 +181,7 @@ class Executor(object):
         return tmp_set
 
     def execute_between(self, lhs, rhs):
-        index = lhs.get_index(OP_LT)
+        index = lhs.get_index(OP_BETWEEN)
         low, high = map(lhs.db_value, rhs)
         zset = index.get_key(None)  # No value necessary.
         return self._zset_score_filter(zset, low, high)
@@ -220,6 +220,8 @@ class Executor(object):
 
         results = self.database.ZSet(self.database.get_temp_key())
         self.database.zinterstore(results.key, index_keys)
+        results.expire(self.temp_key_expire)
+
         return results
 
     def _combine_sets(self, lhs, rhs, operation):
