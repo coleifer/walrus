@@ -105,16 +105,21 @@ class Cache(object):
         ``bust`` which will clear the cache for the given args.
         """
         def decorator(fn):
+            def make_key(args, kwargs):
+                return '%s:%s' % (fn.__name__, key_fn(args, kwargs))
+
             def bust(*args, **kwargs):
-                return self.delete(key_fn(args, kwargs))
+                return self.delete(make_key(args, kwargs))
+
             @wraps(fn)
             def inner(*args, **kwargs):
-                key = '%s:%s' % (fn.__name__, key_fn(args, kwargs))
+                key = make_key(args, kwargs)
                 res = self.get(key)
                 if res is None:
                     res = fn(*args, **kwargs)
                     self.set(key, res, timeout)
                 return res
             inner.bust = bust
+            inner.make_key = make_key
             return inner
         return decorator
