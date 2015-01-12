@@ -109,7 +109,7 @@ class Cache(object):
                 return self.delete(key_fn(args, kwargs))
             @wraps(fn)
             def inner(*args, **kwargs):
-                key = key_fn(args, kwargs)
+                key = '%s:%s' % (fn.__name__, key_fn(args, kwargs))
                 res = self.get(key)
                 if res is None:
                     res = fn(*args, **kwargs)

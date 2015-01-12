@@ -554,7 +554,7 @@ class ZSet(Container):
         """
         return self.database.zlexcount(self.key, low, high)
 
-    def range(self, low, high, with_scores=False, reverse=False):
+    def range(self, low, high, with_scores=False, desc=False, reverse=False):
         """
         Return a range of items between ``low`` and ``high``. By
         default scores will not be included, but this can be controlled
@@ -564,9 +564,13 @@ class ZSet(Container):
         :param high: Upper bound.
         :param bool with_scores: Whether the range should include the
             scores along with the items.
-        :param bool reverse: Whether to return the range in reverse.
+        :param bool desc: Whether to sort the results descendingly.
+        :param bool reverse: Whether to select the range in reverse.
         """
-        return self.database.zrange(self.key, low, high, reverse, with_scores)
+        if reverse:
+            return self.database.zrevrange(self.key, low, high, with_scores)
+        else:
+            return self.database.zrange(self.key, low, high, desc, with_scores)
 
     def range_by_score(self, low, high, start=None, num=None,
                        with_scores=False, reverse=False):
