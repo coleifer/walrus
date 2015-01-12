@@ -750,6 +750,14 @@ class TestList(WalrusTestCase):
         self.assertEqual(self.lst[1:2], ['i2'])
         self.assertEqual(self.lst[1:], ['i2', 'i3', 'i4'])
 
+        l = db.List('l1')
+        l.extend(range(10))
+        del l[1:-1]
+        self.assertEqual([int(i) for i in l], [1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+        del l[:3]
+        self.assertEqual([int(i) for i in l], [1, 2, 3])
+
 
 class TestArray(WalrusTestCase):
     def setUp(self):

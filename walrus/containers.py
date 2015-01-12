@@ -189,7 +189,13 @@ class List(Container):
         function, it will be treated as an index, otherwise it will
         be treated as a value.
         """
-        if isinstance(item, int):
+        if isinstance(item, slice):
+            start = item.start or 0
+            stop = item.stop or -1
+            if stop > 0:
+                stop -= 1
+            return self.database.ltrim(self.key, start, stop)
+        elif isinstance(item, int):
             item = self[item]
             if item is None:
                 return
