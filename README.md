@@ -13,12 +13,12 @@ The purpose of [walrus](https://github.com/coleifer/walrus) is to make working w
     * [Sorted Set](https://walrus.readthedocs.org/en/latest/containers.html#sorted-sets-zset)
     * [HyperLogLog](https://walrus.readthedocs.org/en/latest/containers.html#hyperloglog)
     * [Array](https://walrus.readthedocs.org/en/latest/containers.html#arrays) (custom type)
-* A simple [Cache](https://walrus.readthedocs.org/en/latest/cache.html) implementation that exposes a decorator for caching function and method calls.
-* Lightweight data [Model](https://walrus.readthedocs.org/en/latest/models.html) objects that support persisting structured information and performing queries using secondary indexes.
+* A simple [Cache](https://walrus.readthedocs.org/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.
+* Lightweight data [Model](https://walrus.readthedocs.org/en/latest/models.html) objects that support persisting structured information and performing complex queries using secondary indexes.
 
 ### Models
 
-Persistent structures implemented on top of Hashes. Supports secondary indexes to allow filtering on equality, inequality, ranges, less/greater-than, and a really basic full-text search index.
+Persistent structures implemented on top of Hashes. Supports secondary indexes to allow filtering on equality, inequality, ranges, less/greater-than, and a basic full-text search index. The full-text search features a boolean search query parser, porter stemmer, stop-word filtering, and optional double-metaphone implementation.
 
 ### Found a bug?
 
