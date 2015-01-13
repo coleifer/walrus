@@ -16,6 +16,7 @@ from walrus.containers import HyperLogLog
 from walrus.containers import List
 from walrus.containers import Set
 from walrus.containers import ZSet
+from walrus.lock import Lock
 
 
 class TransactionLocal(threading.local):
@@ -168,6 +169,9 @@ class Database(Redis):
         :returns: A :py:class:`Cache` instance.
         """
         return Cache(self, name=name, default_timeout=default_timeout)
+
+    def lock(self, name, ttl=None, lock_id=None):
+        return Lock(self, name, ttl, lock_id)
 
     def List(self, key):
         """
