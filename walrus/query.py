@@ -219,7 +219,8 @@ class Executor(object):
             index_keys.append(index.get_key(word).key)
 
         results = self.database.ZSet(self.database.get_temp_key())
-        self.database.zinterstore(results.key, index_keys)
+        if index_keys:
+            self.database.zinterstore(results.key, index_keys)
         results.expire(self.temp_key_expire)
 
         return results
