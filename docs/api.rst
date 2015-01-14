@@ -9,12 +9,12 @@ API Documentation
     :members:
       __init__,
       run_script,
-      get_temp_key
+      get_temp_key,
       __iter__,
       search,
       get_key,
       cache,
-      list,
+      lock,
       List,
       Hash,
       Set,
@@ -162,7 +162,7 @@ Field types
 
 .. autoclass:: Field
     :members:
-      __init__
+      __init__,
       get_indexes
 
 .. autoclass:: TextField
