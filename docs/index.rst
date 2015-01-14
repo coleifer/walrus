@@ -14,9 +14,10 @@ Lightweight Python utilities for working with `Redis <http://redis.io>`_.
 
 The purpose of `walrus <https://github.com/coleifer/walrus>`_ is to make working with Redis in Python a little easier by wrapping rich objects in Pythonic containers. walrus consists of:
 
-* Wrappers for the Redis object types :py:class:`Hash`, :py:class:`List`, :py:class:`Set`, :py:class:`ZSet`, :py:class:`HyperLogLog` as well as a custom type :py:class:`Array`.
-* A simple :py:class:`Cache` implementation that exposes a decorator for caching function and method calls.
-* Lightweight data :py:class:`Model` objects that support persisting structured information and performing queries using secondary indexes.
+* Containers for the Redis object types :py:class:`Hash`, :py:class:`List`, :py:class:`Set`, :py:class:`ZSet`, :py:class:`HyperLogLog` as well as a custom :py:class:`Array` type.
+* :py:class:`Cache` implementation that exposes several decorators for caching function calls.
+* :py:class:`Lock` implementation that can also be used as a context manager or decorator.
+* :py:class:`Model` layer that support persisting structured information and performing queries using secondary indexes.
 
 Contents:
 

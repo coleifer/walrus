@@ -14,6 +14,7 @@ API Documentation
       search,
       get_key,
       cache,
+      list,
       List,
       Hash,
       Set,
@@ -137,6 +138,13 @@ High-level APIs
       incr,
       cached
 
+.. autoclass:: Lock
+    :members:
+      __init__,
+      acquire,
+      release,
+      clear
+
 .. autoclass:: Model
     :members:
       __init__,
@@ -156,18 +164,6 @@ Field types
     :members:
       __init__
       get_indexes
-
-.. autoclass:: IntegerField
-    :members:
-
-.. autoclass:: AutoIncrementField(IntegerField)
-    :members:
-
-.. autoclass:: FloatField
-    :members:
-
-.. autoclass:: ByteField
-    :members:
 
 .. autoclass:: TextField
     :members:
@@ -192,6 +188,18 @@ Field types
             for message in messages:
                 print message.content
 
+.. autoclass:: IntegerField
+    :members:
+
+.. autoclass:: AutoIncrementField(IntegerField)
+    :members:
+
+.. autoclass:: FloatField
+    :members:
+
+.. autoclass:: ByteField
+    :members:
+
 .. autoclass:: BooleanField
     :members:
 
@@ -206,6 +214,9 @@ Field types
 
 .. autoclass:: JSONField
     :members:
+
+Container Field Types
+^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: HashField
     :members:
