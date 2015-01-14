@@ -104,7 +104,7 @@ Python supports dynamic instance attributes through the ``property`` decorator. 
 Cache Asynchronously
 --------------------
 
-If you have a function that runs slowly and would like to be able to perform other operations while waiting for the return value, you might try the *asynchronous cache decorator*, :py:meth:`~Cache.cache_asyc`.
+If you have a function that runs slowly and would like to be able to perform other operations while waiting for the return value, you might try the *asynchronous cache decorator*, :py:meth:`~Cache.cache_async`.
 
 The :py:meth:`~Cache.cache_async` decorator will run the decorated function in a separate thread. The function therefore will return immediately, even though your code may be processing in the background. Calls to the decorated function will return a method on a synchronized queue object. When the value is calculated (or returned from the cache), it will be placed in the queue and you can retrieve it.
 
