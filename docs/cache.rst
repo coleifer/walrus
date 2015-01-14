@@ -99,6 +99,8 @@ Python supports dynamic instance attributes through the ``property`` decorator. 
     >>> print clock.now
     2015-01-12 21:10:34.335755
 
+.. _cache-async:
+
 Cache Asynchronously
 --------------------
 

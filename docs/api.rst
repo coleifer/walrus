@@ -136,7 +136,9 @@ High-level APIs
       keys,
       flush,
       incr,
-      cached
+      cached,
+      cached_property,
+      cache_async
 
 .. autoclass:: Lock
     :members:

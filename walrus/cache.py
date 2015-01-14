@@ -175,103 +175,12 @@ class Cache(object):
         callable to the user. This callable can be used to check for
         a return value.
 
-        To show how this works. We'll add a call to ``time.sleep`` in
-        the decorated function to simulate a function that takes a
-        while to run, and we'll also print a message indicating that
-        we're inside the function body.
+        For details, see the :ref:`cache-async` section of the docs.
 
-        .. code-block:: pycon
-
-            >>> import time
-            >>> @cache.cache_async()
-            ... def get_now(seed=None):
-            ...     print 'About to sleep for 5 seconds.'
-            ...     time.sleep(5)
-            ...     return datetime.datetime.now()
-
-        The first time we call our function we will see the message
-        indicating our function is sleeping, but the function will
-        return immediately! The return value can be used to get the
-        *actual* return value of the decorated function:
-
-        .. code-block:: pycon
-
-            >>> result = get_now()
-            About to sleep for 5 seconds.
-            >>> result
-            <function _get_value at 0x7fe3a4685de8>
-
-        If we attempt to check the result immediately, there will be
-        no value because the function is still sleeping. In this
-        case a queue ``Empty`` exception is raised:
-
-        .. code-block:: pycon
-
-            >>> result(block=False)
-            Traceback (most recent call last):
-              File "<stdin>", line 1, in <module>
-              File "/usr/lib/python2.7/Queue.py", line 165, in get
-                raise Empty
-            Queue.Empty
-
-        We can force our code to block until the result is ready,
-        though:
-
-        .. code-block:: pycon
-
-            >>> print result(block=True)
-            2015-01-12 21:28:25.266448
-
-        Now that the result has been calculated and cached, a
-        subsequent call to ``get_now()`` will not execute the
-        function body. We can tell because the function does not
-        print *About to sleep for 5 seconds*.
-
-        .. code-block:: pycon
-
-            >>> result = get_now()
-            >>> print result()
-            2015-01-12 21:28:25.266448
-
-        The result function can be called any number of times. It
-        will always return the same value:
-
-        .. code-block:: pycon
-
-            >>> print result()
-            2015-01-12 21:28:25.266448
-
-        Another trick is passing a timeout to the result function.
-        Let's see what happens when we call ``get_now()`` using a
-        different seed, then specify a timeout to block for the
-        return value. Since we hard-coded a delay of 5 seconds,
-        let's see what happens when we specify a timeout of 4
-        seconds:
-
-        .. code-block:: pycon
-
-            >>> print get_now('foo')(timeout=4)
-            About to sleep for 5 seconds.
-            Traceback (most recent call last):
-              File "<stdin>", line 1, in <module>
-              File "/home/charles/pypath/walrus/cache.py",
-                line 160, in _get_value
-                result = q.get(block=block, timeout=timeout)
-              File "/usr/lib/python2.7/Queue.py", line 176, in get
-                raise Empty
-            Queue.Empty
-
-        Now let's try with a timeout of 6 seconds (being sure to use
-        a different seed so we trigger the 5 second delay):
-
-        .. code-block:: pycon
-
-            >>> print get_now('bar')(timeout=6)
-            About to sleep for 5 seconds.
-            2015-01-12 21:46:49.060883
-
-        Since the function returns a value within the given timeout,
-        the value is returned.
+        :param key_fn: Function used to generate cache key.
+        :param int timeout: Cache timeout in seconds.
+        :returns: A new function which can be called to retrieve the
+            return value of the decorated function.
         """
         def decorator(fn):
             wrapped = self.cached(key_fn, timeout)(fn)
