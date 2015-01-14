@@ -161,7 +161,7 @@ class Database(Redis):
 
     def cache(self, name='cache', default_timeout=3600):
         """
-        Create a cache instance.
+        Create a :py:class:`Cache` instance.
 
         :param str name: The name used to prefix keys used to
             store cached data.
@@ -171,6 +171,17 @@ class Database(Redis):
         return Cache(self, name=name, default_timeout=default_timeout)
 
     def lock(self, name, ttl=None, lock_id=None):
+        """
+        Create a named :py:class:`Lock` instance. The lock implements
+        an API similar to the standard library's ``threading.Lock``,
+        and can also be used as a context manager or decorator.
+
+        :param str name: The name of the lock.
+        :param int ttl: The time-to-live for the lock in milliseconds
+            (optional). If the ttl is ``None`` then the lock will not
+            expire.
+        :param str lock_id: Optional identifier for the lock instance.
+        """
         return Lock(self, name, ttl, lock_id)
 
     def List(self, key):
