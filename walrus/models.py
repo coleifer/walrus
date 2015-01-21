@@ -1,7 +1,6 @@
 from copy import deepcopy
 import datetime
 import json
-import os
 import pickle
 import re
 import time
@@ -21,7 +20,7 @@ from walrus.query import FTS
 from walrus.query import Node
 from walrus.search.metaphone import dm as double_metaphone
 from walrus.search.porter import PorterStemmer
-from walrus.utils import memoize
+from walrus.utils import load_stopwords
 
 
 class Field(Node):
@@ -869,16 +868,3 @@ class Model(_with_metaclass(BaseModel)):
         for field in self._indexes:
             for index in field.get_indexes():
                 index.save(self)
-
-
-@memoize
-def load_stopwords(stopwords_file):
-    path, filename = os.path.split(stopwords_file)
-    if not path:
-        path = os.path.dirname(__file__)
-    filename = os.path.join(path, filename)
-    if not os.path.exists(filename):
-        return
-
-    with open(filename) as fh:
-        return fh.read()

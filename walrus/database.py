@@ -9,6 +9,7 @@ try:
 except ImportError:
     Redis = None
 
+from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
 from walrus.containers import Hash
@@ -158,6 +159,9 @@ class Database(Redis):
         :returns: A hash, set, list, zset or array.
         """
         return self.__mapping.get(self.type(key), self.__getitem__)(key)
+
+    def autocomplete(self, namespace='autocomplete', **kwargs):
+        return Autocomplete(self, namespace, **kwargs)
 
     def cache(self, name='cache', default_timeout=3600):
         """

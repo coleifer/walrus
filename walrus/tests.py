@@ -1,4 +1,5 @@
 import datetime
+import random
 import sys
 import threading
 import unittest
@@ -969,6 +970,279 @@ class TestLock(WalrusTestCase):
 
         # In the event of an exception, the lock will still be released.
         self.assertTrue(lock.acquire(block=False))
+
+
+class TestAutocomplete(WalrusTestCase):
+    test_data = (
+        (1, 'testing python'),
+        (2, 'testing python code'),
+        (3, 'web testing python code'),
+        (4, 'unit tests with python'))
+
+    def setUp(self):
+        super(TestAutocomplete, self).setUp()
+        self.autocomplete = db.autocomplete()
+
+    def store_test_data(self, id_to_store=None):
+        for obj_id, title in self.test_data:
+            if id_to_store is None or obj_id == id_to_store:
+                self.autocomplete.store(obj_id, title, {
+                    'obj_id': obj_id,
+                    'title': title,
+                    'value': obj_id % 2 == 0 and 'even' or 'odd'})
+
+    def sort_results(self, results):
+        return sorted(results, key=lambda item: item['obj_id'])
+
+    def assertResults(self, results, expected):
+        self.assertEqual([result['obj_id'] for result in results], expected)
+
+    def test_search(self):
+        self.store_test_data()
+
+        results = self.autocomplete.search('testing python')
+        self.assertEqual(results, [
+            {'obj_id': 1, 'title': 'testing python', 'value': 'odd'},
+            {'obj_id': 2, 'title': 'testing python code', 'value': 'even'},
+            {'obj_id': 3, 'title': 'web testing python code', 'value': 'odd'},
+        ])
+
+        results = self.autocomplete.search('test')
+        self.assertResults(results, [1, 2, 4, 3])
+
+        results = self.autocomplete.search('uni')
+        self.assertResults(results, [4])
+
+        self.assertEqual(self.autocomplete.search(''), [])
+        self.assertEqual(self.autocomplete.search('missing'), [])
+        self.assertEqual(self.autocomplete.search('the'), [])
+
+    def test_boosting(self):
+        letters = ('alpha', 'beta', 'gamma', 'delta')
+        n = len(letters)
+        test_data = []
+        for i in range(n * 3):
+            obj_id = i + 1
+            obj_type = 't%s' % ((i / n) + 1)
+            title = 'test %s' % letters[i % n]
+            self.autocomplete.store(
+                obj_id,
+                title,
+                {'obj_id': obj_id, 'title': title},
+                obj_type)
+
+        def assertBoosts(query, boosts, expected):
+            results = self.autocomplete.search(query, boosts=boosts)
+            self.assertEqual(
+                [result['obj_id'] for result in results],
+                expected)
+
+        assertBoosts('alp', None, [1, 5, 9])
+        assertBoosts('alp', {'t2': 1.1}, [5, 1, 9])
+        assertBoosts('test', {'t3': 1.5, 't2': 1.1}, [
+            9, 10, 12, 11, 5, 6, 8, 7, 1, 2, 4, 3])
+        assertBoosts('alp', {'t1': 0.5}, [5, 9, 1])
+        assertBoosts('alp', {'t1': 1.5, 't3': 1.6}, [9, 1, 5])
+        assertBoosts('alp', {'t3': 1.5, '5': 1.6}, [5, 9, 1])
+
+    def test_stored_boosts(self):
+        id_to_type = {
+            'aaa': 1,
+            'aab': 2,
+            'aac': 3,
+            'aaab': 4,
+            'bbbb': 4}
+        for obj_id, obj_type in id_to_type.items():
+            self.autocomplete.store(obj_id, obj_type=obj_type)
+
+        results = self.autocomplete.search('aa')
+        self.assertEqual(results, [
+            'aaa',
+            'aaab',
+            'aab',
+            'aac'])
+
+        self.autocomplete.boost_object(obj_type=2, multiplier=2)
+        results = self.autocomplete.search('aa')
+        self.assertEqual(results, [
+            'aab',
+            'aaa',
+            'aaab',
+            'aac'])
+
+        self.autocomplete.boost_object('aac', multiplier=3)
+        results = self.autocomplete.search('aa')
+        self.assertEqual(results, [
+            'aac',
+            'aab',
+            'aaa',
+            'aaab'])
+
+        results = self.autocomplete.search('aa', boosts={'aac': 1.5})
+        self.assertEqual(results, [
+            'aab',
+            'aac',
+            'aaa',
+            'aaab'])
+
+    def test_limit(self):
+        self.store_test_data()
+        results = self.autocomplete.search('testing', limit=1)
+        self.assertResults(results, [1])
+
+        results = self.autocomplete.search('testing', limit=2)
+        self.assertResults(results, [1, 2])
+
+    def test_simple(self):
+        for _, title in self.test_data:
+            self.autocomplete.store(title)
+
+        self.assertEqual(self.autocomplete.search('testing'), [
+            'testing python',
+            'testing python code',
+            'web testing python code'])
+        self.assertEqual(self.autocomplete.search('code'), [
+            'testing python code',
+            'web testing python code'])
+
+        self.autocomplete.store('z python code')
+        self.assertEqual(self.autocomplete.search('cod'), [
+            'testing python code',
+            'z python code',
+            'web testing python code'])
+
+    def test_sorting(self):
+        strings = []
+        for i in range(26):
+            strings.append('aaaa%s' % chr(i + ord('a')))
+            if i > 0:
+                strings.append('aaa%sa' % chr(i + ord('a')))
+
+        random.shuffle(strings)
+        for s in strings:
+            self.autocomplete.store(s)
+
+        results = self.autocomplete.search('aaa')
+        self.assertEqual(results, sorted(strings))
+
+        results = self.autocomplete.search('aaa', limit=30)
+        self.assertEqual(results, sorted(strings)[:30])
+
+    def test_removing_objects(self):
+        self.store_test_data()
+        self.autocomplete.remove(1)
+
+        results = self.autocomplete.search('testing')
+        self.assertResults(results, [2, 3])
+
+        self.store_test_data(1)
+        self.autocomplete.remove(2)
+
+        results = self.autocomplete.search('testing')
+        self.assertResults(results, [1, 3])
+
+    def test_tokenize_title(self):
+        self.assertEqual(
+            self.autocomplete.tokenize_title('abc def ghi'),
+            ['abc', 'def', 'ghi'])
+
+        self.assertEqual(self.autocomplete.tokenize_title('a A tHe an a'), [])
+        self.assertEqual(self.autocomplete.tokenize_title(''), [])
+
+        self.assertEqual(self.autocomplete.tokenize_title(
+            'The Best of times, the blurst of times'),
+            ['times', 'blurst', 'times'])
+
+    def test_exists(self):
+        self.assertFalse(self.autocomplete.exists('test'))
+        self.autocomplete.store('test')
+        self.assertTrue(self.autocomplete.exists('test'))
+
+    def test_key_leaks(self):
+        initial_key_count = len(db.keys())
+
+        # store the blog "testing python"
+        self.store_test_data(1)
+
+        # see how many keys we have in the db - check again in a bit
+        key_len = len(db.keys())
+
+        self.store_test_data(2)
+        key_len2 = len(db.keys())
+
+        self.assertTrue(key_len != key_len2)
+        self.autocomplete.remove(2)
+
+        # back to the original amount of keys
+        self.assertEqual(len(db.keys()), key_len)
+
+        self.autocomplete.remove(1)
+        self.assertEqual(len(db.keys()), initial_key_count)
+
+    def test_updating(self):
+        self.autocomplete.store('id1', 'title baze', 'd1', 't1')
+        self.autocomplete.store('id2', 'title nugget', 'd2', 't2')
+        self.autocomplete.store('id3', 'title foo', 'd3', 't3')
+
+        results = self.autocomplete.search('tit')
+        self.assertEqual(results, ['d1', 'd3', 'd2'])
+
+        # overwrite the data for id1
+        self.autocomplete.store('id1', 'title foo', 'D1', 't1')
+
+        results = self.autocomplete.search('tit')
+        self.assertEqual(results, ['D1', 'd3', 'd2'])
+
+        # overwrite the data with a new title, will remove the title one refs
+        self.autocomplete.store('id1', 'Herple', 'done', 't1')
+
+        results = self.autocomplete.search('tit')
+        self.assertEqual(results, ['d3', 'd2'])
+
+        results = self.autocomplete.search('herp')
+        self.assertEqual(results, ['done'])
+
+        self.autocomplete.store('id1', 'title baze', 'Done', 't1')
+        results = self.autocomplete.search('tit')
+        self.assertEqual(results, ['Done', 'd3', 'd2'])
+
+        # this shows that when we don't clean up crap gets left around
+        results = self.autocomplete.search('herp')
+        self.assertEqual(results, [])
+
+    def test_word_position_ordering(self):
+        self.autocomplete.store('aaaa bbbb')
+        self.autocomplete.store('bbbb cccc')
+        self.autocomplete.store('bbbb aaaa')
+        self.autocomplete.store('aaaa bbbb')
+
+        results = self.autocomplete.search('bb')
+        self.assertEqual(results, ['bbbb aaaa', 'bbbb cccc', 'aaaa bbbb'])
+
+        results = self.autocomplete.search('aa')
+        self.assertEqual(results, ['aaaa bbbb', 'bbbb aaaa'])
+
+        self.autocomplete.store('aabb bbbb')
+
+        results = self.autocomplete.search('bb')
+        self.assertEqual(results, [
+            'bbbb aaaa',
+            'bbbb cccc',
+            'aaaa bbbb',
+            'aabb bbbb'])
+
+        results = self.autocomplete.search('aa')
+        self.assertEqual(results, [
+            'aaaa bbbb',
+            'aabb bbbb',
+            'bbbb aaaa'])
+
+        # Verify issue 9 is fixed.
+        self.autocomplete.store('foo one')
+        self.autocomplete.store('bar foo one')
+
+        results = self.autocomplete.search('foo')
+        self.assertEqual(results, ['foo one', 'bar foo one'])
 
 
 if __name__ == '__main__':
