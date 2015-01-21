@@ -127,6 +127,16 @@ Container types
 High-level APIs
 ---------------
 
+.. autoclass:: Autocomplete
+    :members:
+      __init__,
+      store,
+      search,
+      exists,
+      boost_object,
+      remove,
+      flush
+
 .. autoclass:: Cache
     :members:
       __init__,
