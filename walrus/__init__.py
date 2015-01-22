@@ -34,3 +34,6 @@ from walrus.containers import ZSet
 from walrus.database import Database
 from walrus.lock import Lock
 from walrus.models import *
+
+# Friendly alias.
+Walrus = Database
