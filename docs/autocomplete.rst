@@ -1,5 +1,7 @@
 .. _autocomplete:
 
+.. py:module:: walrus
+
 Autocomplete
 ============
 

@@ -22,6 +22,7 @@ __version__ = '0.1.9'
 #      `-=``      `:    |   /-/-/`
 #                   `.__/
 
+from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
 from walrus.containers import Container
