@@ -28,6 +28,7 @@ Contents:
    installation
    getting-started
    containers
+   autocomplete
    cache
    models
    api
