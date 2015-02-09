@@ -7,6 +7,8 @@ Autocomplete
 
 Provide suggestions based on partial string search. Walrus' autocomplete library is based on the implementation from `redis-completion <https://github.com/coleifer/redis-completion>`_.
 
+.. note:: The walrus implementation of autocomplete relies on the ``HSCAN`` command and therefore requires Redis >= 2.8.0.
+
 Overview
 --------
 
