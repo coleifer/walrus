@@ -7,7 +7,7 @@ import uuid
 try:
     from redis import Redis
 except ImportError:
-    Redis = None
+    Redis = object
 
 from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
