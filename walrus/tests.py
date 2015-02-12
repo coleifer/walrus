@@ -449,6 +449,33 @@ class TestModels(WalrusTestCase):
             self.assertEqual(len(messages), 1)
             assertMessage(messages[0], charlie)
 
+    def test_index_separator(self):
+        class CustomSeparator(BaseModel):
+            index_separator = '$'
+            name = TextField(primary_key=True)
+            data = IntegerField(index=True)
+
+        CustomSeparator.create(name='huey.zai', data=3)
+        CustomSeparator.create(name='michael.nuggie', data=5)
+
+        keys = sorted(db.keys())
+        self.assertEqual(keys, [
+            # namespace | model : $-delimited indexed data
+            'test|customseparator:all',
+            'test|customseparator:data$absolute$3',
+            'test|customseparator:data$absolute$5',
+            'test|customseparator:data$continuous',
+            'test|customseparator:id$huey.zai',
+            'test|customseparator:id$michael.nuggie',
+            'test|customseparator:name$absolute$huey.zai',
+            'test|customseparator:name$absolute$michael.nuggie'])
+
+        huey = CustomSeparator.get(CustomSeparator.data < 5)
+        self.assertEqual(huey.name, 'huey.zai')
+
+        mickey = CustomSeparator.load('michael.nuggie')
+        self.assertEqual(mickey.data, 5)
+
 
 class TestCache(WalrusTestCase):
     def test_cache_apis(self):

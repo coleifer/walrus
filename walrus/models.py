@@ -352,7 +352,8 @@ class Query(object):
 
     def make_key(self, *parts):
         """Generate a namespaced key for the given path."""
-        return '%s%s' % (self._base_key, '.'.join(map(str, parts)))
+        separator = getattr(self.model_class, 'index_separator', '.')
+        return '%s%s' % (self._base_key, separator.join(map(str, parts)))
 
     def get_primary_hash_key(self, primary_key):
         pk_field = self.model_class._fields[self.model_class._primary_key]
@@ -647,6 +648,9 @@ class Model(_with_metaclass(BaseModel)):
 
     #: **Optional**: namespace to use for model data.
     namespace = None
+
+    #: **Required**: character to use as a delimiter for indexes, default "."
+    index_separator = '.'
 
     def __init__(self, *args, **kwargs):
         self._data = {}
