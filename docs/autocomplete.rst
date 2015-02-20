@@ -30,7 +30,7 @@ To begin, call :py:meth:`Database.autocomplete` to create an instance of the aut
 .. code-block:: pycon
 
     >>> database = Database()
-    >>> ac = database.Autocomplete()
+    >>> ac = database.autocomplete()
 
 Phrases can be stored by calling :py:meth:`Autocomplete.store`:
 
