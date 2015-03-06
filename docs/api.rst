@@ -163,6 +163,7 @@ High-level APIs
       namespace,
       index_separator,
       __init__,
+      incr,
       to_hash,
       create,
       all,

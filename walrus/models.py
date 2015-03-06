@@ -668,6 +668,25 @@ class Model(_with_metaclass(BaseModel)):
             setattr(self, field_name, default)
 
     def incr(self, field, incr_by=1):
+        """
+        Increment the value stored in the given field by the specified
+        amount. Any indexes will be updated at the time ``incr()`` is
+        called.
+
+        :param Field field: A field instance.
+        :param incr_by: An ``int`` or ``float``.
+
+        Example:
+
+        .. code-block:: python
+
+            # Retrieve a page counter object for the given URL.
+            page_count = PageCounter.get(PageCounter.url == url)
+
+            # Update the hit count, persisting to the database and
+            # updating secondary indexes in one go.
+            page_count.incr(PageCounter.hits)
+        """
         model_hash = self.to_hash()
 
         # Remove the value from the index.
