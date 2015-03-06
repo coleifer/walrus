@@ -476,6 +476,19 @@ class TestModels(WalrusTestCase):
         mickey = CustomSeparator.load('michael.nuggie')
         self.assertEqual(mickey.data, 5)
 
+    def test_incr(self):
+        for i in range(3):
+            Stat.create(stat_type='test', value=i)
+
+        s1 = Stat.get(Stat.value == 1)
+        res = s1.incr(Stat.value, 5)
+        self.assertEqual(res, 6)
+        self.assertEqual(s1.value, 6)
+
+        self.assertRaises(ValueError, Stat.get, Stat.value == 1)
+        s6 = Stat.get(Stat.value == 6)
+        self.assertEqual(s1.key, s6.key)
+
 
 class TestCache(WalrusTestCase):
     def test_cache_apis(self):

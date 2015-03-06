@@ -148,6 +148,10 @@ class Hash(Container):
         """Increment the key by the given amount."""
         return self.database.hincrby(self.key, key, incr_by)
 
+    def incr_float(self, key, incr_by=1.):
+        """Increment the key by the given amount."""
+        return self.database.hincrbyfloat(self.key, key, incr_by)
+
 
 class List(Container):
     """

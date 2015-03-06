@@ -667,6 +667,25 @@ class Model(_with_metaclass(BaseModel)):
                 default = default()
             setattr(self, field_name, default)
 
+    def incr(self, field, incr_by=1):
+        model_hash = self.to_hash()
+
+        # Remove the value from the index.
+        for index in field.get_indexes():
+            index.remove(self)
+
+        if isinstance(incr_by, int):
+            new_val = model_hash.incr(field.name, incr_by)
+        else:
+            new_val = model_hash.incr_float(field.name, incr_by)
+        setattr(self, field.name, new_val)
+
+        # Re-index the new value.
+        for index in field.get_indexes():
+            index.save(self)
+
+        return new_val
+
     def get_id(self):
         """
         Return the primary key for the model instance. If the
