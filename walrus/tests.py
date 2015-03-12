@@ -248,6 +248,49 @@ class TestModels(WalrusTestCase):
             Message.content.match('faith') & (Message.status == 1))
         assertMatches(query, [4, 2, 0])
 
+    def test_full_text_combined(self):
+        phrases = [
+            'little bunny foo foo',  # 0, s=1
+            'a little green owl',  # 1, s=2
+            'the owl was named foo',  # 2, s=1
+            'he had a nicotine patch on his wing',  # 3, s=2
+            'he was trying to quit smoking',  # 4, s=1
+            'the owl was little and green and sweet',  # 5, s=2
+            'he dropped presents on my porch',  # 6, s=1
+        ]
+        index_to_phrase = {}
+        for idx, message in enumerate(phrases):
+            msg = Message.create(content=message, status=1 + (idx % 2))
+            index_to_phrase[idx] = message
+
+        def assertSearch(search, indexes):
+            self.assertEqual(
+                sorted(message.content for message in query),
+                sorted(index_to_phrase[idx] for idx in indexes))
+
+        query = Message.query(Message.content.match('little owl'))
+        assertSearch(query, [1, 5, 2])
+
+        query = Message.query(
+            Message.content.match('little owl') &
+            Message.content.match('foo'))
+        assertSearch(query, [2])
+
+        query = Message.query(
+            (Message.content.match('owl') & (Message.status == 1)) |
+            (Message.content.match('foo') & (Message.status == 2)))
+        assertSearch(query, [2])
+
+        query = Message.query(
+            (Message.content.match('green') & (Message.status == 2)) |
+            (Message.status == 1))
+        assertSearch(query, [0, 2, 4, 6, 1, 5])
+
+        query = Message.query(
+            ((Message.status == 2) & Message.content.match('green')) |
+            (Message.status == 1))
+        assertSearch(query, [0, 2, 4, 6, 1, 5])
+
     def test_full_text_options(self):
         phrases = [
             'building web applications with python and flask',

@@ -230,13 +230,22 @@ class Executor(object):
             lhs = self.execute(lhs)
         if not isinstance(rhs, (Set, ZSet)):
             rhs = self.execute(rhs)
+
+        source, dest = lhs, rhs
+        if type(lhs) != type(rhs):
+            # We'll perform the operation using the ZSet, as you can't call
+            # SINTERSTORE or SUNIONSTORE with a ZSet.
+            if isinstance(rhs, ZSet):
+                source, dest = rhs, lhs
+
         if operation == 'AND':
-            method = lhs.interstore
+            method = source.interstore
         elif operation == 'OR':
-            method = lhs.unionstore
+            method = source.unionstore
         else:
             raise ValueError('Unrecognized operation: "%s".' % operation)
-        tmp_set = method(self.database.get_temp_key(), rhs)
+
+        tmp_set = method(self.database.get_temp_key(), dest)
         tmp_set.expire(self.temp_key_expire)
         return tmp_set
 
