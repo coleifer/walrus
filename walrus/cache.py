@@ -2,7 +2,10 @@ from functools import wraps
 import hashlib
 import pickle
 import threading
-from Queue import Empty, Queue
+try:
+    from Queue import Queue  # Python 2
+except ImportError:
+    from queue import Queue  # Python 3
 
 
 class Cache(object):
