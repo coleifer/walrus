@@ -53,7 +53,7 @@ class Autocomplete(object):
             self._stopwords = set()
 
     def tokenize_title(self, phrase, stopwords=True):
-        phrase = re.sub('[^a-z0-9_\-\s]', '', phrase.lower())
+        phrase = re.sub('[^a-z0-9_\-\s]', '', phrase.decode("utf-8").lower())
         if stopwords:
             return [w for w in phrase.split() if w not in self._stopwords]
         else:
@@ -153,7 +153,6 @@ class Autocomplete(object):
         """
         combined_id = self.object_key(obj_id, obj_type)
         title = self._title_data[combined_id]
-        keys = []
 
         for word in self.tokenize_title(title):
             for substring in self.substrings(word):
@@ -230,7 +229,7 @@ class Autocomplete(object):
                 if not raw_data:
                     continue
                 if self._use_json:
-                    data.append(json.loads(raw_data))
+                    data.append(json.loads(raw_data.decode('utf-8')))
                 else:
                     data.append(raw_data)
                 ct += 1
@@ -280,14 +279,13 @@ class Autocomplete(object):
             if result_key not in self.database:
                 self.database.zinterstore(
                     result_key,
-                    map(self.word_key, cleaned))
+                    list(map(self.word_key, cleaned)))
             self.database.expire(result_key, self._cache_timeout)
 
         results = self.database.ZSet(result_key)
         if all_boosts:
             for raw_id, score in results[0:0, True]:
                 orig_score = score
-                identifiers = [raw_id] + raw_id.split('\x01', 1)
                 for identifier in raw_id.split('\x01', 1):
                     if identifier and identifier in all_boosts:
                         score *= 1 / all_boosts[identifier]
