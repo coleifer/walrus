@@ -53,6 +53,7 @@ class Database(Redis):
             scripts.
         """
         script_dir = kwargs.pop('script_dir', None)
+        self.encoding = kwargs.get('encoding') or 'utf-8'
         super(Database, self).__init__(*args, **kwargs)
         self.__mapping = {
             'list': self.List,
