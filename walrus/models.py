@@ -22,6 +22,13 @@ from walrus.search.metaphone import dm as double_metaphone
 from walrus.search.porter import PorterStemmer
 from walrus.utils import load_stopwords
 
+try:
+    unicode
+    has_unicode = True
+except NameError:
+    has_unicode = False
+    basestring = (bytes, str)
+
 
 class Field(Node):
     """
@@ -206,7 +213,7 @@ class TextField(Field):
     def db_value(self, value):
         if value is None:
             return value
-        elif isinstance(value, unicode):
+        elif has_unicode and isinstance(value, unicode):
             return value.encode('utf-8')
         return value
 
@@ -850,13 +857,18 @@ class Model(_with_metaclass(BaseModel)):
             raise KeyError('Object not found.')
         raw_data = cls.database.hgetall(primary_key)
         data = {}
+
+        def encode_key(key):
+            return key if bytes == str else key.encode(cls.database.encoding)
+
         for name, field in cls._fields.items():
+            raw_key = encode_key(name)
             if isinstance(field, _ContainerField):
                 continue
-            elif name not in raw_data:
+            elif raw_key not in raw_data:
                 data[name] = None
             else:
-                data[name] = field.python_value(raw_data[name])
+                data[name] = field.python_value(raw_data[raw_key])
 
         return cls(**data)
 
