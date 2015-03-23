@@ -1,5 +1,12 @@
 import itertools
 import os
+import sys
+
+
+if sys.version_info[0] == 2:
+    unicode_type = unicode
+else:
+    unicode_type = str
 
 
 class memoize(dict):

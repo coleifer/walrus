@@ -21,6 +21,7 @@ from walrus.query import Node
 from walrus.search.metaphone import dm as double_metaphone
 from walrus.search.porter import PorterStemmer
 from walrus.utils import load_stopwords
+from walrus.utils import unicode_type
 
 
 class Field(Node):
@@ -206,7 +207,7 @@ class TextField(Field):
     def db_value(self, value):
         if value is None:
             return value
-        elif isinstance(value, unicode):
+        elif isinstance(value, unicode_type):
             return value.encode('utf-8')
         return value
 
