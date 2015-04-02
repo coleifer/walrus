@@ -107,6 +107,32 @@ class TestModels(WalrusTestCase):
 
         self.assertRaises(ValueError, User.get, User.username == 'ux')
 
+    def test_query_with_update(self):
+        stat = Stat.create(stat_type='s1', value=1)
+        vq = list(Stat.query(Stat.value == 1))
+        self.assertEqual(len(vq), 1)
+        stat_db = vq[0]
+        self.assertEqual(stat_db.stat_type, 's1')
+        self.assertEqual(stat_db.value, 1)
+
+        stat.value = 2
+        stat.save()
+
+        def assertCount(expr, count):
+            self.assertEqual(len(list(Stat.query(expr))), count)
+
+        assertCount(Stat.value == 1, 0)
+        assertCount(Stat.value == 2, 1)
+        assertCount(Stat.stat_type == 's1', 1)
+
+        stat.stat_type = 's2'
+        stat.save()
+
+        assertCount(Stat.value == 1, 0)
+        assertCount(Stat.value == 2, 1)
+        assertCount(Stat.stat_type == 's1', 0)
+        assertCount(Stat.stat_type == 's2', 1)
+
     def test_sorting(self):
         self.create_objects()
         all_notes = [

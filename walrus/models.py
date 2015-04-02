@@ -878,7 +878,7 @@ class Model(_with_metaclass(BaseModel)):
         # Remove from the secondary indexes.
         for field in self._indexes:
             for index in field.get_indexes():
-                index.remove(self)
+                index.remove(original_instance)
 
         # Remove the object itself.
         self.database.delete(hash_key)
