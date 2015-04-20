@@ -295,7 +295,7 @@ class TestModels(WalrusTestCase):
                 sorted(index_to_phrase[idx] for idx in indexes))
 
         query = Message.query(Message.content.match('little owl'))
-        assertSearch(query, [1, 5, 2])
+        assertSearch(query, [1, 5, 2])  # "little" is ignored (stop word).
 
         query = Message.query(
             Message.content.match('little owl') &
