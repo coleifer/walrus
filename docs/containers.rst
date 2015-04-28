@@ -132,7 +132,7 @@ Sorted sets provide a number of complex slicing and indexing options when retrie
 
 .. code-block:: pycon
 
-    >>> z1[':mickey']  # Who is younger than Mickey?
+    >>> z1[:'mickey']  # Who is younger than Mickey?
     ['zaizee', 'huey']
 
     >>> z1[-2:]  # Who are the two oldest people?

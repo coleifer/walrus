@@ -18,3 +18,10 @@ To begin using walrus, we'll start by importing it and creating a :py:class:`Dat
 
     >>> from walrus import *
     >>> db = Database(host='localhost', port=6379, db=0)
+
+If you like fun names, you can also use ``Walrus`` instead:
+
+.. code-block:: pycon
+
+    >>> from walrus import *
+    >>> db = Walrus(host='localhost', port=6379, db=0)
