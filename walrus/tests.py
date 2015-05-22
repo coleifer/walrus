@@ -8,11 +8,11 @@ from walrus import *
 from walrus.query import OP_AND
 from walrus.query import OP_OR
 try:
-    from walrus.contrib.rlite import TestWalrusLite
+    from walrus.backends.rlite import TestWalrusLite
 except ImportError:
     pass
 try:
-    from walrus.contrib.vedisdb import TestWalrusVedis
+    from walrus.backends.vedisdb import TestWalrusVedis
 except ImportError:
     pass
 
