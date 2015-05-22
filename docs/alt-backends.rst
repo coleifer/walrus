@@ -16,7 +16,7 @@ rlite
 
 According to the project's README,
 
-> rlite is to Redis what SQLite is to Postgres.
+  rlite is to Redis what SQLite is to Postgres.
 
 The project's features are:
 
@@ -68,7 +68,7 @@ Vedis
 
 According to the project's README,
 
-> Vedis is a self-contained C library without dependency. It requires very minimal support from external libraries or from the operating system. This makes it well suited for use in embedded devices that lack the support infrastructure of a desktop computer. This also makes Vedis appropriate for use within applications that need to run without modification on a wide variety of computers of varying configurations.
+    Vedis is a self-contained C library without dependency. It requires very minimal support from external libraries or from the operating system. This makes it well suited for use in embedded devices that lack the support infrastructure of a desktop computer. This also makes Vedis appropriate for use within applications that need to run without modification on a wide variety of computers of varying configurations.
 
 The project's features are:
 
