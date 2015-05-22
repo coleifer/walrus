@@ -11,6 +11,10 @@ try:
     from walrus.contrib.rlite import TestWalrusLite
 except ImportError:
     pass
+try:
+    from walrus.contrib.vedisdb import TestWalrusVedis
+except ImportError:
+    pass
 
 
 db = Database(db=15)
