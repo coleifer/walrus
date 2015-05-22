@@ -14,4 +14,8 @@ def runtests(*test_args):
     sys.exit(0)
 
 if __name__ == '__main__':
+    try:
+        from redis import Redis
+    except ImportError:
+        raise RuntimeError('redis-py must be installed.')
     runtests(*sys.argv[1:])

@@ -7,6 +7,10 @@ import unittest
 from walrus import *
 from walrus.query import OP_AND
 from walrus.query import OP_OR
+try:
+    from walrus.contrib.rlite import TestWalrusLite
+except ImportError:
+    pass
 
 
 db = Database(db=15)
