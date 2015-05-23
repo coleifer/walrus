@@ -8,6 +8,10 @@ from walrus import *
 from walrus.query import OP_AND
 from walrus.query import OP_OR
 try:
+    from walrus.tusks.ledisdb import TestWalrusLedis
+except ImportError:
+    pass
+try:
     from walrus.tusks.rlite import TestWalrusLite
 except ImportError:
     pass
