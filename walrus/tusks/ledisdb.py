@@ -5,6 +5,7 @@ from ledis import Ledis
 from ledis.client import Token
 
 from walrus import *
+from walrus.containers import chainable_method
 
 
 class Scannable(object):
@@ -31,10 +32,33 @@ class Scannable(object):
                 break
 
 
+class Sortable(object):
+    def _sort(self, cmd, pattern=None, limit=None, offset=None,
+              get_pattern=None, ordering=None, alpha=True, store=None):
+        parts = [self.key]
+        def add_kw(kw, param):
+            if param is not None:
+                parts.extend([Token(kw), param])
+        add_kw('BY', pattern)
+        if limit or offset:
+            offset = offset or 0
+            limit = limit or 'Inf'
+            parts.extend([Token('LIMIT'), offset, limit])
+        add_kw('GET', get_pattern)
+        if ordering:
+            parts.append(Token(ordering))
+        if alpha:
+            parts.append(Token('ALPHA'))
+        add_kw('STORE', store)
+        return self.database.execute_command(cmd, *parts)
+
+
 class LedisHash(Scannable, Hash):
+    @chainable_method
     def clear(self):
         self.database.hclear(self.key)
 
+    @chainable_method
     def expire(self, ttl=None):
         if ttl is not None:
             self.database.hexpire(self.key, ttl)
@@ -50,24 +74,31 @@ class LedisHash(Scannable, Hash):
         return self._scan('XHSCAN', match, count, ordering, limit)
 
 
-class LedisList(List):
+class LedisList(Sortable, List):
+    @chainable_method
     def clear(self):
         self.database.lclear(self.key)
 
     def __setitem__(self, idx, value):
         raise TypeError('Ledis does not support setting values by index.')
 
+    @chainable_method
     def expire(self, ttl=None):
         if ttl is not None:
             self.database.lexpire(self.key, ttl)
         else:
             self.database.lpersist(self.key)
 
+    def sort(self, *args, **kwargs):
+        return self._sort('XLSORT', *args, **kwargs)
 
-class LedisSet(Scannable, Set):
+
+class LedisSet(Scannable, Sortable, Set):
+    @chainable_method
     def clear(self):
         self.database.sclear(self.key)
 
+    @chainable_method
     def expire(self, ttl=None):
         if ttl is not None:
             self.database.sexpire(self.key, ttl)
@@ -80,8 +111,12 @@ class LedisSet(Scannable, Set):
     def scan(self, match=None, count=None, ordering=None, limit=None):
         return self._scan('XSSCAN', match, count, ordering, limit)
 
+    def sort(self, *args, **kwargs):
+        return self._sort('XSSORT', *args, **kwargs)
 
-class LedisZSet(Scannable, ZSet):
+
+class LedisZSet(Scannable, Sortable, ZSet):
+    @chainable_method
     def clear(self):
         self.database.zclear(self.key)
 
@@ -92,6 +127,7 @@ class LedisZSet(Scannable, ZSet):
             reordered.append(args[idx])
         return self.database.zadd(self.key, *reordered, **kwargs)
 
+    @chainable_method
     def expire(self, ttl=None):
         if ttl is not None:
             self.database.zexpire(self.key, ttl)
@@ -105,6 +141,9 @@ class LedisZSet(Scannable, ZSet):
         if limit:
             limit *= 2
         return self._scan('XZSCAN', match, count, ordering, limit)
+
+    def sort(self, *args, **kwargs):
+        return self._sort('XZSORT', *args, **kwargs)
 
 
 class LedisBitSet(Container):
@@ -419,6 +458,36 @@ class TestWalrusLedis(unittest.TestCase):
 
         self.db['b1'] = '\x00\x00\x00'
         self.assertEqual(b.pos(1), -1)
+
+    def test_sorting(self):
+        items = ['charlie', 'zaizee', 'mickey', 'huey']
+        sorted_items = sorted(items)
+
+        l = self.db.List('l_obj').clear()
+        l.extend(items)
+        results = l.sort()
+        self.assertEqual(results, sorted_items)
+
+        dest = self.db.List('l_dest')
+        l.sort(ordering='DESC', limit=3, store=dest.key)
+        results = list(dest)
+        self.assertEqual(results, ['zaizee', 'mickey', 'huey'])
+
+        s = self.db.Set('s_obj').clear()
+        s.add(*items)
+        results = s.sort()
+        self.assertEqual(results, sorted_items)
+
+        results = s.sort(ordering='DESC', limit=3)
+        self.assertEqual(results, ['zaizee', 'mickey', 'huey'])
+
+        z = self.db.ZSet('z_obj').clear()
+        z.add('charlie', 10, 'zaizee', 10, 'mickey', 3, 'huey', 4)
+        results = z.sort()
+        self.assertEqual(results, sorted_items)
+
+        results = z.sort(ordering='DESC', limit=3)
+        self.assertEqual(results, ['zaizee', 'mickey', 'huey'])
 
 
 if __name__ == '__main__':
