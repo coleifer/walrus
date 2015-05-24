@@ -2,35 +2,88 @@ import sys
 import unittest
 
 from ledis import Ledis
+from ledis.client import Token
 
 from walrus import *
 
 
-class LedisHash(Hash):
+class Scannable(object):
+    def _scan(self, cmd, match=None, count=None, ordering=None, limit=None):
+        parts = [self.key, '']
+        if match:
+            parts.extend([Token('MATCH'), match])
+        if count:
+            parts.extend([Token('COUNT'), count])
+        if ordering:
+            parts.append(Token(ordering.upper()))
+        idx = 0
+        while True:
+            cursor, rows = self.database.execute_command(cmd, *parts)
+            for row in rows:
+                idx += 1
+                if limit and idx > limit:
+                    cursor = None
+                    break
+                yield row
+            if cursor:
+                parts[1] = cursor
+            else:
+                break
+
+
+class LedisHash(Scannable, Hash):
     def clear(self):
         self.database.hclear(self.key)
-        self.database.delete(self.key)
+
+    def expire(self, ttl=None):
+        if ttl is not None:
+            self.database.hexpire(self.key, ttl)
+        else:
+            self.database.hpersist(self.key)
+
+    def __iter__(self):
+        return self._scan('XHSCAN')
+
+    def scan(self, match=None, count=None, ordering=None, limit=None):
+        if limit is not None:
+            limit *= 2  # Hashes yield 2 values.
+        return self._scan('XHSCAN', match, count, ordering, limit)
 
 
 class LedisList(List):
     def clear(self):
         self.database.lclear(self.key)
-        self.database.delete(self.key)
 
     def __setitem__(self, idx, value):
         raise TypeError('Ledis does not support setting values by index.')
 
+    def expire(self, ttl=None):
+        if ttl is not None:
+            self.database.lexpire(self.key, ttl)
+        else:
+            self.database.lpersist(self.key)
 
-class LedisSet(Set):
+
+class LedisSet(Scannable, Set):
     def clear(self):
         self.database.sclear(self.key)
-        self.database.delete(self.key)
+
+    def expire(self, ttl=None):
+        if ttl is not None:
+            self.database.sexpire(self.key, ttl)
+        else:
+            self.database.spersist(self.key)
+
+    def __iter__(self):
+        return self._scan('XSSCAN')
+
+    def scan(self, match=None, count=None, ordering=None, limit=None):
+        return self._scan('XSSCAN', match, count, ordering, limit)
 
 
-class LedisZSet(ZSet):
+class LedisZSet(Scannable, ZSet):
     def clear(self):
         self.database.zclear(self.key)
-        self.database.delete(self.key)
 
     def add(self, *args, **kwargs):
         reordered = []
@@ -39,6 +92,71 @@ class LedisZSet(ZSet):
             reordered.append(args[idx])
         return self.database.zadd(self.key, *reordered, **kwargs)
 
+    def expire(self, ttl=None):
+        if ttl is not None:
+            self.database.zexpire(self.key, ttl)
+        else:
+            self.database.zpersist(self.key)
+
+    def __iter__(self):
+        return self._scan('XZSCAN')
+
+    def scan(self, match=None, count=None, ordering=None, limit=None):
+        if limit:
+            limit *= 2
+        return self._scan('XZSCAN', match, count, ordering, limit)
+
+
+class LedisBitSet(Container):
+    def clear(self):
+        self.database.delete(self.key)
+
+    def __getitem__(self, idx):
+        return self.database.execute_command('GETBIT', self.key, idx)
+
+    def __setitem__(self, idx, value):
+        return self.database.execute_command('SETBIT', self.key, idx, value)
+
+    def pos(self, bit, start=None, end=None):
+        pieces = ['BITPOS', self.key, bit]
+        if start or end:
+            pieces.append(start or 0)
+        if end:
+            pieces.append(end)
+        return self.database.execute_command(*pieces)
+
+    def __iand__(self, other):
+        self.database.execute_command(
+            'BITOP',
+            'AND',
+            self.key,
+            self.key,
+            other.key)
+        return self
+
+    def __ior__(self, other):
+        self.database.execute_command(
+            'BITOP',
+            'OR',
+            self.key,
+            self.key,
+            other.key)
+        return self
+
+    def __ixor__(self, other):
+        self.database.execute_command(
+            'BITOP',
+            'XOR',
+            self.key,
+            self.key,
+            other.key)
+        return self
+
+    def __str__(self):
+        return self.database[self.key]
+
+    __unicode__ = __str__
+
 
 class WalrusLedis(Ledis, Walrus):
     def __init__(self, *args, **kwargs):
@@ -46,6 +164,9 @@ class WalrusLedis(Ledis, Walrus):
 
     def __setitem__(self, key, value):
         self.set(key, value)
+
+    def BitSet(self, key):
+        return LedisBitSet(self, key)
 
     def Hash(self, key):
         return LedisHash(self, key)
@@ -109,6 +230,11 @@ class TestWalrusLedis(unittest.TestCase):
         h.update({'k2': 'v2', 'k3': 'v3'})
         self.assertEqual(h.as_dict(), {'k1': 'v1', 'k2': 'v2', 'k3': 'v3'})
 
+        items = [item for item in h]
+        self.assertEqual(items, ['k1', 'v1', 'k2', 'v2', 'k3', 'v3'])
+        items = [item for item in h.scan(limit=2)]
+        self.assertEqual(items, ['k1', 'v1', 'k2', 'v2'])
+
         self.assertEqual(h['k2'], 'v2')
         self.assertIsNone(h['k4'])
         self.assertTrue('k2' in h)
@@ -163,6 +289,11 @@ class TestWalrusLedis(unittest.TestCase):
         self.assertFalse('xx' in s)
         self.assertEqual(s.members(), set(['charlie', 'huey', 'mickey']))
 
+        items = [item for item in s]
+        self.assertEqual(sorted(items), ['charlie', 'huey', 'mickey'])
+        items = [item for item in s.scan(limit=2, ordering='DESC')]
+        self.assertEqual(items, ['mickey', 'huey'])
+
         del s['huey']
         del s['xx']
         self.assertEqual(s.members(), set(['charlie', 'mickey']))
@@ -204,6 +335,21 @@ class TestWalrusLedis(unittest.TestCase):
         self.assertTrue('charlie' in zs)
         self.assertFalse('xx' in zs)
 
+        items = [item for item in zs]
+        self.assertEqual(items, [
+            'charlie', '31',
+            'huey', '3',
+            'mickey', '6',
+            'nuggie', '0',
+            'zaizee', '3',
+        ])
+        items = [item for item in zs.scan(limit=3, ordering='DESC')]
+        self.assertEqual(items, [
+            'zaizee', '3',
+            'nuggie', '0',
+            'mickey', '6',
+        ])
+
         self.assertEqual(zs.score('charlie'), 31.)
         self.assertIsNone(zs.score('xx'))
 
@@ -244,6 +390,35 @@ class TestWalrusLedis(unittest.TestCase):
 
         z3 = z1.interstore('z3', z2)
         self.assertEqual(z3[:], ['3'])
+
+    def test_bit_set(self):
+        b = self.db.BitSet('bitset_obj')
+        b.clear()
+        b[0] = 1
+        b[1] = 1
+        b[2] = 0
+        b[3] = 1
+        self.assertEqual(self.db[b.key], '\xd0')
+
+        b[4] = 1
+        self.assertEqual(self.db[b.key], '\xd8')
+        self.assertEqual(b[0], 1)
+        self.assertEqual(b[2], 0)
+
+        self.db['b1'] = 'foobar'
+        self.db['b2'] = 'abcdef'
+        b = self.db.BitSet('b1')
+        b2 = self.db.BitSet('b2')
+        b &= b2
+        self.assertEqual(self.db[b.key], '`bc`ab')
+        self.assertEqual(str(b), '`bc`ab')
+
+        self.db['b1'] = '\x00\xff\xf0'
+        self.assertEqual(b.pos(1, 0), 8)
+        self.assertEqual(b.pos(1, 2), 16)
+
+        self.db['b1'] = '\x00\x00\x00'
+        self.assertEqual(b.pos(1), -1)
 
 
 if __name__ == '__main__':
