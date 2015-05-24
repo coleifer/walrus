@@ -25,3 +25,7 @@ Persistent structures implemented on top of Hashes. Supports secondary indexes t
 ![](http://media.charlesleifer.com/blog/photos/p1420743625.21.png)
 
 Please open a [github issue](https://github.com/coleifer/walrus/issues/new) and I will try my best to fix it!
+
+### Alternative Backends
+
+Walrus also can integrate with the Redis-like databases [rlite](https://github.com/seppo0010/rlite), [ledis](https://github.com/siddontang/ledisdb), and [vedis](http://vedis.symisc.net). Check the [documentation](http://walrus.readthedocs.org/en/latest/alt-backends.html) for more details.
