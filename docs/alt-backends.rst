@@ -7,7 +7,7 @@ In addition to `Redis <http://redis.io>`_, I've been experimenting with adding s
 
 * `RLite <https://github.com/seppo0010/rlite>`_, a self-contained and serverless Redis-compatible database engine. Use ``rlite`` if you want all the features of Redis, without the separate server process..
 * `Vedis <http://vedis.symisc.net/index.html>`_, an embeddable data-store written in C with over 70 commands similar in concept to Redis. Vedis is built on a fast key/value store and supports writing custom commands in Python. Use ``vedis`` if you are OK working with a smaller subset of commands out-of-the-box or are interested in writing your own commands.
-* `ledisdb <https://github.com/siddontang/ledisdb>`_, **not implemented yet** but I plan on adding support soon.
+* `ledisdb <https://github.com/siddontang/ledisdb>`_, Redis-like database written in Golang. Supports almost all the Redis commands. Requires `ledis-py <https://github.com/holys/ledis-py>`_.
 
 rlite
 -----
@@ -164,3 +164,42 @@ We can use these commands like so:
     1
     >>> print db['user.1.display_name']
     Charles
+
+Ledis
+-----
+
+`ledis <https://github.com/siddontang/ledisdb>`_ is a Redis-like database written in Golang.
+
+The project's features are:
+
+* **Supports virtually every Redis command**.
+* Supports multiple backends, including LevelDB, RocksDB, LMDB, BoltDB and in-memory databases.
+* Data storage is not limited by RAM, since the databases are disk-based.
+* Transactions.
+* Supports the Redis protocol for communication, so most Redis clients work with Ledis.
+* Written in golang, easy to deploy.
+
+Use-cases for ``ledisdb``:
+
+* Store data-sets that exceed RAM.
+* Use with LevelDB, RocksDB, etc.
+
+Python bindings
+^^^^^^^^^^^^^^^
+
+`ledis-py <https://github.com/holys/ledis-py>`_ allows you to connect to ``ledisdb``. To install ``ledis-py``, you can use ``pip``:
+
+.. code-block:: console
+
+    $ pip install ledis
+
+Using with Walrus
+^^^^^^^^^^^^^^^^^
+
+To use ``ledisdb`` instead of Redis in your ``walrus`` application, simply use the ``WalrusLedis`` in place of the usual :py:class:`Walrus` object:
+
+.. code-block:: python
+
+    from walrus.tusks.ledisdb import WalrusLedis
+
+    walrus = WalrusLedis()
