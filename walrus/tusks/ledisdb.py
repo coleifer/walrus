@@ -17,9 +17,12 @@ class Scannable(object):
             parts.extend([Token('COUNT'), count])
         if ordering:
             parts.append(Token(ordering.upper()))
+        return self._execute_scan(self.database, cmd, parts, limit)
+
+    def _execute_scan(self, database, cmd, parts, limit=None):
         idx = 0
         while True:
-            cursor, rows = self.database.execute_command(cmd, *parts)
+            cursor, rows = database.execute_command(cmd, *parts)
             for row in rows:
                 idx += 1
                 if limit and idx > limit:
@@ -197,12 +200,31 @@ class LedisBitSet(Container):
     __unicode__ = __str__
 
 
-class WalrusLedis(Ledis, Walrus):
+class WalrusLedis(Ledis, Scannable, Walrus):
     def __init__(self, *args, **kwargs):
         super(WalrusLedis, self).__init__(*args, **kwargs)
 
     def __setitem__(self, key, value):
         self.set(key, value)
+
+    def __iter__(self):
+        return self.scan()
+
+    def scan(self, *args, **kwargs):
+        return self._scan('XSCAN', *args, **kwargs)
+
+    def _scan(self, cmd, match=None, count=None, ordering=None, limit=None):
+        parts = ['KV', '']
+        if match:
+            parts.extend([Token('MATCH'), match])
+        if count:
+            parts.extend([Token('COUNT'), count])
+        if ordering:
+            parts.append(Token(ordering.upper()))
+        return self._execute_scan(self, cmd, parts, limit)
+
+    def update(self, values):
+        return self.mset(values)
 
     def BitSet(self, key):
         return LedisBitSet(self, key)
@@ -223,6 +245,21 @@ class WalrusLedis(Ledis, Walrus):
 class TestWalrusLedis(unittest.TestCase):
     def setUp(self):
         self.db = WalrusLedis()
+        self.db.flushall()
+
+    def test_scan(self):
+        values = {
+            'k1': 'v1',
+            'k2': 'v2',
+            'k3': 'v3',
+            'charlie': 31,
+            'mickey': 7,
+            'huey': 5}
+        self.db.update(values)
+        results = self.db.scan()
+        expected = ['charlie', 'huey', 'k1', 'k2', 'k3', 'mickey']
+        self.assertEqual(list(results), expected)
+        self.assertEqual([item for item in self.db], expected)
 
     def test_string_operations(self):
         self.assertTrue(self.db.set('name', 'charlie'))
