@@ -731,6 +731,16 @@ class TestSet(WalrusTestCase):
         self.set.add('foo', 'bar', 'baz', 'nug')
         self.assertEqual(sorted(self.set.search('b*')), ['bar', 'baz'])
 
+    def test_sort(self):
+        values = ['charlie', 'zaizee', 'mickey', 'huey']
+        expected = sorted(values)
+        self.set.add(*values)
+        self.assertEqual(self.set.sort(), expected)
+
+        self.set.sort(ordering='DESC', limit=3, store='s_dest')
+        res = db.List('s_dest')
+        self.assertEqual(list(res), ['zaizee', 'mickey', 'huey'])
+
 
 class TestZSet(WalrusTestCase):
     def setUp(self):
@@ -845,6 +855,17 @@ class TestZSet(WalrusTestCase):
             list(self.zs.search('b*')),
             [('baz', 1.), ('bar', 2.)])
 
+    def test_sort(self):
+        values = ['charlie', 3, 'zaizee', 2, 'mickey', 6, 'huey', 3]
+        self.zs.add(*values)
+        self.assertEqual(
+            self.zs.sort(),
+            ['charlie', 'huey', 'mickey', 'zaizee'])
+
+        self.zs.sort(ordering='DESC', limit=3, store='z_dest')
+        res = db.List('z_dest')
+        self.assertEqual(list(res), ['zaizee', 'mickey', 'huey'])
+
 
 class TestList(WalrusTestCase):
     def setUp(self):
@@ -903,6 +924,16 @@ class TestList(WalrusTestCase):
 
         del l[:3]
         self.assertEqual([int(i) for i in l], [1, 2, 3])
+
+    def test_sort(self):
+        values = ['charlie', 'zaizee', 'mickey', 'huey']
+        expected = sorted(values)
+        self.lst.extend(values)
+        self.assertEqual(self.lst.sort(), expected)
+
+        self.lst.sort(ordering='DESC', limit=3, store='l_dest')
+        res = db.List('l_dest')
+        self.assertEqual(list(res), ['zaizee', 'mickey', 'huey'])
 
 
 class TestArray(WalrusTestCase):

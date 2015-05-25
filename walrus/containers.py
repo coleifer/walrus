@@ -9,6 +9,22 @@ def chainable_method(fn):
     return inner
 
 
+class Sortable(object):
+    def sort(self, pattern=None, limit=None, offset=None, get_pattern=None,
+             ordering=None, alpha=True, store=None):
+        if limit or offset:
+            offset = offset or 0
+        return self.database.sort(
+            self.key,
+            start=offset,
+            num=limit,
+            by=pattern,
+            get=get_pattern,
+            desc=ordering in ('DESC', 'desc'),
+            alpha=alpha,
+            store=store)
+
+
 class Container(object):
     """
     Base-class for rich Redis object wrappers.
@@ -153,7 +169,7 @@ class Hash(Container):
         return self.database.hincrbyfloat(self.key, key, incr_by)
 
 
-class List(Container):
+class List(Sortable, Container):
     """
     Redis List object wrapper. Supports a list-like interface.
 
@@ -255,7 +271,7 @@ class List(Container):
         return self.database.rpoplpush(self.key, key)
 
 
-class Set(Container):
+class Set(Sortable, Container):
     """
     Redis Set object wrapper. Supports a set-like interface.
 
@@ -392,7 +408,7 @@ class Set(Container):
         return Set(self.database, dest)
 
 
-class ZSet(Container):
+class ZSet(Sortable, Container):
     """
     Redis ZSet object wrapper. Acts like a set and a dictionary.
 
