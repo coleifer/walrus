@@ -38,17 +38,17 @@ class WalrusLite(Walrus):
     def hscan_iter(self, key, *args, **kwargs):
         if args or kwargs:
             raise ValueError('Rlite does not support scanning with arguments.')
-        return self._db.hgetall(key)
+        return self.hgetall(key)
 
     def sscan_iter(self, key, *args, **kwargs):
         if args or kwargs:
             raise ValueError('Rlite does not support scanning with arguments.')
-        return self._db.smembers(key)
+        return self.smembers(key)
 
     def zscan_iter(self, key, *args, **kwargs):
         if args or kwargs:
             raise ValueError('Rlite does not support scanning with arguments.')
-        return self._db.zrange(key, 0, -1)
+        return self.zrange(key, 0, -1)
 
 
 class TestWalrusLite(unittest.TestCase):
@@ -237,6 +237,25 @@ class TestWalrusLite(unittest.TestCase):
 
         z3 = z1.interstore('z3', z2)
         self.assertEqual(z3[:], ['3'])
+
+    def test_models(self):
+        class User(Model):
+            database = self.db
+            username = TextField(primary_key=True)
+            value = IntegerField(index=True)
+
+        for i, username in enumerate(('charlie', 'huey', 'zaizee', 'mickey')):
+            User.create(username=username, value=i)
+
+        charlie = User.load('charlie')
+        self.assertEqual(charlie.username, 'charlie')
+        self.assertEqual(charlie.value, 0)
+
+        query = User.query(
+            (User.username == 'charlie') |
+            (User.username == 'huey'))
+        users = [user.username for user in query]
+        self.assertEqual(sorted(users), ['charlie', 'huey'])
 
 
 if __name__ == '__main__':
