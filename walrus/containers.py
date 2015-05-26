@@ -383,7 +383,7 @@ class Set(Sortable, Container):
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.sdiffstore(dest, keys)
-        return Set(self.database, dest)
+        return self.database.Set(dest)
 
     def interstore(self, dest, *others):
         """
@@ -397,7 +397,7 @@ class Set(Sortable, Container):
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.sinterstore(dest, keys)
-        return Set(self.database, dest)
+        return self.database.Set(dest)
 
     def unionstore(self, dest, *others):
         """
@@ -411,7 +411,7 @@ class Set(Sortable, Container):
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.sunionstore(dest, keys)
-        return Set(self.database, dest)
+        return self.database.Set(dest)
 
 
 class ZSet(Sortable, Container):
@@ -682,7 +682,7 @@ class ZSet(Sortable, Container):
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.zinterstore(dest, keys, **kwargs)
-        return ZSet(self.database, dest)
+        return self.database.ZSet(dest)
 
     def unionstore(self, dest, *others, **kwargs):
         """
@@ -696,7 +696,7 @@ class ZSet(Sortable, Container):
         keys = [self.key]
         keys.extend([other.key for other in others])
         self.database.zunionstore(dest, keys, **kwargs)
-        return ZSet(self.database, dest)
+        return self.database.ZSet(dest)
 
 
 class HyperLogLog(Container):

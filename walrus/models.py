@@ -847,7 +847,7 @@ class Model(_with_metaclass(BaseModel)):
         """
         if convert_key:
             primary_key = cls._query.get_primary_hash_key(primary_key)
-        if not cls.database.exists(primary_key):
+        if not cls.database.hash_exists(primary_key):
             raise KeyError('Object not found.')
         raw_data = cls.database.hgetall(primary_key)
         data = {}

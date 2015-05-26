@@ -160,6 +160,9 @@ class Database(Redis):
         """
         return self.__mapping.get(self.type(key), self.__getitem__)(key)
 
+    def hash_exists(self, key):
+        return self.exists(key)
+
     def autocomplete(self, namespace='autocomplete', **kwargs):
         return Autocomplete(self, namespace, **kwargs)
 

@@ -123,13 +123,6 @@ class LedisZSet(Scannable, Sortable, ZSet):
     def clear(self):
         self.database.zclear(self.key)
 
-    def add(self, *args, **kwargs):
-        reordered = []
-        for idx in range(0, len(args), 2):
-            reordered.append(args[idx + 1])
-            reordered.append(args[idx])
-        return self.database.zadd(self.key, *reordered, **kwargs)
-
     @chainable_method
     def expire(self, ttl=None):
         if ttl is not None:
@@ -206,6 +199,19 @@ class WalrusLedis(Ledis, Scannable, Walrus):
 
     def __setitem__(self, key, value):
         self.set(key, value)
+
+    def zadd(self, key, *args, **kwargs):
+        if not isinstance(args[0], (int, float)):
+            reordered = []
+            for idx in range(0, len(args), 2):
+                reordered.append(args[idx + 1])
+                reordered.append(args[idx])
+        else:
+            reordered = args
+        return super(WalrusLedis, self).zadd(key, *reordered, **kwargs)
+
+    def hash_exists(self, key):
+        return self.execute_command('HKEYEXISTS', key)
 
     def __iter__(self):
         return self.scan()
@@ -525,6 +531,25 @@ class TestWalrusLedis(unittest.TestCase):
 
         results = z.sort(ordering='DESC', limit=3)
         self.assertEqual(results, ['zaizee', 'mickey', 'huey'])
+
+    def test_models(self):
+        class User(Model):
+            database = self.db
+            username = TextField(primary_key=True)
+            value = IntegerField(index=True)
+
+        for i, username in enumerate(('charlie', 'huey', 'zaizee', 'mickey')):
+            User.create(username=username, value=i)
+
+        charlie = User.load('charlie')
+        self.assertEqual(charlie.username, 'charlie')
+        self.assertEqual(charlie.value, 0)
+
+        query = User.query(
+            (User.username == 'charlie') |
+            (User.username == 'huey'))
+        users = [user.username for user in query]
+        self.assertEqual(sorted(users), ['charlie', 'huey'])
 
 
 if __name__ == '__main__':
