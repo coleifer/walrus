@@ -110,9 +110,12 @@ class Hash(Container):
         """Return the number of keys in the hash."""
         return self.database.hlen(self.key)
 
+    def _scan(self, *args, **kwargs):
+        return self.database.hscan_iter(self.key, *args, **kwargs)
+
     def __iter__(self):
         """Iterate over the items in the hash."""
-        return iter(self.database.hscan_iter(self.key))
+        return iter(self._scan())
 
     def search(self, pattern, count=None):
         """
@@ -122,7 +125,7 @@ class Hash(Container):
         :param int count: Limit number of results returned.
         :returns: An iterator yielding matching key/value pairs.
         """
-        return self.database.hscan_iter(self.key, pattern, count)
+        return self._scan(match=pattern, count=count)
 
     def keys(self):
         """Return the keys of the hash."""
@@ -139,7 +142,7 @@ class Hash(Container):
         a list.
         """
         if lazy:
-            return self.database.hscan_iter(self.key)
+            return self._scan()
         else:
             return list(self)
 
@@ -310,9 +313,12 @@ class Set(Sortable, Container):
         """Return the number of items in the set."""
         return self.database.scard(self.key)
 
+    def _scan(self, *args, **kwargs):
+        return self.database.sscan_iter(self.key, *args, **kwargs)
+
     def __iter__(self):
         """Return an iterable that yields the items of the set."""
-        return iter(self.database.sscan_iter(self.key))
+        return iter(self._scan())
 
     def search(self, pattern, count=None):
         """
@@ -322,7 +328,7 @@ class Set(Sortable, Container):
         :param int count: Limit number of results returned.
         :returns: An iterator yielding matching values.
         """
-        return self.database.sscan_iter(self.key, pattern, count)
+        return self._scan(match=pattern, count=count)
 
     def members(self):
         """Return a ``set()`` containing the members of the set."""
@@ -524,11 +530,14 @@ class ZSet(Sortable, Container):
         """Return the number of items in the sorted set."""
         return self.database.zcard(self.key)
 
+    def _scan(self, *args, **kwargs):
+        return self.database.zscan_iter(self.key, *args, **kwargs)
+
     def __iter__(self):
         """
         Return an iterator that will yield (item, score) tuples.
         """
-        return iter(self.database.zscan_iter(self.key))
+        return iter(self._scan())
 
     def iterator(self, with_scores=False, reverse=False):
         if with_scores and not reverse:
@@ -548,7 +557,7 @@ class ZSet(Sortable, Container):
         :param int count: Limit result set size.
         :returns: Iterator that yields matching item/score tuples.
         """
-        return self.database.zscan_iter(self.key, pattern, count)
+        return self._scan(match=pattern, count=count)
 
     def score(self, item):
         """Return the score of the given item."""
