@@ -35,6 +35,21 @@ class WalrusLite(Walrus):
             db_file = self._filename
         return '<WalrusLite: %s>' % db_file
 
+    def hscan_iter(self, key, *args, **kwargs):
+        if args or kwargs:
+            raise ValueError('Rlite does not support scanning with arguments.')
+        return self._db.hgetall(key)
+
+    def sscan_iter(self, key, *args, **kwargs):
+        if args or kwargs:
+            raise ValueError('Rlite does not support scanning with arguments.')
+        return self._db.smembers(key)
+
+    def zscan_iter(self, key, *args, **kwargs):
+        if args or kwargs:
+            raise ValueError('Rlite does not support scanning with arguments.')
+        return self._db.zrange(key, 0, -1)
+
 
 class TestWalrusLite(unittest.TestCase):
     def setUp(self):
