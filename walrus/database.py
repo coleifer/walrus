@@ -17,6 +17,7 @@ from walrus.containers import HyperLogLog
 from walrus.containers import List
 from walrus.containers import Set
 from walrus.containers import ZSet
+from walrus.counter import Counter
 from walrus.lock import Lock
 
 
@@ -176,6 +177,15 @@ class Database(Redis):
         :returns: A :py:class:`Cache` instance.
         """
         return Cache(self, name=name, default_timeout=default_timeout)
+
+    def counter(self, name):
+        """
+        Create a :py:class:`Counter` instance.
+
+        :param str name: The name used to store the counter's value.
+        :returns: A :py:class:`Counter` instance.
+        """
+        return Counter(self, name=name)
 
     def lock(self, name, ttl=None, lock_id=None):
         """
