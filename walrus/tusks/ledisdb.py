@@ -201,6 +201,9 @@ class WalrusLedis(Ledis, Scannable, Walrus):
     def __setitem__(self, key, value):
         self.set(key, value)
 
+    def setex(self, name, value, time):
+        return super(WalrusLedis, self).setex(name, time, value)
+
     def zadd(self, key, *args, **kwargs):
         if not isinstance(args[0], (int, float)):
             reordered = []

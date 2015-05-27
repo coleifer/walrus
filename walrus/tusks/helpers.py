@@ -1,3 +1,5 @@
+import datetime
+
 from walrus import *
 
 
@@ -201,3 +203,15 @@ class TestHelper(object):
             (User.username == 'huey'))
         users = [user.username for user in query]
         self.assertEqual(sorted(users), ['charlie', 'huey'])
+
+    def test_cache(self):
+        cache = self.db.cache(name='test-cache')
+
+        @cache.cached(timeout=10)
+        def now(seed=None):
+            return datetime.datetime.now()
+
+        dt1 = now()
+        self.assertEqual(now(), dt1)
+        self.assertNotEqual(now(1), dt1)
+        self.assertEqual(now(1), now(1))
