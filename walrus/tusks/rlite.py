@@ -1,3 +1,4 @@
+import fnmatch
 import sys
 import unittest
 
@@ -37,20 +38,21 @@ class WalrusLite(Walrus):
             db_file = self._filename
         return '<WalrusLite: %s>' % db_file
 
-    def hscan_iter(self, key, *args, **kwargs):
-        if args or kwargs:
-            raise ValueError('Rlite does not support scanning with arguments.')
-        return self.hgetall(key)
+    def _filtered_scan(self, results, match=None, count=None):
+        if match is not None:
+            results = fnmatch.filter(results, match)
+        if count:
+            results = results[:count]
+        return results
 
-    def sscan_iter(self, key, *args, **kwargs):
-        if args or kwargs:
-            raise ValueError('Rlite does not support scanning with arguments.')
-        return self.smembers(key)
+    def hscan_iter(self, key, match=None, count=None):
+        return self._filtered_scan(self.hgetall(key), match, count)
 
-    def zscan_iter(self, key, *args, **kwargs):
-        if args or kwargs:
-            raise ValueError('Rlite does not support scanning with arguments.')
-        return self.zrange(key, 0, -1)
+    def sscan_iter(self, key, match=None, count=None):
+        return self._filtered_scan(self.smembers(key), match, count)
+
+    def zscan_iter(self, key, match=None, count=None):
+        return self._filtered_scan(self.zrange(key, 0, -1), match, count)
 
 
 class TestWalrusLite(TestHelper, unittest.TestCase):
@@ -84,6 +86,9 @@ class TestWalrusLite(TestHelper, unittest.TestCase):
         self.assertEqual(
             items,
             ['nuggie', 'huey', 'zaizee', 'mickey', 'charlie'])
+
+        self.assertEqual(zs.search('*ie'), ['nuggie', 'charlie'])
+        self.assertEqual(zs.search('*u*'), ['nuggie', 'huey'])
 
 
 if __name__ == '__main__':
