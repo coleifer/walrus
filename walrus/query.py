@@ -1,4 +1,5 @@
 import re
+from collections import deque
 
 from walrus.containers import Set
 from walrus.containers import ZSet
@@ -20,65 +21,144 @@ CONTINUOUS = set([OP_LT, OP_LTE, OP_GT, OP_GTE, OP_BETWEEN])
 FTS = set([OP_MATCH])
 
 
-class sentinel(object): pass
+class Lexer(object):
+    def __init__(self, query, default_conjunction='AND'):
+        self.query = query
+        self.default_conjunction = default_conjunction
+
+        def yield_symbol(symbol_type):
+            def callback(scanner, token):
+                return (symbol_type, token)
+            return callback
+
+        def yield_string(scanner, token):
+            return ('STRING', token[1:-1].lower())
+
+        def yield_simple_string(scanner, token):
+            return ('STRING', token.lower())
+
+        self.scanner = re.Scanner([
+            (r'"[^\n"\\]*(?:\\.[^\n"\\]*)*"', yield_string),
+            (r"'[^\n'\\]*(?:\\.[^\n'\\]*)*'", yield_string),
+            (r'\bAND\b', yield_symbol('AND')),
+            (r'\bOR\b', yield_symbol('OR')),
+            (r'[a-zA-Z0-9@_\-]+', yield_simple_string),
+            (r'&', yield_symbol('AND')),
+            (r'\|', yield_symbol('OR')),
+            (r'\(', yield_symbol('LPAREN')),
+            (r'\)', yield_symbol('RPAREN')),
+            (r'\s+', None),
+        ])
+
+    def lex(self):
+        symbols, _ = self.scanner.scan(self.query)
+        last = None
+        for (symbol, sval) in symbols:
+            if symbol == 'STRING' and last == 'STRING':
+                # Handle default conjunctions.
+                yield self.default_conjunction, None
+            yield symbol, sval
+            last = symbol
 
 
-def tokenize(s):
-    for token in re.split('(\".+?\"|\(|\s+|\))', s):
-        token = token.strip()
-        if token:
-            yield token
+class BaseSymbol(object):
+    """Base-class for a symbol in the AST."""
+    __slots__ = []
+
+    def code(self):
+        raise NotImplementedError
 
 
-def parse(s, field=None, default_conjunction=OP_AND):
+class Symbol(BaseSymbol):
+    """An interior node of the AST, with left and optionally right children."""
+    __slots__ = ['left', 'right']
+
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+
+class Leaf(BaseSymbol):
+    """Leaf node of the AST, with a value."""
+    __slots__ = ['value']
+
+    def __init__(self, value):
+        self.value = value
+
+    def code(self):
+        return lambda f, s: Expression(f, OP_MATCH, self.value)
+
+
+class And(Symbol):
+    def code(self):
+        return lambda f, s: Expression(
+            self.left.code()(f, s),
+            OP_AND,
+            self.right.code()(f, s))
+
+
+class Or(Symbol):
+    def code(self):
+        return lambda f, s: Expression(
+            self.left.code()(f, s),
+            OP_OR,
+            self.right.code()(f, s))
+
+
+class Parser(object):
+    def __init__(self, lexer):
+        self.lexer = lexer
+        self.symbol_stream = lexer.lex()
+        self.root = None
+        self.current = None
+        self.finished = False
+
+    def get_symbol(self):
+        try:
+            self.current, self.sval = next(self.symbol_stream)
+        except StopIteration:
+            self.finished = True
+        return self.current
+
+    def parse(self):
+        self._expression()
+        if not self.finished:
+            raise ValueError('Malformed expression: %s.' % self.lexer.query)
+        return self.root
+
+    def _expression(self):
+        self._term()
+        while (self.current == 'OR'):
+            left = self.root
+            self._term()
+            self.root = Or(left, self.root)
+
+    def _term(self):
+        self._factor()
+        while (self.current == 'AND'):
+            left = self.root
+            self._factor()
+            self.root = And(left, self.root)
+
+    def _factor(self):
+        symbol = self.get_symbol()
+        if symbol == 'STRING':
+            self.root = Leaf(self.sval)
+            self.get_symbol()
+        elif symbol == 'LPAREN':
+            self._expression()
+            self.get_symbol()
+        else:
+            raise ValueError('Malformed expression: %s.' % self.lexer.query)
+
+
+def parse(s, field, default_conjunction='AND'):
     if not s.strip():
         return None
-
-    stack = []
-    stacks = [stack]
-
-    def add_to_top(obj):
-        cur_stack = stacks[-1]
-        if not cur_stack:
-            cur_stack.append(obj)
-            return
-
-        top = cur_stack[-1]
-        if isinstance(top, Node):
-            if top.lhs is sentinel:
-                top.lhs = obj
-            elif top.rhs is sentinel:
-                top.rhs = obj
-            else:
-                cur_stack.append(Expression(
-                    cur_stack.pop(),
-                    default_conjunction,
-                    obj))
-        else:
-            cur_stack.append(Expression(
-                cur_stack.pop(),
-                default_conjunction,
-                obj))
-
-    for token in tokenize(s):
-        cur_stack = stacks[-1]
-        if token == 'AND':
-            lhs = cur_stack.pop()
-            cur_stack.append(Expression(lhs, OP_AND, sentinel))
-        elif token == 'OR':
-            lhs = cur_stack.pop()
-            cur_stack.append(Expression(lhs, OP_OR, sentinel))
-        elif token == '(':
-            stacks.append([])
-        elif token == ')':
-            top = stacks.pop()
-            add_to_top(top[-1])
-        else:
-            if field is not None:
-                token = field.match(token)
-            add_to_top(token)
-
-    return stacks[-1][-1]
+    lexer = Lexer(s, default_conjunction=default_conjunction)
+    parser = Parser(lexer)
+    ast = parser.parse()
+    return ast.code()(field, s)
 
 
 class Node(object):
