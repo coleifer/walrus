@@ -171,7 +171,8 @@ High-level APIs
       get,
       load,
       delete,
-      save
+      save,
+      count
 
 Field types
 -----------

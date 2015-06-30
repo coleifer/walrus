@@ -863,6 +863,9 @@ class Model(_with_metaclass(BaseModel)):
 
     @classmethod
     def count(cls):
+        """
+        Return the number of objects in the given collection.
+        """
         return len(cls._query.all_index())
 
     def delete(self):
