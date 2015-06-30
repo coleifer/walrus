@@ -14,6 +14,7 @@ API Documentation
       search,
       get_key,
       cache,
+      counter,
       lock,
       List,
       Hash,
@@ -149,6 +150,13 @@ High-level APIs
       cached,
       cached_property,
       cache_async
+
+.. autoclass:: Counter
+    :members:
+      __init__,
+      incr,
+      decr,
+      value
 
 .. autoclass:: Lock
     :members:
