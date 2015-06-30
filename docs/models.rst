@@ -97,6 +97,8 @@ Filtering records
 
 Walrus supports basic filtering. The filtering options available vary by field type, so that :py:class:`TextField`, :py:class:`UUIDField` and similar non-scalar types support only equality and inequality tests. Scalar values, on the other hand, like integers, floats or dates, support range operations.
 
+.. warning:: You must specify ``index=True`` to be able to use a field for filtering.
+
 Let's see how this works by filtering on name and dob. The :py:meth:`~Model.query` method returns zero or more objects, while the :py:meth:`~Model.get` method requires that there be exactly one result:
 
 .. code-block:: pycon
