@@ -861,6 +861,10 @@ class Model(_with_metaclass(BaseModel)):
 
         return cls(**data)
 
+    @classmethod
+    def count(cls):
+        return len(cls._query.all_index())
+
     def delete(self):
         """
         Delete the given model instance.

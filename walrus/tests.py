@@ -570,6 +570,14 @@ class TestModels(WalrusTestCase):
         s6 = Stat.get(Stat.value == 6)
         self.assertEqual(s1.key, s6.key)
 
+    def test_count(self):
+        self.assertEqual(User.count(), 0)
+
+        for username in ['charlie', 'leslie', 'connor']:
+            User.create(username=username)
+
+        self.assertEqual(User.count(), 3)
+
 
 class TestCache(WalrusTestCase):
     def test_cache_apis(self):
