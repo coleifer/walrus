@@ -8,19 +8,19 @@ from walrus import *
 
 class VedisList(List):
     def extend(self, value):
-        return self.database.lpush(self.key, *value)
+        return self.database.lmpush(self.key, value)
 
     def pop(self):
         return self.database.lpop(self.key)
 
 
 class WalrusVedis(Vedis, Database):
-    def __init__(self, filename=':memory:'):
+    def __init__(self, filename=':mem:'):
         self._filename = filename
         Vedis.__init__(self, filename)
 
     def __repr__(self):
-        if self._filename == ':memory:':
+        if self._filename in (':memory:', ':mem:'):
             db_file = 'in-memory database'
         else:
             db_file = self._filename
@@ -32,8 +32,8 @@ class WalrusVedis(Vedis, Database):
     def parse_response(self, *args, **kwargs):
         raise RuntimeError('Error, parse_response should not be called.')
 
-    def command(self, command_name, user_data=None):
-        return self.register(command_name, user_data=user_data)
+    def command(self, command_name):
+        return self.register(command_name)
 
     # Compatibility with method names from redis-py.
     def getset(self, key, value):
@@ -45,35 +45,21 @@ class WalrusVedis(Vedis, Database):
     def decrby(self, name, amount=1):
         return self.decr_by(name, amount)
 
-    # Provide "redis-like" names for the low-level KV-store functions.
-    def kset(self, key, value):
-        return self.kv_store(key, value)
+    # Compatibility with method signatures.
+    def mset(self, **data):
+        return super(WalrusVedis, self).mset(data)
 
-    def kappend(self, key, value):
-        return self.kv_append(key, value)
+    def mget(self, *keys):
+        return super(WalrusVedis, self).mget(list(keys))
 
-    def kget(self, key, buf_size=4096, determine_buffer_size=False):
-        return self.kv_fetch(key, buf_size, determine_buffer_size)
+    def __getitem__(self, key):
+        try:
+            return super(WalrusVedis, self).__getitem__(key)
+        except KeyError:
+            pass
 
-    def kexists(self, key):
-        return self.kv_exists(key)
-
-    def kdel(self, key):
-        return self.kv_delete(key)
-
-    # Override certain methods to match either argument signature of Walrus,
-    # or to consume a lazily-generated return value.
-    def hmset(self, key, values):
-        return super(WalrusVedis, self).hmset(key, **values)
-
-    def smembers(self, key):
-        return set(super(WalrusVedis, self).smembers(key))
-
-    def sdiff(self, k1, k2):
-        return set(super(WalrusVedis, self).sdiff(k1, k2))
-
-    def sinter(self, k1, k2):
-        return set(super(WalrusVedis, self).sinter(k1, k2))
+    def sadd(self, key, *items):
+        return super(WalrusVedis, self).smadd(key, list(items))
 
     # Override the container types since Vedis provides its own using the
     # same method-names as Walrus, and we want the Walrus containers.
@@ -170,21 +156,11 @@ class TestWalrusVedis(unittest.TestCase):
 
         s1 = self.db.Set('s1')
         s2 = self.db.Set('s2')
-        s1.add(*range(5))
-        s2.add(*range(3, 7))
+        s1.add(*map(str, range(5)))
+        s2.add(*map(str, range(3, 7)))
         self.assertEqual(s1 - s2, set(['0', '1', '2']))
         self.assertEqual(s2 - s1, set(['5', '6']))
         self.assertEqual(s1 & s2, set(['3', '4']))
-
-    def test_kv(self):
-        self.db.kset('foo', 'bar')
-        self.assertEqual(self.db.kget('foo'), 'bar')
-        self.db.kappend('foo', 'xx')
-        self.assertEqual(self.db.kget('foo'), 'barxx')
-        self.assertTrue(self.db.kexists('foo'))
-        self.assertFalse(self.db.kexists('xx'))
-        self.db.kdel('foo')
-        self.assertFalse(self.db.kexists('foo'))
 
     def test_unsupported(self):
         def assertUnsupported(cmd, *args):
@@ -210,13 +186,13 @@ class TestWalrusVedis(unittest.TestCase):
 
         self.db['n1'] = 'charlie'
         self.db['n2'] = 'huey'
-        self.assertTrue(self.db.KTITLE('n1'))
+        self.assertTrue(_ktitle_impl('n1'))
         self.assertEqual(self.db['n1'], 'Charlie')
 
-        self.assertTrue(self.db.KTITLE('n2'))
+        self.assertTrue(self.db.execute('KTITLE n2'))
         self.assertEqual(self.db['n2'], 'Huey')
 
-        self.assertFalse(self.db.KTITLE('nx'))
+        self.assertFalse(self.db.execute('KTITLE nx'))
         self.assertIsNone(self.db['nx'])
 
 
