@@ -3,12 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-walrus
-======
+.. image:: http://media.charlesleifer.com/blog/photos/walrus-logo-0.png
 
 .. py:module:: walrus
-
-.. image:: http://media.charlesleifer.com/blog/photos/walrus-logo.png
 
 Lightweight Python utilities for working with `Redis <http://redis.io>`_.
 

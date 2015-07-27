@@ -1,6 +1,6 @@
 ## Walrus
 
-![](http://media.charlesleifer.com/blog/photos/walrus-logo.png)
+![](http://media.charlesleifer.com/blog/photos/walrus-logo-0.png)
 
 Lightweight Python utilities for working with [Redis](http://redis.io).
 
