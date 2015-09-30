@@ -1435,5 +1435,14 @@ class TestAutocomplete(WalrusTestCase):
         self.assertEqual(results, ['foo one', 'bar foo one'])
 
 
+class TestRateLimit(WalrusTestCase):
+    def setUp(self):
+        super(TestRateLimite, self).setUp()
+        self.rl = db.rate_limit('test-rl', 5, 1)
+
+    def test_rate_limit(self):
+        pass
+
+
 if __name__ == '__main__':
     unittest.main(argv=sys.argv)

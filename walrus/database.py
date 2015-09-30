@@ -19,6 +19,7 @@ from walrus.containers import Set
 from walrus.containers import ZSet
 from walrus.counter import Counter
 from walrus.lock import Lock
+from walrus.rate_limit import RateLimit
 
 
 class TransactionLocal(threading.local):
@@ -200,6 +201,9 @@ class Database(Redis):
         :param str lock_id: Optional identifier for the lock instance.
         """
         return Lock(self, name, ttl, lock_id)
+
+    def rate_limit(self, name, limit=5, per=60, debug=False):
+        return RateLimit(self, name, limit, per, debug)
 
     def List(self, key):
         """
