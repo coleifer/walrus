@@ -42,8 +42,8 @@ class Autocomplete(object):
         self._title_data = self.database.Hash('%s:t' % self.namespace)
         self._boosts = self.database.Hash('%s:b' % self.namespace)
 
-        self._max_title = 30
-        self._offset = 27 ** self._max_title  # a-z + space.
+        self._max_title = 10
+        self._offset = self.score_token('z' * self._max_title) + 1
 
     def _load_stopwords(self):
         if self._stopwords_file:
@@ -73,7 +73,7 @@ class Autocomplete(object):
                     c = 1
             else:
                 c = 1
-            score += c * (27 ** (self._max_title - i))
+            score += c * (27 ** (self._max_title - i - 1))
 
         return score
 
@@ -135,8 +135,9 @@ class Autocomplete(object):
         title_score = self.score_token(clean_title)
 
         for idx, word in enumerate(self.tokenize_title(title)):
-            word_score = self.score_token(word) + self._offset
-            key_score = (word_score * (idx + 1)) + title_score
+            word_score = self.score_token(word)
+            position_score = word_score + (self._offset * idx)
+            key_score = position_score + title_score
             for substring in self.substrings(word):
                 self.database.zadd(
                     self.word_key(substring),

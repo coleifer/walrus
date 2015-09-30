@@ -1272,6 +1272,17 @@ class TestAutocomplete(WalrusTestCase):
         results = self.autocomplete.search('testing', limit=2)
         self.assertResults(results, [1, 2])
 
+    def test_scoring_error(self):
+        self.autocomplete.store('aa bb cc')
+        self.autocomplete.store('tt cc')
+
+        results = self.autocomplete.search('cc')
+        self.assertEqual(results, ['tt cc', 'aa bb cc'])
+
+        self.autocomplete.store('aa b cc')
+        results = self.autocomplete.search('cc')
+        self.assertEqual(results, ['tt cc', 'aa b cc', 'aa bb cc'])
+
     def test_simple(self):
         for _, title in self.test_data:
             self.autocomplete.store(title)
