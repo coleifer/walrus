@@ -44,6 +44,17 @@ class Container(object):
         else:
             self.database.persist(self.key)
 
+    def pexpire(self, ttl=None):
+        """
+        Expire the given key in the given number of milliseconds.
+        If ``ttl`` is ``None``, then any expiry will be cleared
+        and key will be persisted.
+        """
+        if ttl is not None:
+            self.database.pexpire(self.key, ttl)
+        else:
+            self.database.persist(self.key)
+
     def dump(self):
         """
         Dump the contents of the given key using Redis' native
