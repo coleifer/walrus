@@ -30,6 +30,18 @@ class RateLimit(object):
         self._debug = debug
 
     def limit(self, key):
+        """
+        Function to log an event with the given key. If the ``key`` has not
+        exceeded their alotted events, then the function returns ``False`` to
+        indicate that no limit is being imposed.
+
+        If the ``key`` has exceeded the number of events, then the function
+        returns ``True`` indicating rate-limiting should occur.
+
+        :param str key: A key identifying the source of the event.
+        :returns: Boolean indicating whether the event should be rate-limited
+            or not.
+        """
         if self._debug:
             return False
 
@@ -49,6 +61,25 @@ class RateLimit(object):
         return is_limited
 
     def rate_limited(self, key_function=None):
+        """
+        Function or method decorator that will prevent calls to the decorated
+        function when the number of events has been exceeded for the given
+        time period.
+
+        It is probably important that you take care to choose an appropiate
+        key function. For instance, if rate-limiting a web-page you might use
+        the requesting user's IP as the key.
+
+        If the number of allowed events has been exceedd, a
+        ``RateLimitException`` will be raised.
+
+        :param key_function: Function that accepts the params of the decorated
+            function and returns a string key. If not provided, a hash of the
+            args and kwargs will be used.
+        :returns: If the call is not rate-limited, then the return value will
+            be that of the decorated function.
+        :raises: ``RateLimitException``.
+        """
         if key_function is None:
             def key_function(*args, **kwargs):
                 data = pickle.dumps((args, sorted(kwargs.items())))
