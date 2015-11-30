@@ -27,6 +27,7 @@ Contents:
    containers
    autocomplete
    cache
+   rate-limit
    models
    api
    alt-backends

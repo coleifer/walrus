@@ -34,6 +34,7 @@ from walrus.containers import ZSet
 from walrus.database import Database
 from walrus.lock import Lock
 from walrus.models import *
+from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitException
 
 # Friendly alias.

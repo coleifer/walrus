@@ -182,6 +182,12 @@ High-level APIs
       save,
       count
 
+.. autoclass:: RateLimit
+    :members:
+      __init__,
+      limit,
+      rate_limited
+
 Field types
 -----------
 
