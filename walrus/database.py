@@ -203,6 +203,12 @@ class Database(Redis):
         return Lock(self, name, ttl, lock_id)
 
     def rate_limit(self, name, limit=5, per=60, debug=False):
+        """
+        Rate limit implementation. Allows up to `limit` of events every `per`
+        seconds.
+
+        See :ref:`rate-limit` for more information.
+        """
         return RateLimit(self, name, limit, per, debug)
 
     def List(self, key):

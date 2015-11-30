@@ -16,6 +16,7 @@ API Documentation
       cache,
       counter,
       lock,
+      rate_limit,
       List,
       Hash,
       Set,
