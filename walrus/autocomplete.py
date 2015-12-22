@@ -296,7 +296,7 @@ class Autocomplete(object):
                 if orig_score != score:
                     results[raw_id] = score
 
-        return self._load_objects(results[0:0], limit)
+        return self._load_objects(results[:limit], limit)
 
     def get_cache_key(self, phrases, boosts):
         if boosts:
