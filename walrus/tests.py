@@ -1177,11 +1177,14 @@ class TestAutocomplete(WalrusTestCase):
     def assertResults(self, results, expected):
         self.assertEqual([result['obj_id'] for result in results], expected)
 
+    def assertSearch(self, results, expected):
+        self.assertEqual(list(results), expected)
+
     def test_search(self):
         self.store_test_data()
 
         results = self.autocomplete.search('testing python')
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             {'obj_id': 1, 'title': 'testing python', 'value': 'odd'},
             {'obj_id': 2, 'title': 'testing python code', 'value': 'even'},
             {'obj_id': 3, 'title': 'web testing python code', 'value': 'odd'},
@@ -1193,9 +1196,9 @@ class TestAutocomplete(WalrusTestCase):
         results = self.autocomplete.search('uni')
         self.assertResults(results, [4])
 
-        self.assertEqual(self.autocomplete.search(''), [])
-        self.assertEqual(self.autocomplete.search('missing'), [])
-        self.assertEqual(self.autocomplete.search('the'), [])
+        self.assertSearch(self.autocomplete.search(''), [])
+        self.assertSearch(self.autocomplete.search('missing'), [])
+        self.assertSearch(self.autocomplete.search('the'), [])
 
     def test_boosting(self):
         letters = ('alpha', 'beta', 'gamma', 'delta')
@@ -1236,7 +1239,7 @@ class TestAutocomplete(WalrusTestCase):
             self.autocomplete.store(obj_id, obj_type=obj_type)
 
         results = self.autocomplete.search('aa')
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             'aaa',
             'aaab',
             'aab',
@@ -1244,7 +1247,7 @@ class TestAutocomplete(WalrusTestCase):
 
         self.autocomplete.boost_object(obj_type=2, multiplier=2)
         results = self.autocomplete.search('aa')
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             'aab',
             'aaa',
             'aaab',
@@ -1252,14 +1255,14 @@ class TestAutocomplete(WalrusTestCase):
 
         self.autocomplete.boost_object('aac', multiplier=3)
         results = self.autocomplete.search('aa')
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             'aac',
             'aab',
             'aaa',
             'aaab'])
 
         results = self.autocomplete.search('aa', boosts={'aac': 1.5})
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             'aab',
             'aac',
             'aaa',
@@ -1273,31 +1276,45 @@ class TestAutocomplete(WalrusTestCase):
         results = self.autocomplete.search('testing', limit=2)
         self.assertResults(results, [1, 2])
 
+    def test_search_empty(self):
+        gen_exp = self.autocomplete.search('')
+        self.assertSearch(gen_exp, [])
+
+    def test_chunked(self):
+        for i in range(25):
+            self.autocomplete.store('foo %s' % (chr(i + ord('a')) * 2))
+
+        ge = self.autocomplete.search('foo', limit=21, chunk_size=5)
+        results = list(ge)
+        self.assertEqual(len(results), 21)
+        self.assertEqual(results[0], 'foo aa')
+        self.assertEqual(results[-1], 'foo uu')
+
     def test_scoring_error(self):
         self.autocomplete.store('aa bb cc')
         self.autocomplete.store('tt cc')
 
         results = self.autocomplete.search('cc')
-        self.assertEqual(results, ['tt cc', 'aa bb cc'])
+        self.assertSearch(results, ['tt cc', 'aa bb cc'])
 
         self.autocomplete.store('aa b cc')
         results = self.autocomplete.search('cc')
-        self.assertEqual(results, ['tt cc', 'aa b cc', 'aa bb cc'])
+        self.assertSearch(results, ['tt cc', 'aa b cc', 'aa bb cc'])
 
     def test_simple(self):
         for _, title in self.test_data:
             self.autocomplete.store(title)
 
-        self.assertEqual(self.autocomplete.search('testing'), [
+        self.assertSearch(self.autocomplete.search('testing'), [
             'testing python',
             'testing python code',
             'web testing python code'])
-        self.assertEqual(self.autocomplete.search('code'), [
+        self.assertSearch(self.autocomplete.search('code'), [
             'testing python code',
             'web testing python code'])
 
         self.autocomplete.store('z python code')
-        self.assertEqual(self.autocomplete.search('cod'), [
+        self.assertSearch(self.autocomplete.search('cod'), [
             'testing python code',
             'z python code',
             'web testing python code'])
@@ -1314,10 +1331,10 @@ class TestAutocomplete(WalrusTestCase):
             self.autocomplete.store(s)
 
         results = self.autocomplete.search('aaa')
-        self.assertEqual(results, sorted(strings))
+        self.assertSearch(results, sorted(strings))
 
         results = self.autocomplete.search('aaa', limit=30)
-        self.assertEqual(results, sorted(strings)[:30])
+        self.assertSearch(results, sorted(strings)[:30])
 
     def test_removing_objects(self):
         self.store_test_data()
@@ -1376,30 +1393,30 @@ class TestAutocomplete(WalrusTestCase):
         self.autocomplete.store('id3', 'title foo', 'd3', 't3')
 
         results = self.autocomplete.search('tit')
-        self.assertEqual(results, ['d1', 'd3', 'd2'])
+        self.assertSearch(results, ['d1', 'd3', 'd2'])
 
         # overwrite the data for id1
         self.autocomplete.store('id1', 'title foo', 'D1', 't1')
 
         results = self.autocomplete.search('tit')
-        self.assertEqual(results, ['D1', 'd3', 'd2'])
+        self.assertSearch(results, ['D1', 'd3', 'd2'])
 
         # overwrite the data with a new title, will remove the title one refs
         self.autocomplete.store('id1', 'Herple', 'done', 't1')
 
         results = self.autocomplete.search('tit')
-        self.assertEqual(results, ['d3', 'd2'])
+        self.assertSearch(results, ['d3', 'd2'])
 
         results = self.autocomplete.search('herp')
-        self.assertEqual(results, ['done'])
+        self.assertSearch(results, ['done'])
 
         self.autocomplete.store('id1', 'title baze', 'Done', 't1')
         results = self.autocomplete.search('tit')
-        self.assertEqual(results, ['Done', 'd3', 'd2'])
+        self.assertSearch(results, ['Done', 'd3', 'd2'])
 
         # this shows that when we don't clean up crap gets left around
         results = self.autocomplete.search('herp')
-        self.assertEqual(results, [])
+        self.assertSearch(results, [])
 
     def test_word_position_ordering(self):
         self.autocomplete.store('aaaa bbbb')
@@ -1408,22 +1425,22 @@ class TestAutocomplete(WalrusTestCase):
         self.autocomplete.store('aaaa bbbb')
 
         results = self.autocomplete.search('bb')
-        self.assertEqual(results, ['bbbb aaaa', 'bbbb cccc', 'aaaa bbbb'])
+        self.assertSearch(results, ['bbbb aaaa', 'bbbb cccc', 'aaaa bbbb'])
 
         results = self.autocomplete.search('aa')
-        self.assertEqual(results, ['aaaa bbbb', 'bbbb aaaa'])
+        self.assertSearch(results, ['aaaa bbbb', 'bbbb aaaa'])
 
         self.autocomplete.store('aabb bbbb')
 
         results = self.autocomplete.search('bb')
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             'bbbb aaaa',
             'bbbb cccc',
             'aaaa bbbb',
             'aabb bbbb'])
 
         results = self.autocomplete.search('aa')
-        self.assertEqual(results, [
+        self.assertSearch(results, [
             'aaaa bbbb',
             'aabb bbbb',
             'bbbb aaaa'])
@@ -1433,7 +1450,7 @@ class TestAutocomplete(WalrusTestCase):
         self.autocomplete.store('bar foo one')
 
         results = self.autocomplete.search('foo')
-        self.assertEqual(results, ['foo one', 'bar foo one'])
+        self.assertSearch(results, ['foo one', 'bar foo one'])
 
 
 class TestRateLimit(WalrusTestCase):

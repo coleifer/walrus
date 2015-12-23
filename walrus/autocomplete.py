@@ -216,30 +216,24 @@ class Autocomplete(object):
         else:
             self._boosts[combined_id] = multiplier
 
-    def _load_objects(self, obj_id_list, limit):
-        ct = 0
-        data = []
-        if not obj_id_list:
-            return data
+    def _load_objects(self, obj_id_zset, limit, chunk_size=1000):
+        ct = i = 0
+        while True:
+            id_chunk = obj_id_zset[i:i + chunk_size]
+            if not id_chunk:
+                raise StopIteration
 
-        if limit is not None:
-            chunks = chunked(obj_id_list, limit)
-        else:
-            chunks = [obj_id_list]
-
-        for chunk in chunks:
-            for raw_data in self._data[chunk]:
+            i += chunk_size
+            for raw_data in self._data[id_chunk]:
                 if not raw_data:
                     continue
                 if self._use_json:
-                    data.append(json.loads(raw_data.decode('utf-8')))
+                    yield json.loads(raw_data.decode('utf-8'))
                 else:
-                    data.append(raw_data)
+                    yield raw_data
                 ct += 1
                 if limit and ct == limit:
-                    return data
-
-        return data
+                    raise StopIteration
 
     def _load_saved_boosts(self):
         boosts = {}
@@ -254,7 +248,7 @@ class Autocomplete(object):
                 boosts[obj_type] = score
         return boosts
 
-    def search(self, phrase, limit=None, boosts=None):
+    def search(self, phrase, limit=None, boosts=None, chunk_size=1000):
         """
         Perform a search for the given phrase. Objects whose title
         matches the search will be returned. The values returned
@@ -270,7 +264,7 @@ class Autocomplete(object):
         """
         cleaned = self.tokenize_title(phrase, stopwords=False)
         if not cleaned:
-            return []
+            raise StopIteration
 
         all_boosts = self._load_saved_boosts()
         all_boosts.update(boosts or {})
@@ -296,7 +290,8 @@ class Autocomplete(object):
                 if orig_score != score:
                     results[raw_id] = score
 
-        return self._load_objects(results[0:0], limit)
+        for result in self._load_objects(results, limit, chunk_size):
+            yield result
 
     def get_cache_key(self, phrases, boosts):
         if boosts:
