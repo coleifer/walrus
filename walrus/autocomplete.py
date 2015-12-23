@@ -1,7 +1,6 @@
 import json
 import re
 
-from walrus.utils import chunked
 from walrus.utils import load_stopwords
 
 

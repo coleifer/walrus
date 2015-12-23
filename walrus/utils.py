@@ -1,7 +1,3 @@
-try:
-    from itertools import izip_longest
-except ImportError:
-    from itertools import zip_longest as izip_longest
 import os
 import sys
 
@@ -35,14 +31,3 @@ def load_stopwords(stopwords_file):
 
     with open(filename) as fh:
         return fh.read()
-
-
-_sentinel = object()
-
-def chunked(iterable, n):
-    gen_expr = (list(g) for g in izip_longest(
-        *[iter(iterable)] * n, fillvalue=_sentinel))
-    for group in gen_expr:
-        if group[-1] is _sentinel:
-            del group[group.index(_sentinel):]
-        yield group
