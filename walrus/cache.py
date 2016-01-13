@@ -163,6 +163,9 @@ class Cache(object):
                     return self
                 return self._fn(instance)
 
+            def __delete__(self, obj):
+                self._fn.bust(obj)
+
             def __set__(self, instance, value):
                 raise ValueError('Cannot set value of a cached property.')
 

@@ -605,6 +605,11 @@ class TestCache(WalrusTestCase):
         n2 = c.now
         self.assertEqual(n1, n2)
 
+        del c.now
+        n3 = c.now
+        self.assertTrue(n1 != n3)
+        self.assertEqual(c.now, n3)
+
     def test_cached_async(self):
         @cache.cache_async()
         def double_value(value):
