@@ -86,7 +86,7 @@ class Hash(Container):
             data = self.as_dict()
         return '<Hash "%s": %s>' % (self.key, data)
 
-    def __getitem__(self, item):
+    def __getitem__(self, key):
         """
         Retrieve the value at the given key. To retrieve multiple
         values at once, you can specify multiple keys as a tuple or
@@ -97,10 +97,10 @@ class Hash(Container):
             hsh = db.Hash('my-hash')
             first, last = hsh['first_name', 'last_name']
         """
-        if isinstance(item, (list, tuple)):
-            return self.database.hmget(self.key, item)
+        if isinstance(key, (list, tuple)):
+            return self.database.hmget(self.key, key)
         else:
-            return self.database.hget(self.key, item)
+            return self.database.hget(self.key, key)
 
     def __setitem__(self, key, value):
         """Set the value of the given key."""

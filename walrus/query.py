@@ -294,9 +294,7 @@ class Executor(object):
         index = lhs.get_index(OP_MATCH)
         db_value = lhs.db_value(rhs)
         words = index.tokenize(db_value)
-        index_keys = []
-        for word in words:
-            index_keys.append(index.get_key(word).key)
+        index_keys = [index.get_key(word).key for word in words]
 
         results = self.database.ZSet(self.database.get_temp_key())
         if index_keys:
