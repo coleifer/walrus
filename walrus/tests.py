@@ -579,6 +579,17 @@ class TestModels(WalrusTestCase):
 
         self.assertEqual(User.count(), 3)
 
+    def test_query_delete(self):
+        for i in range(5):
+            u = User.create(username='u%s' % (i + 1))
+
+        User.query_delete((User.username == 'u1') | (User.username == 'u4'))
+        usernames = [user.username for user in User.all()]
+        self.assertEqual(sorted(usernames), ['u2', 'u3', 'u5'])
+
+        User.query_delete()
+        self.assertEqual([user for user in User.all()], [])
+
 
 class TestCache(WalrusTestCase):
     def test_cache_apis(self):

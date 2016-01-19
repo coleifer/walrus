@@ -177,6 +177,7 @@ High-level APIs
       create,
       all,
       query,
+      query_delete,
       get,
       load,
       delete,

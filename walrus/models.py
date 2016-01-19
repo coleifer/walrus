@@ -819,6 +819,24 @@ class Model(_with_metaclass(BaseModel)):
             yield cls.load(hash_id, convert_key=False)
 
     @classmethod
+    def query_delete(cls, expression=None):
+        """
+        Delete model instances matching the given expression (if
+        specified). If no expression is provided, then all model instances
+        will be deleted.
+
+        :param expression: A boolean expression to filter by.
+        """
+        if expression is not None:
+            executor = Executor(cls.database)
+            result = executor.execute(expression)
+        else:
+            result = cls._query.all_index()
+
+        for hash_id in result:
+            cls.load(hash_id, convert_key=False).delete()
+
+    @classmethod
     def get(cls, expression):
         """
         Retrieve the model instance matching the given expression.
