@@ -905,6 +905,11 @@ class Model(_with_metaclass(BaseModel)):
             for index in field.get_indexes():
                 index.remove(original_instance)
 
+        # Remove all container fields.
+        for field in self._fields.values():
+            if isinstance(field, _ContainerField):
+                field._delete(self)
+
         # Remove the object itself.
         self.database.delete(hash_key)
 
