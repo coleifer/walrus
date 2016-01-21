@@ -13,8 +13,7 @@ class RateLimit(object):
     Rate limit implementation. Allows up to `number` of events every `per`
     seconds.
     """
-    def __init__(self, database, name='rate-limit', limit=5, per=60,
-                 debug=False):
+    def __init__(self, database, name, limit=5, per=60, debug=False):
         """
         :param database: :py:class:`Database` instance.
         :param name: Namespace for this cache.
