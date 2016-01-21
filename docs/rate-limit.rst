@@ -26,7 +26,7 @@ You can :py:meth:`~RateLimit.limit` to log an event and check whether it should 
 
     >>> from walrus import *
     >>> db = Database()
-    >>> rate_limit = db.rate_limit(limit=2, per=60)  # 2 events per minute.
+    >>> rate_limit = db.rate_limit('mylimit', limit=2, per=60)  # 2 events per minute.
 
     >>> rate_limit.limit('user-1')
     False
