@@ -45,7 +45,7 @@ The :py:class:`Hash` acts like a Python ``dict``.
     >>> h.update(name='Charlie', favorite_cat='Huey')
     <Hash "charlie": {'name': 'Charlie', 'favorite_cat': 'Huey'}>
 
-We can use common Python interfaces like iteration, len, conatins, etc.
+We can use common Python interfaces like iteration, len, contains, etc.
 
 .. code-block:: pycon
 
