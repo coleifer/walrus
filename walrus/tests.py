@@ -51,9 +51,6 @@ class Stat(BaseModel):
     stat_type = ByteField(index=True)
     value = IntegerField(index=True)
 
-class HashModel(BaseModel):
-    data = HashField()
-
 
 cache = db.cache(name='test.cache')
 
@@ -592,16 +589,6 @@ class TestModels(WalrusTestCase):
 
         User.query_delete()
         self.assertEqual([user for user in User.all()], [])
-
-    def test_delete_container_fields(self):
-        hm1 = HashModel.create()
-        hm1.data['k1'] = 'v1'
-        hm2 = HashModel.create()
-        hm2.data['k2'] = 'v2'
-
-        hm1.delete()
-        self.assertEqual(hm1.data.as_dict(), {})
-        self.assertEqual(hm2.data.as_dict(), {'k2': 'v2'})
 
 
 class TestCache(WalrusTestCase):
