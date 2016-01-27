@@ -886,7 +886,7 @@ class Model(_with_metaclass(BaseModel)):
         """
         return len(cls._query.all_index())
 
-    def delete(self):
+    def delete(self, for_update=False):
         """
         Delete the given model instance.
         """
@@ -904,6 +904,11 @@ class Model(_with_metaclass(BaseModel)):
         for field in self._indexes:
             for index in field.get_indexes():
                 index.remove(original_instance)
+
+        if not for_update:
+            for field in self._fields.values():
+                if isinstance(field, _ContainerField):
+                    field._delete(self)
 
         # Remove the object itself.
         self.database.delete(hash_key)
@@ -923,7 +928,7 @@ class Model(_with_metaclass(BaseModel)):
             require_delete = True
 
         if require_delete:
-            self.delete()
+            self.delete(for_update=True)
 
         data = self._get_data_dict()
         hash_obj = self.to_hash()

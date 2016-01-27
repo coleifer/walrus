@@ -51,6 +51,9 @@ class Stat(BaseModel):
     stat_type = ByteField(index=True)
     value = IntegerField(index=True)
 
+class HashModel(BaseModel):
+    data = HashField()
+    name = TextField()
 
 cache = db.cache(name='test.cache')
 
@@ -589,6 +592,31 @@ class TestModels(WalrusTestCase):
 
         User.query_delete()
         self.assertEqual([user for user in User.all()], [])
+
+    def test_container_field_persistence(self):
+        hm1 = HashModel.create(name='hm1')
+        hm1.data.update(k1='v1', k2='v2')
+
+        hm2 = HashModel.create(name='hm2')
+        hm2.data.update(k3='v3', k4='v4')
+
+        hm1.name = 'hm1-e'
+        hm1.save()
+
+        hm1_db = HashModel.load(hm1._id)
+        self.assertEqual(hm1_db.name, 'hm1-e')
+        self.assertEqual(hm1.data.as_dict(), {'k1': 'v1', 'k2': 'v2'})
+
+    def test_delete_container_fields(self):
+        hm1 = HashModel.create(name='hm1')
+        hm1.data.update(k1='v1', k2='v2')
+
+        hm2 = HashModel.create(name='hm2')
+        hm2.data.update(k3='v3', k4='v4')
+
+        hm1.delete()
+        self.assertEqual(hm1.data.as_dict(), {})
+        self.assertEqual(hm2.data.as_dict(), {'k3': 'v3', 'k4': 'v4'})
 
 
 class TestCache(WalrusTestCase):
