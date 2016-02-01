@@ -159,6 +159,16 @@ High-level APIs
       decr,
       value
 
+.. autoclass:: Graph
+    :members:
+      __init__,
+      store,
+      store_many,
+      delete,
+      query,
+      search,
+      v
+
 .. autoclass:: Lock
     :members:
       __init__,
