@@ -15,6 +15,7 @@ API Documentation
       get_key,
       cache,
       counter,
+      graph,
       lock,
       rate_limit,
       List,
