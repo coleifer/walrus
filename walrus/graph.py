@@ -12,34 +12,20 @@ class _VariableGenerator(object):
 
 
 class Graph(object):
-    def __init__(self, walrus, namespace, serialize=json.dumps,
-                 deserialize=json.loads):
+    """
+    """
+    def __init__(self, walrus, namespace):
         self.walrus = walrus
         self.namespace = namespace
-        self.serialize = serialize
-        self.deserialize = deserialize
         self.v = _VariableGenerator()
-        self._h = self.walrus.Hash(self.namespace)
-        self._z = self.walrus.ZSet(self.namespace + '-idx')
-
-    def _data_for_storage(self, s, p, o):
-        serialized = self.serialize({
-            's': s,
-            'p': p,
-            'o': o})
-
-        data = {}
-        for key in self.keys_for_values(s, p, o):
-            yield (key, serialized)
+        self._z = self.walrus.ZSet(self.namespace)
 
     def store(self, s, p, o):
         with self.walrus.atomic():
-            for key, data in self._data_for_storage(s, p, o):
-                self._h[key] = data
+            for key in self.keys_for_values(s, p, o):
                 self._z[key] = 0
 
     def store_many(self, items):
-        data = {}
         with self.walrus.atomic():
             for item in items:
                 self.store(*item)
@@ -47,7 +33,6 @@ class Graph(object):
     def delete(self, s, p, o):
         with self.walrus.atomic():
             for key in self.keys_for_values(s, p, o):
-                del self._h[key]
                 del self._z[key]
 
     def keys_for_values(self, s, p, o):
@@ -82,15 +67,15 @@ class Graph(object):
 
     def query(self, s=None, p=None, o=None):
         start, end = self.keys_for_query(s, p, o)
-        deserialize = self.deserialize
         if end is None:
-            try:
-                yield deserialize(self._h[start])
-            except KeyError:
+            if start in self._z:
+                yield {'s': s, 'p': p, 'o': o}
+            else:
                 raise StopIteration
         else:
             for key in self._z.range_by_lex('[' + start, '[' + end):
-                yield deserialize(self._h[key])
+                keys, p1, p2, p3 = key.split('::')
+                yield dict(zip(keys, (p1, p2, p3)))
 
     def v(self, name):
         return Variable(name)
