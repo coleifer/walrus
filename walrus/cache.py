@@ -85,7 +85,7 @@ class Cache(object):
     def _key_fn(a, k):
         return hashlib.md5(pickle.dumps((a, k))).hexdigest()
 
-    def cached(self, key_fn=_key_fn, timeout=3600):
+    def cached(self, key_fn=_key_fn, timeout=None):
         """
         Decorator that will transparently cache calls to the
         wrapped function. By default, the cache key will be made
@@ -135,7 +135,7 @@ class Cache(object):
             return inner
         return decorator
 
-    def cached_property(self, key_fn=_key_fn, timeout=3600):
+    def cached_property(self, key_fn=_key_fn, timeout=None):
         """
         Decorator that will transparently cache calls to the wrapped
         method. The method will be exposed as a property.
