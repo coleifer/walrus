@@ -603,7 +603,7 @@ class BaseModel(type):
                 if value._index:
                     indexes.append(value)
                 fields[key] = value
-                if value._default:
+                if value._default is not None:
                     defaults[key] = value._default
 
         model_class._defaults = defaults
