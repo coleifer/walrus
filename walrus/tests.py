@@ -56,7 +56,6 @@ class HashModel(BaseModel):
 
 class DefaultOption(BaseModel):
     default_empty = JSONField()
-    default_dict = JSONField(default={})
     txt = TextField(default='')
     num = IntegerField(default=0)
 
@@ -612,7 +611,6 @@ class TestModels(WalrusTestCase):
     def test_default_is_an_empty_dict(self):
         instance = DefaultOption()
         self.assertRaises(KeyError, lambda: instance.default_empty)
-        self.assertEqual(instance.default_dict, {})
         self.assertEqual(instance.num, 0)
         self.assertEqual(instance.txt, '')
 
