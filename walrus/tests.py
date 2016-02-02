@@ -55,6 +55,12 @@ class HashModel(BaseModel):
     data = HashField()
     name = TextField()
 
+class DefaultOption(BaseModel):
+    default_empty = JSONField()
+    txt = TextField(default='')
+    num = IntegerField(default=0)
+
+
 cache = db.cache(name='test.cache')
 
 
@@ -617,6 +623,12 @@ class TestModels(WalrusTestCase):
         hm1.delete()
         self.assertEqual(hm1.data.as_dict(), {})
         self.assertEqual(hm2.data.as_dict(), {'k3': 'v3', 'k4': 'v4'})
+
+    def test_default_is_an_empty_dict(self):
+        instance = DefaultOption()
+        self.assertRaises(KeyError, lambda: instance.default_empty)
+        self.assertEqual(instance.num, 0)
+        self.assertEqual(instance.txt, '')
 
 
 class TestCache(WalrusTestCase):
