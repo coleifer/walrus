@@ -18,6 +18,7 @@ from walrus.containers import List
 from walrus.containers import Set
 from walrus.containers import ZSet
 from walrus.counter import Counter
+from walrus.graph import Graph
 from walrus.lock import Lock
 from walrus.rate_limit import RateLimit
 
@@ -187,6 +188,15 @@ class Database(Redis):
         :returns: A :py:class:`Counter` instance.
         """
         return Counter(self, name=name)
+
+    def graph(self, name, *args, **kwargs):
+        """
+        Creates a :py:class:`Graph` instance.
+
+        :param str name: The namespace for the graph metadata.
+        :returns: a :py:class:`Graph` instance.
+        """
+        return Graph(self, name, *args, **kwargs)
 
     def lock(self, name, ttl=None, lock_id=None):
         """

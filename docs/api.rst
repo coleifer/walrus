@@ -15,6 +15,7 @@ API Documentation
       get_key,
       cache,
       counter,
+      graph,
       lock,
       rate_limit,
       List,
@@ -158,6 +159,16 @@ High-level APIs
       incr,
       decr,
       value
+
+.. autoclass:: Graph
+    :members:
+      __init__,
+      store,
+      store_many,
+      delete,
+      query,
+      search,
+      v
 
 .. autoclass:: Lock
     :members:
