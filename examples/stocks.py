@@ -5,7 +5,7 @@ db = Database()
 autocomplete = db.autocomplete(namespace='stocks')
 
 def load_data():
-    url = 'http://media.charlesleifer.com/downloads/misc/NYSE.txt'
+    url = 'http://media.charlesleifer.com/blog/downloads/misc/NYSE.txt'
     contents = urllib2.urlopen(url).read()
     for row in contents.splitlines()[1:]:
         ticker, company = row.split('\t')
