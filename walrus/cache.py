@@ -26,6 +26,7 @@ class Cache(object):
         self.name = name
         self.default_timeout = default_timeout
         self.debug = debug
+        self.metrics = {'hits': 0, 'misses': 0, 'writes': 0}
 
     def make_key(self, s):
         return ':'.join((self.name, s))
@@ -43,8 +44,10 @@ class Cache(object):
         try:
             value = self.database[key]
         except KeyError:
+            self.metrics['misses'] += 1
             return default
         else:
+            self.metrics['hits'] += 1
             return pickle.loads(value)
 
     def set(self, key, value, timeout=None):
@@ -60,6 +63,7 @@ class Cache(object):
             return True
 
         pickled_value = pickle.dumps(value)
+        self.metrics['sets'] += 1
         if timeout:
             return self.database.setex(key, pickled_value, int(timeout))
         else:
