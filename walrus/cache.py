@@ -2,6 +2,7 @@ from functools import wraps
 import hashlib
 import pickle
 import threading
+import time
 try:
     from Queue import Queue  # Python 2
 except ImportError:
@@ -85,7 +86,7 @@ class Cache(object):
     def _key_fn(a, k):
         return hashlib.md5(pickle.dumps((a, k))).hexdigest()
 
-    def cached(self, key_fn=_key_fn, timeout=None):
+    def cached(self, key_fn=_key_fn, timeout=None, metrics=False):
         """
         Decorator that will transparently cache calls to the
         wrapped function. By default, the cache key will be made
@@ -95,6 +96,7 @@ class Cache(object):
         :param key_fn: Function used to generate a key from the
             given args and kwargs.
         :param timeout: Time to cache return values.
+        :param metrics: Keep stats on cache utilization and timing.
         :returns: Return the result of the decorated function
             call with the given args and kwargs.
 
@@ -122,16 +124,40 @@ class Cache(object):
             def bust(*args, **kwargs):
                 return self.delete(make_key(args, kwargs))
 
+            _metrics = {
+                'hits': 0,
+                'misses': 0,
+                'avg_hit_time': 0,
+                'avg_miss_time': 0}
+
             @wraps(fn)
             def inner(*args, **kwargs):
+                if metrics:
+                    start = time.time()
+                    is_hit = True
                 key = make_key(args, kwargs)
                 res = self.get(key)
                 if res is None:
                     res = fn(*args, **kwargs)
                     self.set(key, res, timeout)
+                    if metrics:
+                        is_hit = False
+
+                if metrics:
+                    dur = time.time() - start
+                    if is_hit:
+                        metrics['hits'] += 1
+                        metrics['avg_hit_time'] += (dur / metrics['hits'])
+                    else:
+                        metrics['misses'] += 1
+                        metrics['avg_miss_time'] += (dur / metrics['misses'])
+
                 return res
+
             inner.bust = bust
             inner.make_key = make_key
+            if metrics:
+                inner.metrics = _metrics
             return inner
         return decorator
 
