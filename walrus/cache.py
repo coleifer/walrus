@@ -63,7 +63,7 @@ class Cache(object):
             return True
 
         pickled_value = pickle.dumps(value)
-        self.metrics['sets'] += 1
+        self.metrics['writes'] += 1
         if timeout:
             return self.database.setex(key, pickled_value, int(timeout))
         else:
@@ -150,11 +150,11 @@ class Cache(object):
                 if metrics:
                     dur = time.time() - start
                     if is_hit:
-                        metrics['hits'] += 1
-                        metrics['avg_hit_time'] += (dur / metrics['hits'])
+                        _metrics['hits'] += 1
+                        _metrics['avg_hit_time'] += (dur / _metrics['hits'])
                     else:
-                        metrics['misses'] += 1
-                        metrics['avg_miss_time'] += (dur / metrics['misses'])
+                        _metrics['misses'] += 1
+                        _metrics['avg_miss_time'] += (dur / _metrics['misses'])
 
                 return res
 
