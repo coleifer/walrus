@@ -1,7 +1,10 @@
 import json
 import re
 
+from walrus.utils import decode
+from walrus.utils import encode
 from walrus.utils import load_stopwords
+from walrus.utils import PY3
 
 
 class Autocomplete(object):
@@ -237,7 +240,7 @@ class Autocomplete(object):
     def _load_saved_boosts(self):
         boosts = {}
         for combined_id, score in self._boosts:
-            obj_id, obj_type = combined_id.split('\x01', 1)
+            obj_id, obj_type = combined_id.split(encode('\x01'), 1)
             score = float(score)
             if obj_id and obj_type:
                 boosts[combined_id] = score
@@ -266,7 +269,11 @@ class Autocomplete(object):
             raise StopIteration
 
         all_boosts = self._load_saved_boosts()
-        all_boosts.update(boosts or {})
+        if PY3 and boosts:
+            for key in boosts:
+                all_boosts[encode(key)] = boosts[key]
+        elif boosts:
+            all_boosts.update(boosts)
 
         if len(cleaned) == 1 and not all_boosts:
             result_key = self.word_key(cleaned[0])
@@ -282,7 +289,7 @@ class Autocomplete(object):
         if all_boosts:
             for raw_id, score in results[0:0, True]:
                 orig_score = score
-                for identifier in raw_id.split('\x01', 1):
+                for identifier in raw_id.split(encode('\x01'), 1):
                     if identifier and identifier in all_boosts:
                         score *= 1 / all_boosts[identifier]
 

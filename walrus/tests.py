@@ -20,6 +20,11 @@ try:
     from walrus.tusks.vedisdb import TestWalrusVedis
 except ImportError:
     pass
+from walrus.utils import encode
+
+
+if sys.version_info[0] == 3:
+    unicode = str
 
 
 db = Database(db=15)
@@ -82,6 +87,37 @@ class WalrusTestCase(unittest.TestCase):
         db.flushdb()
         db._transaction_local.pipes = []
 
+    def assertBytes(self, value, expected):
+        if isinstance(expected, unicode) and isinstance(value, bytes):
+            expected = expected.encode('utf-8')
+        return self.assertEqual(value, expected)
+
+    def assertList(self, values, expected):
+        for value, item in zip(values, expected):
+            self.assertEquivalent(value, item)
+
+        assert len(values) == len(expected)
+
+    def assertDict(self, values, expected):
+        for vkey, ekey in zip(sorted(values), sorted(expected)):
+            value = values[vkey]
+            item = expected[ekey]
+            self.assertEquivalent(vkey, ekey)
+            self.assertEquivalent(value, item)
+
+    def assertSet(self, values, expected):
+        self.assertList(sorted(values), sorted(expected))
+
+    def assertEquivalent(self, lhs, rhs):
+        if isinstance(rhs, dict):
+            self.assertDict(lhs, rhs)
+        elif isinstance(rhs, (list, tuple)):
+            self.assertList(lhs, rhs)
+        elif isinstance(rhs, set):
+            self.assertSet(lhs, rhs)
+        else:
+            self.assertBytes(lhs, rhs)
+
 
 class TestModels(WalrusTestCase):
     def create_objects(self):
@@ -95,12 +131,12 @@ class TestModels(WalrusTestCase):
 
     def test_create(self):
         self.create_objects()
-        self.assertEqual(
+        self.assertEquivalent(
             sorted(user.username for user in User.all()),
             ['u1', 'u2', 'u3'])
 
         notes = Note.query(Note.user == 'u1')
-        self.assertEqual(
+        self.assertEquivalent(
             sorted(note.text for note in notes),
             ['n1-1', 'n1-2', 'n1-3'])
 
@@ -108,23 +144,23 @@ class TestModels(WalrusTestCase):
             Note.query(Note.user == 'u2'),
             key = lambda note: note._id)
         note = notes[2]
-        self.assertEqual(note.tags, ['t1', 't2'])
+        self.assertEquivalent(note.tags, ['t1', 't2'])
 
     def test_exceptions(self):
         self.assertRaises(KeyError, User.load, 'charlie')
         User.create(username='charlie')
         user = User.load('charlie')
-        self.assertEqual(user.username, 'charlie')
+        self.assertEquivalent(user.username, 'charlie')
 
     def test_query(self):
         self.create_objects()
         notes = Note.query(Note.user == 'u2')
-        self.assertEqual(
+        self.assertEquivalent(
             sorted(note.text for note in notes),
             ['n2-1', 'n2-2', 'n2-3'])
 
         user = User.get(User.username == 'u3')
-        self.assertEqual(user._data, {'username': 'u3'})
+        self.assertEquivalent(user._data, {'username': 'u3'})
 
         self.assertRaises(ValueError, User.get, User.username == 'ux')
 
@@ -133,7 +169,7 @@ class TestModels(WalrusTestCase):
         vq = list(Stat.query(Stat.value == 1))
         self.assertEqual(len(vq), 1)
         stat_db = vq[0]
-        self.assertEqual(stat_db.stat_type, 's1')
+        self.assertEquivalent(stat_db.stat_type, 's1')
         self.assertEqual(stat_db.value, 1)
 
         stat.value = 2
@@ -161,20 +197,20 @@ class TestModels(WalrusTestCase):
             'n3-3']
 
         notes = Note.query(order_by=Note.text)
-        self.assertEqual([note.text for note in notes], all_notes)
+        self.assertEquivalent([note.text for note in notes], all_notes)
 
         notes = Note.query(order_by=Note.text.desc())
-        self.assertEqual(
+        self.assertEquivalent(
             [note.text for note in notes],
             all_notes[::-1])
 
         notes = Note.query(Note.user == 'u2', Note.text)
-        self.assertEqual(
+        self.assertEquivalent(
             [note.text for note in notes],
             ['n2-1', 'n2-2', 'n2-3'])
 
         notes = Note.query(Note.user == 'u2', Note.text.desc())
-        self.assertEqual(
+        self.assertEquivalent(
             [note.text for note in notes],
             ['n2-3', 'n2-2', 'n2-1'])
 
@@ -185,7 +221,7 @@ class TestModels(WalrusTestCase):
 
         def assertUsers(expr, expected):
             users = User.query(expr)
-            self.assertEqual(
+            self.assertEquivalent(
                 sorted(user.username for user in users),
                 sorted(expected))
 
@@ -203,12 +239,6 @@ class TestModels(WalrusTestCase):
         assertUsers(expr, ['charlie', 'mickey'])
 
     def test_scalar_query(self):
-        """
-        class Stat(BaseModel):
-            key = AutoIncrementField()
-            stat_type = ByteField(index=True)
-            value = IntegerField(index=True)
-        """
         data = [
             ('t1', 1),
             ('t1', 2),
@@ -224,7 +254,7 @@ class TestModels(WalrusTestCase):
         stat_objects = sorted(
             (stat for stat in Stat.all()),
             key=lambda stat: stat.key)
-        self.assertEqual([stat._data for stat in stat_objects], [
+        self.assertEquivalent([stat._data for stat in stat_objects], [
             {'key': 1, 'stat_type': 't1', 'value': 1},
             {'key': 2, 'stat_type': 't1', 'value': 2},
             {'key': 3, 'stat_type': 't1', 'value': 3},
@@ -236,7 +266,7 @@ class TestModels(WalrusTestCase):
 
         def assertStats(expr, expected):
             stats = Stat.query(expr)
-            self.assertEqual(
+            self.assertEquivalent(
                 sorted(stat.key for stat in stats),
                 sorted(expected))
 
@@ -279,7 +309,7 @@ class TestModels(WalrusTestCase):
 
         def assertMatches(query, indexes):
             results = [message.content for message in query]
-            self.assertEqual(results, [phrases[i] for i in indexes])
+            self.assertEquivalent(results, [phrases[i] for i in indexes])
 
         def assertSearch(search, indexes):
             assertMatches(
@@ -311,7 +341,7 @@ class TestModels(WalrusTestCase):
             index_to_phrase[idx] = message
 
         def assertSearch(search, indexes):
-            self.assertEqual(
+            self.assertEquivalent(
                 sorted(message.content for message in query),
                 sorted(index_to_phrase[idx] for idx in indexes))
 
@@ -357,7 +387,7 @@ class TestModels(WalrusTestCase):
                 field = FTSOptions.content
             query = FTSOptions.query(field.match(search))
             results = [message.content for message in query]
-            self.assertEqual(results, [phrases[i] for i in indexes])
+            self.assertEquivalent(results, [phrases[i] for i in indexes])
 
         assertMatches('web application', [4, 0])
         assertMatches('web application', [4, 0], True)
@@ -392,7 +422,7 @@ class TestModels(WalrusTestCase):
             expression = Message.content.search(query, default_conjunction)
             messages = Message.query(expression, order_by=Message.content)
             results = [msg.content for msg in messages]
-            self.assertEqual(results, expected)
+            self.assertEquivalent(results, expected)
 
         assertMatches('foo', ['foo green'])
         assertMatches('foo OR baz', ['baz blue', 'foo green'])
@@ -428,7 +458,7 @@ class TestModels(WalrusTestCase):
     def test_load(self):
         User.create(username='charlie')
         u = User.load('charlie')
-        self.assertEqual(u._data, {'username': 'charlie'})
+        self.assertEquivalent(u._data, {'username': 'charlie'})
 
     def test_save_delete(self):
         charlie = User.create(username='charlie')
@@ -437,18 +467,18 @@ class TestModels(WalrusTestCase):
         note.text = 'n1-edited'
         note.save()
 
-        self.assertEqual(
+        self.assertEquivalent(
             sorted(user.username for user in User.all()),
             ['charlie', 'huey'])
 
         notes = Note.all()
-        self.assertEqual([note.text for note in notes], ['n1-edited'])
+        self.assertEquivalent([note.text for note in notes], ['n1-edited'])
 
         charlie.delete()
-        self.assertEqual([user.username for user in User.all()], ['huey'])
+        self.assertEquivalent([user.username for user in User.all()], ['huey'])
 
     def test_delete_indexes(self):
-        self.assertEqual(set(db.keys()), set())
+        self.assertEquivalent(set(db.keys()), set())
 
         Message.create(content='charlie message', status=1)
         Message.create(content='huey message', status=2)
@@ -461,7 +491,7 @@ class TestModels(WalrusTestCase):
         diff = keys - huey_keys
 
         make_key = Message._query.make_key
-        self.assertEqual(diff, set([
+        self.assertEquivalent(diff, set([
             make_key('_id', 'absolute', 1),
             make_key('content', 'absolute', 'charlie message'),
             make_key('content', 'fts', 'charli'),
@@ -494,7 +524,7 @@ class TestModels(WalrusTestCase):
         ]
         for expression in expressions:
             obj = Message.get(expression)
-            self.assertEqual(obj._data, {
+            self.assertEquivalent(obj._data, {
                 '_id': 2,
                 'content': 'huey message',
                 'status': 2,
@@ -502,14 +532,15 @@ class TestModels(WalrusTestCase):
 
         after_filter_keys = set(db.keys())
         symm_diff = huey_keys ^ after_filter_keys
-        self.assertTrue(all(key.startswith('temp') for key in symm_diff))
+        self.assertTrue(all(decode(key).startswith('temp')
+                            for key in symm_diff))
 
         huey = Message.load(2)
         huey.delete()
 
         final_keys = set(key for key in db.keys()
-                         if not key.startswith('temp'))
-        self.assertEqual(final_keys, set([make_key('_id', '_sequence')]))
+                         if not decode(key).startswith('temp'))
+        self.assertEquivalent(final_keys, set([make_key('_id', '_sequence')]))
 
     def test_get_regression(self):
         Message.create(content='huey', status=1)
@@ -549,7 +580,7 @@ class TestModels(WalrusTestCase):
         CustomSeparator.create(name='michael.nuggie', data=5)
 
         keys = sorted(db.keys())
-        self.assertEqual(keys, [
+        self.assertEquivalent(keys, [
             # namespace | model : $-delimited indexed data
             'test|customseparator:all',
             'test|customseparator:data$absolute$3',
@@ -561,10 +592,10 @@ class TestModels(WalrusTestCase):
             'test|customseparator:name$absolute$michael.nuggie'])
 
         huey = CustomSeparator.get(CustomSeparator.data < 5)
-        self.assertEqual(huey.name, 'huey.zai')
+        self.assertEquivalent(huey.name, 'huey.zai')
 
         mickey = CustomSeparator.load('michael.nuggie')
-        self.assertEqual(mickey.data, 5)
+        self.assertEquivalent(mickey.data, 5)
 
     def test_incr(self):
         for i in range(3):
@@ -609,8 +640,8 @@ class TestModels(WalrusTestCase):
         hm1.save()
 
         hm1_db = HashModel.load(hm1._id)
-        self.assertEqual(hm1_db.name, 'hm1-e')
-        self.assertEqual(hm1.data.as_dict(), {'k1': 'v1', 'k2': 'v2'})
+        self.assertEquivalent(hm1_db.name, 'hm1-e')
+        self.assertEquivalent(hm1.data.as_dict(), {'k1': 'v1', 'k2': 'v2'})
 
     def test_delete_container_fields(self):
         hm1 = HashModel.create(name='hm1')
@@ -620,8 +651,8 @@ class TestModels(WalrusTestCase):
         hm2.data.update(k3='v3', k4='v4')
 
         hm1.delete()
-        self.assertEqual(hm1.data.as_dict(), {})
-        self.assertEqual(hm2.data.as_dict(), {'k3': 'v3', 'k4': 'v4'})
+        self.assertEquivalent(hm1.data.as_dict(), {})
+        self.assertEquivalent(hm2.data.as_dict(), {'k3': 'v3', 'k4': 'v4'})
 
     def test_default_is_an_empty_dict(self):
         instance = DefaultOption()
@@ -680,29 +711,29 @@ class TestHash(WalrusTestCase):
 
     def test_item_api(self):
         self.hsh['k1'] = 'v1'
-        self.assertEqual(self.hsh['k1'], 'v1')
-        self.assertEqual(self.hsh['kx'], None)
+        self.assertEquivalent(self.hsh['k1'], 'v1')
+        self.assertEquivalent(self.hsh['kx'], None)
 
         self.hsh['k2'] = 'v2'
         self.hsh['k3'] = 'v3'
-        self.assertEqual(self.hsh.as_dict(), {
+        self.assertEquivalent(self.hsh.as_dict(), {
             'k1': 'v1',
             'k2': 'v2',
             'k3': 'v3'})
 
         del self.hsh['k2']
-        self.assertEqual(self.hsh.as_dict(), {'k1': 'v1', 'k3': 'v3'})
+        self.assertEquivalent(self.hsh.as_dict(), {'k1': 'v1', 'k3': 'v3'})
 
     def test_dict_apis(self):
         self.hsh.update({'k1': 'v1', 'k2': 'v2'})
         self.hsh.update(k3='v3', k4='v4')
-        self.assertEqual(sorted(self.hsh.items()), [
+        self.assertEquivalent(sorted(self.hsh.items()), [
             ('k1', 'v1'),
             ('k2', 'v2'),
             ('k3', 'v3'),
             ('k4', 'v4')])
-        self.assertEqual(sorted(self.hsh.keys()), ['k1', 'k2', 'k3', 'k4'])
-        self.assertEqual(sorted(self.hsh.values()), ['v1', 'v2', 'v3', 'v4'])
+        self.assertEquivalent(sorted(self.hsh.keys()), ['k1', 'k2', 'k3', 'k4'])
+        self.assertEquivalent(sorted(self.hsh.values()), ['v1', 'v2', 'v3', 'v4'])
 
         self.assertEqual(len(self.hsh), 4)
         self.assertTrue('k1' in self.hsh)
@@ -710,12 +741,12 @@ class TestHash(WalrusTestCase):
 
     def test_search_iter(self):
         self.hsh.update(foo='v1', bar='v2', baz='v3')
-        self.assertEqual(sorted(self.hsh), [
+        self.assertEquivalent(sorted(self.hsh), [
             ('bar', 'v2'),
             ('baz', 'v3'),
             ('foo', 'v1'),
         ])
-        self.assertEqual(sorted(self.hsh.search('b*')), [
+        self.assertEquivalent(sorted(self.hsh.search('b*')), [
             ('bar', 'v2'),
             ('baz', 'v3'),
         ])
@@ -726,46 +757,43 @@ class TestSet(WalrusTestCase):
         super(TestSet, self).setUp()
         self.set = db.Set('my-set')
 
-    def assertSet(self, expected):
-        self.assertEqual(self.set.members(), set(expected))
-
     def test_basic_apis(self):
         self.set.add('i1', 'i2', 'i3', 'i2', 'i1')
-        self.assertSet(['i1', 'i2', 'i3'])
+        self.assertSet(self.set, ['i1', 'i2', 'i3'])
 
         self.set.remove('i2')
-        self.assertSet(['i1', 'i3'])
+        self.assertSet(self.set, ['i1', 'i3'])
 
         self.set.remove('ix')
-        self.assertSet(['i1', 'i3'])
+        self.assertSet(self.set, ['i1', 'i3'])
 
         # Test __contains__
         self.assertTrue('i1' in self.set)
         self.assertFalse('ix' in self.set)
 
         # Test __iter__.
-        self.assertEqual(sorted(self.set), ['i1', 'i3'])
+        self.assertEquivalent(sorted(self.set), ['i1', 'i3'])
 
         del self.set['i3']
-        self.assertSet(['i1'])
+        self.assertSet(self.set, ['i1'])
 
     def test_combining(self):
         self.set2 = db.Set('my-set2')
         self.set.add(1, 2, 3, 4)
         self.set2.add(3, 4, 5, 6)
 
-        self.assertEqual(
+        self.assertEquivalent(
             self.set | self.set2,
             set(['1', '2', '3', '4', '5', '6']))
 
-        self.assertEqual(
+        self.assertEquivalent(
             self.set & self.set2,
             set(['3', '4']))
 
-        self.assertEqual(
+        self.assertEquivalent(
             self.set - self.set2,
             set(['1', '2']))
-        self.assertEqual(
+        self.assertEquivalent(
             self.set2 - self.set,
             set(['5', '6']))
 
@@ -775,35 +803,35 @@ class TestSet(WalrusTestCase):
         self.set2.add(3, 4, 5, 6)
 
         s3 = self.set.unionstore('my-set3', self.set2)
-        self.assertEqual(s3.members(), set(['1', '2', '3', '4', '5', '6']))
+        self.assertSet(s3.members(), set(['1', '2', '3', '4', '5', '6']))
 
         s3 = self.set.interstore('my-set3', self.set2)
-        self.assertEqual(s3.members(), set(['3', '4']))
+        self.assertSet(s3.members(), set(['3', '4']))
 
         s3 = self.set.diffstore('my-set3', self.set2)
-        self.assertEqual(s3.members(), set(['1', '2']))
+        self.assertSet(s3.members(), set(['1', '2']))
 
         self.set |= self.set2
-        self.assertSet(['1', '2', '3', '4', '5', '6'])
+        self.assertSet(self.set, ['1', '2', '3', '4', '5', '6'])
 
         s4 = db.Set('my-set4')
         s4.add('1', '3')
         s3 &= s4
-        self.assertEqual(s3.members(), set(['1']))
+        self.assertSet(s3.members(), set(['1']))
 
     def test_search(self):
         self.set.add('foo', 'bar', 'baz', 'nug')
-        self.assertEqual(sorted(self.set.search('b*')), ['bar', 'baz'])
+        self.assertEquivalent(sorted(self.set.search('b*')), ['bar', 'baz'])
 
     def test_sort(self):
         values = ['charlie', 'zaizee', 'mickey', 'huey']
         expected = sorted(values)
         self.set.add(*values)
-        self.assertEqual(self.set.sort(), expected)
+        self.assertEquivalent(self.set.sort(), expected)
 
         self.set.sort(ordering='DESC', limit=3, store='s_dest')
         res = db.List('s_dest')
-        self.assertEqual(list(res), ['zaizee', 'mickey', 'huey'])
+        self.assertEquivalent(list(res), ['zaizee', 'mickey', 'huey'])
 
 
 class TestZSet(WalrusTestCase):
@@ -812,7 +840,7 @@ class TestZSet(WalrusTestCase):
         self.zs = db.ZSet('my-zset')
 
     def assertZSet(self, expected):
-        self.assertEqual(list(self.zs), expected)
+        self.assertEquivalent(list(self.zs), expected)
 
     def test_basic_apis(self):
         self.zs.add('i1', 1, 'i2', 2)
@@ -848,8 +876,8 @@ class TestZSet(WalrusTestCase):
         self.zs.incr('i0', -2)
         self.assertZSet([('i0', -2.), ('i2', -1.), ('i9', 9.)])
 
-        self.assertEqual(self.zs.range_by_score(0, 9), ['i9'])
-        self.assertEqual(self.zs.range_by_score(-3, 0), ['i0', 'i2'])
+        self.assertEquivalent(self.zs.range_by_score(0, 9), ['i9'])
+        self.assertEquivalent(self.zs.range_by_score(-3, 0), ['i0', 'i2'])
 
     def test_item_apis(self):
         self.zs['i1'] = 1
@@ -857,16 +885,16 @@ class TestZSet(WalrusTestCase):
         self.zs['i3'] = 3
         self.zs['i2'] = 2
 
-        self.assertEqual(self.zs[0, False], ['i0'])
-        self.assertEqual(self.zs[0, True], [('i0', 0)])
-        self.assertEqual(self.zs[2, False], ['i2'])
-        self.assertEqual(self.zs[2, True], [('i2', 2)])
-        self.assertEqual(self.zs[-1, True], [('i3', 3)])
-        self.assertEqual(self.zs[9, True], [])
+        self.assertEquivalent(self.zs[0, False], ['i0'])
+        self.assertEquivalent(self.zs[0, True], [('i0', 0)])
+        self.assertEquivalent(self.zs[2, False], ['i2'])
+        self.assertEquivalent(self.zs[2, True], [('i2', 2)])
+        self.assertEquivalent(self.zs[-1, True], [('i3', 3)])
+        self.assertEquivalent(self.zs[9, True], [])
 
-        self.assertEqual(self.zs[0], ['i0'])
-        self.assertEqual(self.zs[2], ['i2'])
-        self.assertEqual(self.zs[9], [])
+        self.assertEquivalent(self.zs[0], ['i0'])
+        self.assertEquivalent(self.zs[2], ['i2'])
+        self.assertEquivalent(self.zs[9], [])
 
         del self.zs['i1']
         del self.zs['i3']
@@ -876,17 +904,17 @@ class TestZSet(WalrusTestCase):
 
     def test_slicing(self):
         self.zs.add('i1', 1, 'i2', 2, 'i3', 3, 'i0', 0)
-        self.assertEqual(self.zs[:1, True], [('i0', 0)])
-        self.assertEqual(self.zs[1:3, False], ['i1', 'i2'])
-        self.assertEqual(self.zs[1:-1, True], [('i1', 1), ('i2', 2)])
+        self.assertEquivalent(self.zs[:1, True], [('i0', 0)])
+        self.assertEquivalent(self.zs[1:3, False], ['i1', 'i2'])
+        self.assertEquivalent(self.zs[1:-1, True], [('i1', 1), ('i2', 2)])
 
-        self.assertEqual(self.zs['i1':, False], ['i1', 'i2', 'i3'])
-        self.assertEqual(self.zs[:'i2', False], ['i0', 'i1'])
-        self.assertEqual(
+        self.assertEquivalent(self.zs['i1':, False], ['i1', 'i2', 'i3'])
+        self.assertEquivalent(self.zs[:'i2', False], ['i0', 'i1'])
+        self.assertEquivalent(
             self.zs['i0':'i3', True],
             [('i0', 0), ('i1', 1), ('i2', 2)])
         self.assertRaises(KeyError, self.zs.__getitem__, (slice('i9'), False))
-        self.assertEqual(self.zs[99:, False], [])
+        self.assertEquivalent(self.zs[99:, False], [])
 
         del self.zs[:'i2']
         self.assertZSet([('i2', 2.), ('i3', 3.)])
@@ -899,36 +927,36 @@ class TestZSet(WalrusTestCase):
         zs2.add(3, 3, 4, 4, 5, 5)
 
         zs3 = self.zs.unionstore('my-zset3', zs2)
-        self.assertEqual(
+        self.assertEquivalent(
             list(zs3),
             [('1', 1.), ('2', 2.), ('4', 4.), ('5', 5.), ('3', 6.)])
 
         zs3 = self.zs.interstore('my-zset3', zs2)
-        self.assertEqual(list(zs3), [('3', 6.)])
+        self.assertEquivalent(list(zs3), [('3', 6.)])
 
         self.zs |= zs2
         self.assertZSet([
             ('1', 1.), ('2', 2.), ('4', 4.), ('5', 5.), ('3', 6.)])
 
         zs3 &= zs2
-        self.assertEqual(list(zs3), [('3', 9.)])
+        self.assertEquivalent(list(zs3), [('3', 9.)])
 
     def test_search(self):
         self.zs.add('foo', 1, 'bar', 2, 'baz', 1, 'nug', 3)
-        self.assertEqual(
+        self.assertEquivalent(
             list(self.zs.search('b*')),
             [('baz', 1.), ('bar', 2.)])
 
     def test_sort(self):
         values = ['charlie', 3, 'zaizee', 2, 'mickey', 6, 'huey', 3]
         self.zs.add(*values)
-        self.assertEqual(
+        self.assertEquivalent(
             self.zs.sort(),
             ['charlie', 'huey', 'mickey', 'zaizee'])
 
         self.zs.sort(ordering='DESC', limit=3, store='z_dest')
         res = db.List('z_dest')
-        self.assertEqual(list(res), ['zaizee', 'mickey', 'huey'])
+        self.assertEquivalent(list(res), ['zaizee', 'mickey', 'huey'])
 
 
 class TestList(WalrusTestCase):
@@ -936,68 +964,65 @@ class TestList(WalrusTestCase):
         super(TestList, self).setUp()
         self.lst = db.List('my-list')
 
-    def assertList(self, expected):
-        self.assertEqual(list(self.lst), expected)
-
     def test_basic_apis(self):
         self.lst.append('i1')
         self.lst.extend(['i2', 'i3'])
         self.lst.prepend('ix')
-        self.assertList(['ix', 'i1', 'i2', 'i3'])
+        self.assertEquivalent(self.lst, ['ix', 'i1', 'i2', 'i3'])
 
         self.lst.insert('iy', 'i2', 'before')
         self.lst.insert('iz', 'i2', 'after')
-        self.assertList(['ix', 'i1', 'iy', 'i2', 'iz', 'i3'])
+        self.assertEquivalent(self.lst, ['ix', 'i1', 'iy', 'i2', 'iz', 'i3'])
 
-        self.assertEqual(self.lst.pop(), 'i3')
-        self.assertEqual(self.lst.popleft(), 'ix')
+        self.assertEquivalent(self.lst.pop(), 'i3')
+        self.assertEquivalent(self.lst.popleft(), 'ix')
         self.assertEqual(len(self.lst), 4)
 
     def test_item_apis(self):
         self.lst.append('i0')
-        self.assertEqual(self.lst[0], 'i0')
+        self.assertEquivalent(self.lst[0], 'i0')
 
         self.lst.extend(['i1', 'i2'])
         del self.lst['i1']
-        self.assertList(['i0', 'i2'])
+        self.assertEquivalent(self.lst, ['i0', 'i2'])
 
         self.lst[1] = 'i2x'
-        self.assertList(['i0', 'i2x'])
+        self.assertEquivalent(self.lst, ['i0', 'i2x'])
 
         del self.lst[0]
-        self.assertList(['i2x'])
+        self.assertEquivalent(self.lst, ['i2x'])
 
         del self.lst[99]
-        self.assertList(['i2x'])
+        self.assertEquivalent(self.lst, ['i2x'])
 
         del self.lst['ixxx']
-        self.assertList(['i2x'])
+        self.assertEquivalent(self.lst, ['i2x'])
 
     def test_slicing(self):
         self.lst.extend(['i1', 'i2', 'i3', 'i4'])
-        self.assertEqual(self.lst[:1], ['i1'])
-        self.assertEqual(self.lst[:2], ['i1', 'i2'])
-        self.assertEqual(self.lst[:-1], ['i1', 'i2', 'i3'])
-        self.assertEqual(self.lst[1:2], ['i2'])
-        self.assertEqual(self.lst[1:], ['i2', 'i3', 'i4'])
+        self.assertEquivalent(self.lst[:1], ['i1'])
+        self.assertEquivalent(self.lst[:2], ['i1', 'i2'])
+        self.assertEquivalent(self.lst[:-1], ['i1', 'i2', 'i3'])
+        self.assertEquivalent(self.lst[1:2], ['i2'])
+        self.assertEquivalent(self.lst[1:], ['i2', 'i3', 'i4'])
 
         l = db.List('l1')
         l.extend(range(10))
         del l[1:-1]
-        self.assertEqual([int(i) for i in l], [1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.assertEquivalent([int(i) for i in l], [1, 2, 3, 4, 5, 6, 7, 8, 9])
 
         del l[:3]
-        self.assertEqual([int(i) for i in l], [1, 2, 3])
+        self.assertEquivalent([int(i) for i in l], [1, 2, 3])
 
     def test_sort(self):
         values = ['charlie', 'zaizee', 'mickey', 'huey']
         expected = sorted(values)
         self.lst.extend(values)
-        self.assertEqual(self.lst.sort(), expected)
+        self.assertEquivalent(self.lst.sort(), expected)
 
         self.lst.sort(ordering='DESC', limit=3, store='l_dest')
         res = db.List('l_dest')
-        self.assertEqual(list(res), ['zaizee', 'mickey', 'huey'])
+        self.assertEquivalent(list(res), ['zaizee', 'mickey', 'huey'])
 
 
 class TestArray(WalrusTestCase):
@@ -1013,30 +1038,30 @@ class TestArray(WalrusTestCase):
         self.assertEqual(len(self.arr), 4)
 
         # Indexing works. Invalid indices return None.
-        self.assertEqual(self.arr[0], 'i1')
-        self.assertEqual(self.arr[3], 'i4')
+        self.assertEquivalent(self.arr[0], 'i1')
+        self.assertEquivalent(self.arr[3], 'i4')
         self.assertEqual(self.arr[4], None)
 
         # Negative indexing works and includes bounds-checking.
-        self.assertEqual(self.arr[-1], 'i4')
-        self.assertEqual(self.arr[-4], 'i1')
+        self.assertEquivalent(self.arr[-1], 'i4')
+        self.assertEquivalent(self.arr[-4], 'i1')
         self.assertEqual(self.arr[-5], None)
 
-        self.assertEqual(self.arr.pop(1), 'i2')
-        self.assertEqual(list(self.arr), ['i1', 'i3', 'i4'])
+        self.assertEquivalent(self.arr.pop(1), 'i2')
+        self.assertEquivalent(list(self.arr), ['i1', 'i3', 'i4'])
 
-        self.assertEqual(self.arr.pop(), 'i4')
-        self.assertEqual(list(self.arr), ['i1', 'i3'])
+        self.assertEquivalent(self.arr.pop(), 'i4')
+        self.assertEquivalent(list(self.arr), ['i1', 'i3'])
 
         self.arr[-1] = 'iy'
         self.arr[0] = 'ix'
-        self.assertEqual(list(self.arr), ['ix', 'iy'])
+        self.assertEquivalent(list(self.arr), ['ix', 'iy'])
 
-        self.assertTrue('iy' in self.arr)
-        self.assertFalse('i1' in self.arr)
+        self.assertTrue(encode('iy') in self.arr)
+        self.assertFalse(encode('i1') in self.arr)
 
         self.arr.extend(['foo', 'bar', 'baz'])
-        self.assertEqual(list(self.arr), ['ix', 'iy', 'foo', 'bar', 'baz'])
+        self.assertEquivalent(list(self.arr), ['ix', 'iy', 'foo', 'bar', 'baz'])
 
 
 class TestWalrus(WalrusTestCase):
@@ -1054,19 +1079,19 @@ class TestWalrus(WalrusTestCase):
                     p3.pipe.set('k3', 'v3')
 
                 assertDepth(2)
-                self.assertEqual(db['k3'], 'v3')
+                self.assertEquivalent(db['k3'], 'v3')
 
                 p2.pipe.set('k2', 'v2')
 
             assertDepth(1)
-            self.assertEqual(db['k3'], 'v3')
-            self.assertEqual(db['k2'], 'v2')
+            self.assertEquivalent(db['k3'], 'v3')
+            self.assertEquivalent(db['k2'], 'v2')
             p1.pipe.set('k1', 'v1')
 
         assertDepth(0)
-        self.assertEqual(db['k1'], 'v1')
-        self.assertEqual(db['k2'], 'v2')
-        self.assertEqual(db['k3'], 'v3')
+        self.assertEquivalent(db['k1'], 'v1')
+        self.assertEquivalent(db['k2'], 'v2')
+        self.assertEquivalent(db['k3'], 'v3')
 
     def test_atomic_exception(self):
         def do_atomic(k, v, exc=False):
@@ -1076,7 +1101,7 @@ class TestWalrus(WalrusTestCase):
                     raise TypeError('foo')
 
         do_atomic('k', 'v')
-        self.assertEqual(db['k'], 'v')
+        self.assertEquivalent(db['k'], 'v')
 
         self.assertRaises(TypeError, do_atomic, 'k2', 'v2', True)
         self.assertRaises(KeyError, lambda: db['k2'])
@@ -1090,10 +1115,10 @@ class TestWalrus(WalrusTestCase):
             # Only this will be set.
             outer.pipe.set('k4', 'v4')
 
-        self.assertEqual(db._transaction_local.pipe, None)
-        self.assertEqual(db['k2'], 'v2')
+        self.assertEquivalent(db._transaction_local.pipe, None)
+        self.assertEquivalent(db['k2'], 'v2')
         self.assertRaises(KeyError, lambda: db['k3'])
-        self.assertEqual(db['k4'], 'v4')
+        self.assertEquivalent(db['k4'], 'v4')
 
     def test_clear_transaction(self):
         with db.atomic() as a1:
@@ -1102,7 +1127,7 @@ class TestWalrus(WalrusTestCase):
                 a2.pipe.set('k2', 'v2')
                 a2.clear()
 
-        self.assertEqual(db['k1'], 'v1')
+        self.assertEquivalent(db['k1'], 'v1')
         self.assertRaises(KeyError, lambda: db['k2'])
 
         with db.atomic() as a1:
@@ -1115,11 +1140,11 @@ class TestWalrus(WalrusTestCase):
 
             a1.pipe.set('k5', 'v5')
 
-        self.assertEqual(db['k3'], 'v3')
+        self.assertEquivalent(db['k3'], 'v3')
         self.assertRaises(KeyError, lambda: db['k4'])
-        self.assertEqual(db['k5'], 'v5')
+        self.assertEquivalent(db['k5'], 'v5')
 
-        self.assertEqual(db._transaction_local.pipe, None)
+        self.assertEquivalent(db._transaction_local.pipe, None)
 
 
 class TestCounter(WalrusTestCase):
@@ -1230,10 +1255,11 @@ class TestAutocomplete(WalrusTestCase):
         return sorted(results, key=lambda item: item['obj_id'])
 
     def assertResults(self, results, expected):
-        self.assertEqual([result['obj_id'] for result in results], expected)
+        self.assertEquivalent(
+            [result['obj_id'] for result in results], expected)
 
     def assertSearch(self, results, expected):
-        self.assertEqual(list(results), expected)
+        self.assertEquivalent(list(results), expected)
 
     def test_search(self):
         self.store_test_data()
@@ -1261,7 +1287,7 @@ class TestAutocomplete(WalrusTestCase):
         test_data = []
         for i in range(n * 3):
             obj_id = i + 1
-            obj_type = 't%s' % ((i / n) + 1)
+            obj_type = 't%d' % ((i / n) + 1)
             title = 'test %s' % letters[i % n]
             self.autocomplete.store(
                 obj_id,

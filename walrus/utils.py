@@ -2,10 +2,26 @@ import os
 import sys
 
 
-if sys.version_info[0] == 2:
-    unicode_type = unicode
-else:
+PY3 = sys.version_info[0] == 3
+
+if PY3:
     unicode_type = str
+    basestring_type = (str, bytes)
+else:
+    unicode_type = unicode
+    basestring_type = basestring
+
+
+def encode(s):
+    if PY3 and isinstance(s, unicode_type):
+        return s.encode('utf-8')
+    return s
+
+
+def decode(s):
+    if PY3 and isinstance(s, bytes):
+        return s.decode('utf-8')
+    return s
 
 
 class memoize(dict):

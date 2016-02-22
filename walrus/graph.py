@@ -2,6 +2,8 @@
 import itertools
 import json
 
+from walrus.utils import decode
+
 
 class _VariableGenerator(object):
     def __getattr__(self, name):
@@ -149,7 +151,7 @@ class Graph(object):
                 raise StopIteration
         else:
             for key in self._z.range_by_lex('[' + start, '[' + end):
-                keys, p1, p2, p3 = key.split('::')
+                keys, p1, p2, p3 = decode(key).split('::')
                 yield dict(zip(keys, (p1, p2, p3)))
 
     def v(self, name):

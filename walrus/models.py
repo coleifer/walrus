@@ -3,6 +3,7 @@ import datetime
 import json
 import pickle
 import re
+import sys
 import time
 import uuid
 
@@ -20,7 +21,11 @@ from walrus.query import FTS
 from walrus.query import Node
 from walrus.search.metaphone import dm as double_metaphone
 from walrus.search.porter import PorterStemmer
+from walrus.utils import basestring_type
+from walrus.utils import decode
+from walrus.utils import encode
 from walrus.utils import load_stopwords
+from walrus.utils import PY3
 from walrus.utils import unicode_type
 
 
@@ -98,6 +103,8 @@ class Field(Node):
     def db_value(self, value):
         if self._pickled:
             return pickle.dumps(value)
+        elif PY3 and self._as_json:
+            return json.dumps(decode(value))
         elif self._as_json:
             return json.dumps(value)
         elif self._coerce:
@@ -107,6 +114,8 @@ class Field(Node):
     def python_value(self, value):
         if self._pickled:
             return pickle.loads(value)
+        elif self._as_json and PY3:
+            return json.loads(decode(value))
         elif self._as_json:
             return json.loads(value)
         elif self._coerce:
@@ -173,7 +182,7 @@ class FloatField(_ScalarField):
 
 class ByteField(Field):
     """Store arbitrary bytes."""
-    _coerce = str
+    _coerce = lambda self, value: encode(value)
 
 
 class TextField(Field):
@@ -261,7 +270,7 @@ class DateTimeField(_ScalarField):
         return timestamp + micro
 
     def python_value(self, value):
-        if isinstance(value, (basestring, int, float)):
+        if isinstance(value, (basestring_type, int, float)):
             return datetime.datetime.fromtimestamp(float(value))
         return value
 
@@ -272,7 +281,7 @@ class DateField(DateTimeField):
         return time.mktime(value.timetuple())
 
     def python_value(self, value):
-        if isinstance(value, (basestring, int, float)):
+        if isinstance(value, (basestring_type, int, float)):
             return datetime.datetime.fromtimestamp(float(value)).date()
         return value
 
@@ -354,6 +363,7 @@ class Query(object):
     def make_key(self, *parts):
         """Generate a namespaced key for the given path."""
         separator = getattr(self.model_class, 'index_separator', '.')
+        parts = map(decode, parts)
         return '%s%s' % (self._base_key, separator.join(map(str, parts)))
 
     def get_primary_hash_key(self, primary_key):
@@ -456,7 +466,7 @@ class FullTextIndex(BaseIndex):
 
     def split_phrase(self, phrase):
         """Split the document or search query into tokens."""
-        return self._symbols_re.sub(' ', phrase).split()
+        return self._symbols_re.sub(' ', decode(phrase)).split()
 
     def stem(self, words):
         """
@@ -509,8 +519,7 @@ class FullTextIndex(BaseIndex):
 
     def filter_stop_words(self, words):
         """Remove any stop-words from the collection of words."""
-        filter_fn = lambda w: w not in self._stopwords
-        return filter(filter_fn, words)
+        return [w for w in words if w not in self._stopwords]
 
     def tokenize(self, value):
         """
@@ -872,10 +881,12 @@ class Model(_with_metaclass(BaseModel)):
         for name, field in cls._fields.items():
             if isinstance(field, _ContainerField):
                 continue
-            elif name not in raw_data:
-                data[name] = None
-            else:
+            elif name in raw_data:
                 data[name] = field.python_value(raw_data[name])
+            elif PY3 and encode(name) in raw_data:
+                data[name] = field.python_value(raw_data[encode(name)])
+            else:
+                data[name] = None
 
         return cls(**data)
 
