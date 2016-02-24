@@ -703,6 +703,13 @@ class TestCache(WalrusTestCase):
         self.assertEqual(double_value(3)(), 6)
         self.assertEqual(double_value(4)(), 8)
 
+    def test_flush_empty_cache(self):
+        cache.set('foo', 'bar', 10)
+        self.assertEqual(list(cache.keys()), ['test.cache:foo'])
+        cache.flush()
+        self.assertEqual(list(cache.keys()), [])
+        cache.flush()
+
 
 class TestHash(WalrusTestCase):
     def setUp(self):

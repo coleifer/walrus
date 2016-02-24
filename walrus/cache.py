@@ -82,7 +82,9 @@ class Cache(object):
 
     def flush(self):
         """Remove all cached objects from the database."""
-        return self.database.delete(*self.keys())
+        keys = list(self.keys())
+        if keys:
+            return self.database.delete(*keys)
 
     def incr(self, key, delta=1):
         return self.database.incr(self.make_key(key), delta)
