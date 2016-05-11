@@ -1,12 +1,22 @@
 from functools import wraps
 import hashlib
 import pickle
+import sys
 import threading
 import time
 try:
     from Queue import Queue  # Python 2
 except ImportError:
     from queue import Queue  # Python 3
+
+from walrus.utils import decode
+from walrus.utils import PY3
+
+if PY3:
+    imap = map
+else:
+    from itertools import imap
+
 
 
 class Cache(object):
@@ -78,7 +88,7 @@ class Cache(object):
         """
         Return all keys for cached values.
         """
-        return self.database.keys(self.make_key('') + '*')
+        return imap(decode, self.database.keys(self.make_key('') + '*'))
 
     def flush(self):
         """Remove all cached objects from the database."""
