@@ -12,7 +12,7 @@ Let's see how this works by using ``walrus`` in the Python interactive shell. Ma
 Introducing walrus
 ------------------
 
-To begin using walrus, we'll start by importing it and creating a :py:class:`Database` instance. The ``Database`` object is a thin wrapper over the `redis-py <https://redis-py.readthedocs.org/>`_ ``Redis`` class, so any methods available on ``Redis`` will also be available on the walrus ``Database`` object.
+To begin using walrus, we'll start by importing it and creating a :py:class:`Database` instance. The ``Database`` object is a thin wrapper over the `redis-py <https://redis-py.readthedocs.io/>`_ ``Redis`` class, so any methods available on ``Redis`` will also be available on the walrus ``Database`` object.
 
 .. code-block:: pycon
 
