@@ -80,7 +80,7 @@ The project's features are:
 * Includes fast low-level key/value store.
 * Thread-safe and fully re-entrant.
 * Support for Terabyte-sized databases.
-* `Python bindings <http://vedis-python.readthedocs.org/en/latest/>`_ allow you to `write your own Vedis commands in Python <http://vedis-python.readthedocs.org/en/latest/custom_commands.html>`_.
+* `Python bindings <https://vedis-python.readthedocs.io/en/latest/>`_ allow you to `write your own Vedis commands in Python <https://vedis-python.readthedocs.io/en/latest/custom_commands.html>`_.
 
 Use-cases for ``Vedis``:
 

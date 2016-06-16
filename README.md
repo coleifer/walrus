@@ -7,14 +7,14 @@ Lightweight Python utilities for working with [Redis](http://redis.io).
 The purpose of [walrus](https://github.com/coleifer/walrus) is to make working with Redis in Python a little easier by wrapping rich objects in Pythonic containers. walrus consists of:
 
 * Wrappers for the Redis object types:
-    * [Hash](https://walrus.readthedocs.org/en/latest/containers.html#hashes)
-    * [List](https://walrus.readthedocs.org/en/latest/containers.html#lists)
-    * [Set](https://walrus.readthedocs.org/en/latest/containers.html#sets)
-    * [Sorted Set](https://walrus.readthedocs.org/en/latest/containers.html#sorted-sets-zset)
-    * [HyperLogLog](https://walrus.readthedocs.org/en/latest/containers.html#hyperloglog)
-    * [Array](https://walrus.readthedocs.org/en/latest/containers.html#arrays) (custom type)
-* A simple [Cache](https://walrus.readthedocs.org/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.
-* Lightweight data [Model](https://walrus.readthedocs.org/en/latest/models.html) objects that support persisting structured information and performing complex queries using secondary indexes.
+    * [Hash](https://walrus.readthedocs.io/en/latest/containers.html#hashes)
+    * [List](https://walrus.readthedocs.io/en/latest/containers.html#lists)
+    * [Set](https://walrus.readthedocs.io/en/latest/containers.html#sets)
+    * [Sorted Set](https://walrus.readthedocs.io/en/latest/containers.html#sorted-sets-zset)
+    * [HyperLogLog](https://walrus.readthedocs.io/en/latest/containers.html#hyperloglog)
+    * [Array](https://walrus.readthedocs.io/en/latest/containers.html#arrays) (custom type)
+* A simple [Cache](https://walrus.readthedocs.io/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.
+* Lightweight data [Model](https://walrus.readthedocs.io/en/latest/models.html) objects that support persisting structured information and performing complex queries using secondary indexes.
 
 ### Models
 
@@ -28,4 +28,4 @@ Please open a [github issue](https://github.com/coleifer/walrus/issues/new) and 
 
 ### Alternative Backends
 
-Walrus also can integrate with the Redis-like databases [rlite](https://github.com/seppo0010/rlite), [ledis](http://ledisdb.com/), and [vedis](http://vedis.symisc.net). Check the [documentation](http://walrus.readthedocs.org/en/latest/alt-backends.html) for more details.
+Walrus also can integrate with the Redis-like databases [rlite](https://github.com/seppo0010/rlite), [ledis](http://ledisdb.com/), and [vedis](http://vedis.symisc.net). Check the [documentation](https://walrus.readthedocs.io/en/latest/alt-backends.html) for more details.
