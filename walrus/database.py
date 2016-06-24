@@ -56,7 +56,10 @@ class Database(Redis):
             scripts.
         """
         script_dir = kwargs.pop('script_dir', None)
-        super(Database, self).__init__(*args, **kwargs)
+        if len(args) == 1 and args[0].connection_pool != None:
+            super(Database, self).__init__(connection_pool=args[0].connection_pool)
+        else:
+            super(Database, self).__init__(*args, **kwargs)
         self.__mapping = {
             'list': self.List,
             'set': self.Set,
