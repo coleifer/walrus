@@ -102,6 +102,10 @@ class Hash(Container):
         else:
             return self.database.hget(self.key, item)
 
+    def get(self, key, fallback=None):
+        val = self.database.hget(self.key, key)
+        return val if val is not None else fallback
+
     def __setitem__(self, key, value):
         """Set the value of the given key."""
         return self.database.hset(self.key, key, value)
