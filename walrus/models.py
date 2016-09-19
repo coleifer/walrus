@@ -129,7 +129,7 @@ class Field(Node):
 
     def __get__(self, instance, instance_type=None):
         if instance is not None:
-            return instance._data[self.name]
+            return instance._data.get(self.name)
         return self
 
     def __set__(self, instance, value):
