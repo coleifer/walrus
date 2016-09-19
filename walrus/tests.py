@@ -656,7 +656,7 @@ class TestModels(WalrusTestCase):
 
     def test_default_is_an_empty_dict(self):
         instance = DefaultOption()
-        self.assertRaises(KeyError, lambda: instance.default_empty)
+        self.assertTrue(instance.default_empty is None)
         self.assertEqual(instance.num, 0)
         self.assertEqual(instance.txt, '')
 
