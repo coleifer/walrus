@@ -41,7 +41,8 @@ class Graph(object):
 
     .. code-block:: python
 
-        graph = walrus.graph('my-friends')
+        db = Database()
+        graph = db.graph('people')
 
         # Store my friends.
         graph.store_many(
