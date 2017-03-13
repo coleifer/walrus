@@ -179,8 +179,8 @@ High-level APIs
 
 .. autoclass:: Model
     :members:
-      database,
-      namespace,
+      __database__,
+      __namespace__,
       index_separator,
       __init__,
       incr,

@@ -31,8 +31,8 @@ db = Database(db=15)
 
 
 class BaseModel(Model):
-    database = db
-    namespace = 'test'
+    __database__ = db
+    __namespace__ = 'test'
 
 class User(BaseModel):
     username = TextField(primary_key=True)

@@ -17,7 +17,7 @@ Let's create a simple data model to store some users.
 .. code-block:: pycon
 
     >>> class User(Model):
-    ...     database = db
+    ...     __database__ = db
     ...     name = TextField(primary_key=True)
     ...     dob = DateField(index=True)
 
@@ -176,7 +176,7 @@ Let's create a model for storing personal notes. The notes will have a text fiel
 .. code-block:: python
 
     class Note(Model):
-        database = db
+        __database__ = db
         text = TextField()
         timestamp = DateTimeField(
             default=datetime.datetime.now,
@@ -212,7 +212,7 @@ I've added a really (really) simple full-text search index type. Here is how to 
 .. code-block:: pycon
 
     >>> class Note(Model):
-    ...     database = db
+    ...     __database__ = db
     ...     content = TextField(fts=True)  # Note the "fts=True".
 
 When a field contains an full-text index, then the index will be populated when new objects are added to the database:

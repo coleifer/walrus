@@ -30,8 +30,8 @@ database = Database()
 # that specifies which database to use. Then, any subclasses will automatically
 # use the correct storage.
 class BaseModel(Model):
-    database = database
-    namespace = 'twitter'
+    __database__ = database
+    __namespace__ = 'twitter'
 
 # Model classes specify fields declaratively, like django.
 class User(BaseModel):

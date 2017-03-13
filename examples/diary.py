@@ -9,8 +9,8 @@ from walrus import *
 database = Database(host='localhost', port=6379, db=0)
 
 class Entry(Model):
-    database = database
-    namespace = 'diary'
+    __database__ = database
+    __namespace__ = 'diary'
 
     content = TextField(fts=True)
     timestamp = DateTimeField(default=datetime.datetime.now, index=True)

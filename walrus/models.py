@@ -39,8 +39,8 @@ class Field(Node):
         walrus_db = Database()
 
         class User(Model):
-            database = walrus_db
-            namespace = 'my-app'
+            __database__ = walrus_db
+            __namespace__ = 'my-app'
 
             # Use the user's email address as the primary key.
             # All primary key fields will also get a secondary
@@ -56,8 +56,8 @@ class Field(Node):
                 min_word_length=3)
 
         class Note(Model):
-            database = walrus_app
-            namespace = 'my-app'
+            __database__ = walrus_app
+            __namespace__ = 'my-app'
 
             # A note is associated with a user. We will create a
             # secondary index on this field so we can efficiently
@@ -172,7 +172,7 @@ class AutoIncrementField(IntegerField):
     def _generate_key(self):
         query_helper = self.model_class._query
         key = query_helper.make_key(self.name, '_sequence')
-        return self.model_class.database.incr(key)
+        return self.model_class.__database__.incr(key)
 
 
 class FloatField(_ScalarField):
@@ -305,7 +305,7 @@ class _ContainerField(Field):
 
     def _get_container(self, instance):
         return self.container_class(
-            self.model_class.database,
+            self.model_class.__database__,
             self.__key__(instance))
 
     def __key__(self, instance):
@@ -356,8 +356,8 @@ class Query(object):
     @property
     def _base_key(self):
         model_name = self.model_class.__name__.lower()
-        if self.model_class.namespace:
-            return '%s|%s:' % (self.model_class.namespace, model_name)
+        if self.model_class.__namespace__:
+            return '%s|%s:' % (self.model_class.__namespace__, model_name)
         return '%s:' % model_name
 
     def make_key(self, *parts):
@@ -371,7 +371,7 @@ class Query(object):
         return self.make_key('id', pk_field.db_value(primary_key))
 
     def all_index(self):
-        return self.model_class.database.Set(self.make_key('all'))
+        return self.model_class.__database__.Set(self.make_key('all'))
 
 
 class BaseIndex(object):
@@ -379,7 +379,7 @@ class BaseIndex(object):
 
     def __init__(self, field):
         self.field = field
-        self.database = self.field.model_class.database
+        self.__database__ = self.field.model_class.__database__
         self.query_helper = self.field.model_class._query
 
     def field_value(self, instance):
@@ -413,7 +413,7 @@ class AbsoluteIndex(BaseIndex):
             self.field.name,
             'absolute',
             value)
-        return self.database.Set(key)
+        return self.__database__.Set(key)
 
     def store_instance(self, key, instance, value):
         key.add(instance.get_hash_id())
@@ -431,7 +431,7 @@ class ContinuousIndex(BaseIndex):
         key = self.query_helper.make_key(
             self.field.name,
             'continuous')
-        return self.database.ZSet(key)
+        return self.__database__.ZSet(key)
 
     def store_instance(self, key, instance, value):
         key[instance.get_hash_id()] = value
@@ -554,7 +554,7 @@ class FullTextIndex(BaseIndex):
             self.field.name,
             'fts',
             value)
-        return self.database.ZSet(key)
+        return self.__database__.ZSet(key)
 
     def store_instance(self, key, instance, value):
         hash_id = instance.get_hash_id()
@@ -624,7 +624,8 @@ class BaseModel(type):
 
 
 def _with_metaclass(meta, base=object):
-    return meta("NewBase", (base,), {'database': None, 'namespace': None})
+    return meta("NewBase", (base,), {'__database__': None,
+                                     '__namespace__': None})
 
 
 class Model(_with_metaclass(BaseModel)):
@@ -654,10 +655,10 @@ class Model(_with_metaclass(BaseModel)):
     """
     #: **Required**: the :py:class:`Database` instance to use to
     #: persist model data.
-    database = None
+    __database__ = None
 
     #: **Optional**: namespace to use for model data.
-    namespace = None
+    __namespace__ = None
 
     #: **Required**: character to use as a delimiter for indexes, default "."
     index_separator = '.'
@@ -740,7 +741,7 @@ class Model(_with_metaclass(BaseModel)):
         Return a :py:class:`Hash` instance corresponding to the
         raw model data.
         """
-        return self.database.Hash(self.get_hash_id())
+        return self.__database__.Hash(self.get_hash_id())
 
     @classmethod
     def create(cls, **kwargs):
@@ -804,7 +805,7 @@ class Model(_with_metaclass(BaseModel)):
             sort returned instances.
         """
         if expression is not None:
-            executor = Executor(cls.database)
+            executor = Executor(cls.__database__)
             result = executor.execute(expression)
         else:
             result = cls._query.all_index()
@@ -816,7 +817,7 @@ class Model(_with_metaclass(BaseModel)):
                 order_by = order_by.node
 
             alpha = not isinstance(order_by, _ScalarField)
-            result = cls.database.sort(
+            result = cls.__database__.sort(
                 result.key,
                 by='*->%s' % order_by.name,
                 alpha=alpha,
@@ -837,7 +838,7 @@ class Model(_with_metaclass(BaseModel)):
         :param expression: A boolean expression to filter by.
         """
         if expression is not None:
-            executor = Executor(cls.database)
+            executor = Executor(cls.__database__)
             result = executor.execute(expression)
         else:
             result = cls._query.all_index()
@@ -856,7 +857,7 @@ class Model(_with_metaclass(BaseModel)):
         :returns: The matching :py:class:`Model` instance.
         :raises: ``ValueError`` if result set size is not 1.
         """
-        executor = Executor(cls.database)
+        executor = Executor(cls.__database__)
         result = executor.execute(expression)
         if len(result) != 1:
             raise ValueError('Got %s results, expected 1.' % len(result))
@@ -874,9 +875,9 @@ class Model(_with_metaclass(BaseModel)):
         """
         if convert_key:
             primary_key = cls._query.get_primary_hash_key(primary_key)
-        if not cls.database.hash_exists(primary_key):
+        if not cls.__database__.hash_exists(primary_key):
             raise KeyError('Object not found.')
-        raw_data = cls.database.hgetall(primary_key)
+        raw_data = cls.__database__.hgetall(primary_key)
         data = {}
         for name, field in cls._fields.items():
             if isinstance(field, _ContainerField):
@@ -922,7 +923,7 @@ class Model(_with_metaclass(BaseModel)):
                     field._delete(self)
 
         # Remove the object itself.
-        self.database.delete(hash_key)
+        self.__database__.delete(hash_key)
 
     def save(self):
         """
