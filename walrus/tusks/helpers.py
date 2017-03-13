@@ -187,7 +187,7 @@ class TestHelper(object):
 
     def test_models(self):
         class User(Model):
-            database = self.db
+            __database__ = self.db
             username = TextField(primary_key=True)
             value = IntegerField(index=True)
 
