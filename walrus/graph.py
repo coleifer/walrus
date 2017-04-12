@@ -131,7 +131,8 @@ class Graph(object):
             parts.extend(('pso', p))
         elif o:
             parts.extend(('osp', o))
-        return key(parts + ['']), key(parts + ['\xff'])
+        return key(parts + ['']), \
+               key(parts + ['\xff'.decode("utf-8", "replace")])
 
     def query(self, s=None, p=None, o=None):
         """
