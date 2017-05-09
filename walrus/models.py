@@ -257,7 +257,7 @@ class UUIDField(Field):
         return str(value)
 
     def python_value(self, value):
-        return uuid.UUID(value)
+        return uuid.UUID(decode(value))
 
     def _generate_key(self):
         return uuid.uuid4()

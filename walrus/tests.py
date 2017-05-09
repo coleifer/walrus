@@ -660,6 +660,18 @@ class TestModels(WalrusTestCase):
         self.assertEqual(instance.num, 0)
         self.assertEqual(instance.txt, '')
 
+    def test_uuid(self):
+        class Beacon(BaseModel):
+            name = TextField(primary_key=True)
+            data = UUIDField()
+
+        b1 = Beacon.create(name='alpha', data=uuid.uuid4())
+        b2 = Beacon.create(name='bravo', data=uuid.uuid4())
+        b2_db = Beacon.load('bravo')
+        b1_db = Beacon.load('alpha')
+        self.assertEqual(b1.data, b1_db.data)
+        self.assertEqual(b2.data, b2_db.data)
+
 
 class TestCache(WalrusTestCase):
     def test_cache_apis(self):
