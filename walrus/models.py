@@ -6,6 +6,7 @@ import re
 import sys
 import time
 import uuid
+from warnings import warn
 
 from walrus.containers import Array
 from walrus.containers import Hash
@@ -575,6 +576,15 @@ class BaseModel(type):
     def __new__(cls, name, bases, attrs):
         if not bases:
             return super(BaseModel, cls).__new__(cls, name, bases, attrs)
+
+        if 'database' in attrs:
+            warn('"database" has been deprecated in favor of "__database__" '
+                 'for Walrus models.', DeprecationWarning)
+            attrs['__database__'] = attrs.pop('database')
+        if 'namespace' in attrs:
+            warn('"namespace" has been deprecated in favor of "__namespace__" '
+                 'for Walrus models.', DeprecationWarning)
+            attrs['__namespace__'] = attrs.pop('namespace')
 
         # Declarative base juju.
         ignore = set()
