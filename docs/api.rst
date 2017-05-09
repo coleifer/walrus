@@ -138,6 +138,8 @@ High-level APIs
       exists,
       boost_object,
       remove,
+      list_data,
+      list_titles,
       flush
 
 .. autoclass:: Cache

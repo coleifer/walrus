@@ -1552,6 +1552,17 @@ class TestAutocomplete(WalrusTestCase):
         results = self.autocomplete.search('foo')
         self.assertSearch(results, ['foo one', 'bar foo one'])
 
+    def test_return_all_results(self):
+        phrases = ('aa bb', 'aa cc', 'bb aa cc', 'bb cc', 'cc aa bb')
+        for phrase in phrases:
+            self.autocomplete.store(phrase)
+
+        data = self.autocomplete.list_data()
+        self.assertEqual(sorted(data), list(phrases))
+
+        titles = self.autocomplete.list_titles()
+        self.assertEqual(sorted(data), list(phrases))
+
 
 class TestRateLimit(WalrusTestCase):
     def setUp(self):

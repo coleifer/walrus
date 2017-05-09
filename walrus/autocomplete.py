@@ -308,6 +308,25 @@ class Autocomplete(object):
         phrase_key = '|'.join(phrases)
         return '%s:c:%s:%s' % (self.namespace, phrase_key, boost_key)
 
+    def list_data(self):
+        """
+        Return all the data stored in the autocomplete index. If the data was
+        stored as serialized JSON, then it will be de-serialized before being
+        returned.
+
+        :rtype: list
+        """
+        values = self._data.values()
+        return [json.loads(v) for v in values] if self._use_json else values
+
+    def list_titles(self):
+        """
+        Return the titles of all objects stored in the autocomplete index.
+
+        :rtype: list
+        """
+        return self._title_data.values()
+
     def flush(self, batch_size=1000):
         """
         Delete all autocomplete indexes and metadata.
