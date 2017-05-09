@@ -21,6 +21,11 @@ Let's create a simple data model to store some users.
     ...     name = TextField(primary_key=True)
     ...     dob = DateField(index=True)
 
+.. note::
+    As of 0.4.0, the ``Model.database`` attribute has been renamed to
+    ``Model.__database__``. Similarly, ``Model.namespace`` is now
+    ``Model.__namespace__``.
+
 Creating, Updating and Deleting
 -------------------------------
 
