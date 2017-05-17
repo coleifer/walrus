@@ -236,8 +236,10 @@ class Cache(object):
             @wraps(fn)
             def inner(*args, **kwargs):
                 q = Queue()
+
                 def _sub_fn():
                     q.put(wrapped(*args, **kwargs))
+
                 def _get_value(block=True, timeout=None):
                     if not hasattr(_get_value, '_return_value'):
                         result = q.get(block=block, timeout=timeout)
