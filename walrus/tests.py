@@ -65,6 +65,10 @@ class DefaultOption(BaseModel):
     txt = TextField(default='')
     num = IntegerField(default=0)
 
+class Account(BaseModel):
+    name = TextField(primary_key=True)
+    active = BooleanField()
+
 cache = db.cache(name='test.cache')
 
 
@@ -659,6 +663,24 @@ class TestModels(WalrusTestCase):
         self.assertTrue(instance.default_empty is None)
         self.assertEqual(instance.num, 0)
         self.assertEqual(instance.txt, '')
+
+    def test_boolean_field(self):
+        charlie = Account(name='charlie', active=True)
+        huey = Account(name='huey', active=False)
+        charlie.save()
+        huey.save()
+
+        charlie_db = Account.get(Account.name == 'charlie')
+        self.assertTrue(charlie_db.active)
+
+        huey_db = Account.get(Account.name == 'huey')
+        self.assertFalse(huey_db.active)
+
+        huey_db.active = True
+        huey_db.save()
+
+        huey_db2 = Account.get(Account.name == 'huey')
+        self.assertTrue(huey_db2.active)
 
     def test_uuid(self):
         class Beacon(BaseModel):

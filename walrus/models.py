@@ -241,7 +241,7 @@ class TextField(Field):
 class BooleanField(Field):
     """Store boolean values."""
     def db_value(self, value):
-        return value and 1 or 0
+        return '1' if value else '0'
 
     def python_value(self, value):
         return str(value) == '1'
