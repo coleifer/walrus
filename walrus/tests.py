@@ -1255,8 +1255,8 @@ class TestLock(WalrusTestCase):
         lock_a = db.lock('lock-ttl', ttl=5000)
 
         def wait_for_blocking_acquire():
-            lock_a2 = db.lock('lock-ttl', ttl=5000)
-            lock_a2.acquire(lock_test_delay=500)
+            lock_a2 = db.lock('lock-ttl', ttl=5000, lock_test_delay=500)
+            lock_a2.acquire()
             lock_a2.release()
 
         self.assertTrue(lock_a.acquire())

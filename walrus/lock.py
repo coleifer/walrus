@@ -38,17 +38,21 @@ class Lock(object):
             # called, and released when the function returns.
             do_some_more_calculations()
     """
-    def __init__(self, database, name, ttl=None, lock_id=None):
+    def __init__(self, database, name, ttl=None, lock_id=None,
+                 lock_test_delay=None):
         """
         :param database: A walrus ``Database`` instance.
         :param str name: The name for the lock.
         :param int ttl: The time-to-live for the lock in milliseconds.
         :param str lock_id: Unique identifier for the lock instance.
+        :param int lock_test_delay: The time between polls when trying to
+            acquire lock.  Defaults to TTL if not defined.
         """
         self.database = database
         self.name = name
         self.ttl = ttl or 0
         self._lock_id = lock_id or os.urandom(32)
+        self.lock_test_delay = lock_test_delay or self.ttl
 
     @property
     def key(self):
@@ -58,7 +62,7 @@ class Lock(object):
     def event(self):
         return 'lock.event:%s' % (self.name)
 
-    def acquire(self, block=True, lock_test_delay=None):
+    def acquire(self, block=True):
         """
         Acquire the lock. The lock will be held until it is released
         by calling :py:meth:`Lock.release`. If the lock was
@@ -75,9 +79,6 @@ class Lock(object):
 
         :param bool block: Whether to block while waiting to acquire
             the lock.
-        :param int lock_test_delay: Number of milliseconds to delay between
-            lock acquisition test.  Defaults to the TTL of the lock if not
-            specified. (Only applicable in blocking lock acquisition)
         :returns: Returns ``True`` if the lock was acquired.
         """
         while True:
@@ -91,13 +92,9 @@ class Lock(object):
             # Perform a blocking pop on the event key. When a lock
             # is released, a value is pushed into the list, which
             # signals listeners that the lock is available.
-            if lock_test_delay:
-                blpop_timeout = lock_test_delay
-            else:
-                blpop_timeout = self.ttl
 
             # Convert the millisecond based TTL or delay value to seconds (rounding up)
-            timeout_in_int = blpop_timeout // 1000 + 1
+            timeout_in_int = int(round(1.0 * self.lock_test_delay / 1000))
             self.database.blpop(self.event, timeout=timeout_in_int)
 
     def release(self):

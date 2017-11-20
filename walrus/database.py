@@ -198,7 +198,7 @@ class Database(Redis):
         """
         return Graph(self, name, *args, **kwargs)
 
-    def lock(self, name, ttl=None, lock_id=None):
+    def lock(self, name, ttl=None, lock_id=None, lock_test_delay=None):
         """
         Create a named :py:class:`Lock` instance. The lock implements
         an API similar to the standard library's ``threading.Lock``,
@@ -209,8 +209,10 @@ class Database(Redis):
             (optional). If the ttl is ``None`` then the lock will not
             expire.
         :param str lock_id: Optional identifier for the lock instance.
+        :param int lock_test_delay: The time between polls when trying to
+            acquire lock.  Defaults to TTL if not defined.
         """
-        return Lock(self, name, ttl, lock_id)
+        return Lock(self, name, ttl, lock_id, lock_test_delay)
 
     def rate_limit(self, name, limit=5, per=60, debug=False):
         """
