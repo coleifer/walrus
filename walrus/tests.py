@@ -1251,6 +1251,21 @@ class TestLock(WalrusTestCase):
         self.assertTrue(lock_a.acquire(block=False))
         lock_a.release()
 
+    def test_lock_ttl(self):
+        lock_a = db.lock('lock-ttl', ttl=5000)
+
+        def wait_for_blocking_acquire():
+            lock_a2 = db.lock('lock-ttl', ttl=5000)
+            lock_a2.acquire(lock_test_delay=500)
+            lock_a2.release()
+
+        self.assertTrue(lock_a.acquire())
+
+        waiter_t = threading.Thread(target=wait_for_blocking_acquire)
+        waiter_t.start()
+        waiter_t.join(20)
+        self.assertFalse(waiter_t.is_alive())
+
     def test_lock_ctx_mgr(self):
         lock_a = db.lock('lock-a')
         lock_a2 = db.lock('lock-a')

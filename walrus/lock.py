@@ -58,7 +58,7 @@ class Lock(object):
     def event(self):
         return 'lock.event:%s' % (self.name)
 
-    def acquire(self, block=True):
+    def acquire(self, block=True, lock_test_delay=None):
         """
         Acquire the lock. The lock will be held until it is released
         by calling :py:meth:`Lock.release`. If the lock was
@@ -75,6 +75,9 @@ class Lock(object):
 
         :param bool block: Whether to block while waiting to acquire
             the lock.
+        :param int lock_test_delay: Number of milliseconds to delay between
+            lock acquisition test.  Defaults to the TTL of the lock if not
+            specified. (Only applicable in blocking lock acquisition)
         :returns: Returns ``True`` if the lock was acquired.
         """
         while True:
@@ -88,7 +91,14 @@ class Lock(object):
             # Perform a blocking pop on the event key. When a lock
             # is released, a value is pushed into the list, which
             # signals listeners that the lock is available.
-            self.database.blpop(self.event, self.ttl)
+            if lock_test_delay:
+                blpop_timeout = lock_test_delay
+            else:
+                blpop_timeout = self.ttl
+
+            # Convert the millisecond based TTL or delay value to seconds (rounding up)
+            timeout_in_int = blpop_timeout // 1000 + 1
+            self.database.blpop(self.event, timeout=timeout_in_int)
 
     def release(self):
         """
