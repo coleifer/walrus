@@ -70,6 +70,9 @@ class Account(BaseModel):
     active = BooleanField()
     admin = BooleanField(default=False)
 
+class Simple(BaseModel):
+    data = TextField()
+
 cache = db.cache(name='test.cache')
 
 
@@ -133,6 +136,11 @@ class TestModels(WalrusTestCase):
                     user=u.username,
                     text='n%s-%s' % (i + 1, j + 1),
                     tags=['t%s' % (k + 1) for k in range(j)])
+
+    def test_storage(self):
+        s = Simple.create(data=None)
+        s_db = Simple.load(s._id)
+        self.assertEqual(s_db.data, '')
 
     def test_create(self):
         self.create_objects()

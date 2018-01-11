@@ -216,7 +216,7 @@ class TextField(Field):
 
     def db_value(self, value):
         if value is None:
-            return value
+            return ''
         elif isinstance(value, unicode_type):
             return value.encode('utf-8')
         return value
@@ -254,10 +254,13 @@ class UUIDField(Field):
         super(UUIDField, self).__init__(**kwargs)
 
     def db_value(self, value):
-        return str(value)
+        return str(value) if value is not None else ''
 
     def python_value(self, value):
-        return uuid.UUID(decode(value))
+        if not value:
+            return None
+        else:
+            return uuid.UUID(decode(value))
 
     def _generate_key(self):
         return uuid.uuid4()
