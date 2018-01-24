@@ -156,6 +156,9 @@ class Autocomplete(object):
         :param obj_id: The object's unique identifier.
         :param obj_type: The object's type.
         """
+        if not self.exists(obj_id, obj_type):
+            raise KeyError('Object not found.')
+
         combined_id = self.object_key(obj_id, obj_type)
         title = self._title_data[combined_id]
 

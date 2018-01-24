@@ -1484,6 +1484,10 @@ class TestAutocomplete(WalrusTestCase):
         results = self.autocomplete.search('testing')
         self.assertResults(results, [1, 3])
 
+        # `2` has already been removed
+        with self.assertRaises(KeyError):
+            self.autocomplete.remove(2)
+
     def test_tokenize_title(self):
         self.assertEqual(
             self.autocomplete.tokenize_title('abc def ghi'),
