@@ -250,25 +250,36 @@ class UUIDField(Field):
 class DateTimeField(_ScalarField):
     """Store Python datetime objects."""
     def db_value(self, value):
+        if value is None:
+            return b''
+
         timestamp = time.mktime(value.timetuple())
         micro = value.microsecond * (10 ** -6)
         return timestamp + micro
 
     def python_value(self, value):
-        if isinstance(value, (basestring_type, int, float)):
+        if not value:
+            return None
+        elif isinstance(value, (basestring_type, int, float)):
             return datetime.datetime.fromtimestamp(float(value))
-        return value
+        else:
+            return value
 
 
 class DateField(DateTimeField):
     """Store Python date objects."""
     def db_value(self, value):
+        if value is None:
+            return b''
         return time.mktime(value.timetuple())
 
     def python_value(self, value):
-        if isinstance(value, (basestring_type, int, float)):
+        if not value:
+            return None
+        elif isinstance(value, (basestring_type, int, float)):
             return datetime.datetime.fromtimestamp(float(value)).date()
-        return value
+        else:
+            return value
 
 
 class JSONField(Field):

@@ -65,11 +65,6 @@ class DefaultOption(BaseModel):
     txt = TextField(default='')
     num = IntegerField(default=0)
 
-class Account(BaseModel):
-    name = TextField(primary_key=True)
-    active = BooleanField()
-    admin = BooleanField(default=False)
-
 cache = db.cache(name='test.cache')
 
 
@@ -697,7 +692,16 @@ class TestModels(WalrusTestCase):
         pd_db = PythonData.load(pd._id)
         self.assertEqual(pd_db.data, {'k1': ['v1', None, 'v3']})
 
+        pd2 = PythonData.create(data=None)
+        pd2_db = PythonData.load(pd2._id)
+        self.assertTrue(pd2_db.data is None)
+
     def test_boolean_field(self):
+        class Account(BaseModel):
+            name = TextField(primary_key=True)
+            active = BooleanField()
+            admin = BooleanField(default=False)
+
         charlie = Account(name='charlie', active=True, admin=True)
         huey = Account(name='huey', active=False)
         charlie.save()
@@ -726,10 +730,49 @@ class TestModels(WalrusTestCase):
 
         b1 = Beacon.create(name='alpha', data=uuid.uuid4())
         b2 = Beacon.create(name='bravo', data=uuid.uuid4())
+        b3 = Beacon.create(name='charlie')
+        b3_db = Beacon.load('charlie')
         b2_db = Beacon.load('bravo')
         b1_db = Beacon.load('alpha')
         self.assertEqual(b1.data, b1_db.data)
         self.assertEqual(b2.data, b2_db.data)
+        self.assertTrue(b3.data is None)
+
+    def _test_date_field(self, field_class, dt_func):
+        class Event(BaseModel):
+            timestamp = field_class(index=True)
+            value = TextField()
+
+        events = [
+            Event.create(timestamp=dt_func(i), value='e%s' % i)
+            for i in range(1, 11)]
+
+        e_db = Event.get(Event._id == events[-1]._id)
+        self.assertEqual(e_db.timestamp, dt_func(10))
+        self.assertEqual(e_db.value, 'e10')
+
+        events = Event.query(
+            (Event.timestamp >= dt_func(3)) &
+            (Event.timestamp < dt_func(7)), Event.timestamp)
+        ts2value = [(e.timestamp, e.value) for e in events]
+        self.assertEqual(ts2value, [
+            (dt_func(3), 'e3'),
+            (dt_func(4), 'e4'),
+            (dt_func(5), 'e5'),
+            (dt_func(6), 'e6')])
+
+        e = Event.create(value='ex')
+        e_db = Event.load(e._id)
+        self.assertTrue(e_db.timestamp is None)
+        self.assertEqual(e_db.value, 'ex')
+
+    def test_datetime_field(self):
+        dt = lambda day: datetime.datetime(2018, 1, day, 3, 13, 37)
+        self._test_date_field(DateTimeField, dt)
+
+    def test_date_field(self):
+        dt = lambda day: datetime.date(2018, 1, day)
+        self._test_date_field(DateField, dt)
 
 
 class TestCache(WalrusTestCase):
