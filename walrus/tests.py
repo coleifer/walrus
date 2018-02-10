@@ -70,9 +70,6 @@ class Account(BaseModel):
     active = BooleanField()
     admin = BooleanField(default=False)
 
-class Simple(BaseModel):
-    data = TextField()
-
 cache = db.cache(name='test.cache')
 
 
@@ -137,10 +134,17 @@ class TestModels(WalrusTestCase):
                     text='n%s-%s' % (i + 1, j + 1),
                     tags=['t%s' % (k + 1) for k in range(j)])
 
-    def test_storage(self):
-        s = Simple.create(data=None)
+    def test_store_none(self):
+        class Simple(BaseModel):
+            text = TextField()
+            number = IntegerField()
+            normalized = FloatField()
+
+        s = Simple.create(text=None, number=None, normalized=None)
         s_db = Simple.load(s._id)
-        self.assertEqual(s_db.data, '')
+        self.assertEqual(s_db.text, '')
+        self.assertEqual(s_db.number, 0)
+        self.assertEqual(s_db.normalized, 0.)
 
     def test_create(self):
         self.create_objects()
@@ -672,6 +676,26 @@ class TestModels(WalrusTestCase):
         self.assertTrue(instance.default_empty is None)
         self.assertEqual(instance.num, 0)
         self.assertEqual(instance.txt, '')
+
+    def test_json_storage(self):
+        class APIResponse(BaseModel):
+            data = JSONField()
+
+        ar = APIResponse(data={'k1': 'v1', 'k2': 'v2'})
+        ar.save()
+
+        ar_db = APIResponse.load(ar._id)
+        self.assertEqual(ar_db.data, {'k1': 'v1', 'k2': 'v2'})
+
+    def test_pickled_storage(self):
+        class PythonData(BaseModel):
+            data = PickledField()
+
+        pd = PythonData(data={'k1': ['v1', None, 'v3']})
+        pd.save()
+
+        pd_db = PythonData.load(pd._id)
+        self.assertEqual(pd_db.data, {'k1': ['v1', None, 'v3']})
 
     def test_boolean_field(self):
         charlie = Account(name='charlie', active=True, admin=True)

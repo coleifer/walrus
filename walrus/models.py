@@ -79,47 +79,26 @@ class Field(Node):
     """
     _coerce = None
 
-    def __init__(self, index=False, as_json=False, primary_key=False,
-                 pickled=False, default=None):
+    def __init__(self, index=False, primary_key=False, default=None):
         """
         :param bool index: Use this field as an index. Indexed
             fields will support :py:meth:`Model.get` lookups.
-        :param bool as_json: Whether the value should be serialized
-            as JSON when storing in the database. Useful for
-            collections or objects.
         :param bool primary_key: Use this field as the primary key.
-        :param bool pickled: Whether the value should be pickled when
-            storing in the database. Useful for non-primitive content
-            types.
         """
         self._index = index or primary_key
-        self._as_json = as_json
         self._primary_key = primary_key
-        self._pickled = pickled
         self._default = default
 
     def _generate_key(self):
         raise NotImplementedError
 
     def db_value(self, value):
-        if self._pickled:
-            return pickle.dumps(value)
-        elif PY3 and self._as_json:
-            return json.dumps(decode(value))
-        elif self._as_json:
-            return json.dumps(value)
-        elif self._coerce:
+        if self._coerce:
             return self._coerce(value)
         return value
 
     def python_value(self, value):
-        if self._pickled:
-            return pickle.loads(value)
-        elif self._as_json and PY3:
-            return json.loads(decode(value))
-        elif self._as_json:
-            return json.loads(value)
-        elif self._coerce:
+        if self._coerce:
             return self._coerce(value)
         return value
 
@@ -163,6 +142,9 @@ class IntegerField(_ScalarField):
     """Store integer values."""
     _coerce = int
 
+    def db_value(self, value):
+        return 0 if value is None else int(value)
+
 
 class AutoIncrementField(IntegerField):
     """Auto-incrementing primary key field."""
@@ -180,10 +162,18 @@ class FloatField(_ScalarField):
     """Store floating point values."""
     _coerce = float
 
+    def db_value(self, value):
+        return 0. if value is None else float(value)
+
 
 class ByteField(Field):
     """Store arbitrary bytes."""
-    _coerce = lambda self, value: encode(value)
+    def db_value(self, value):
+        if isinstance(value, unicode_type):
+            value = value.encode('utf-8')
+        elif value is None:
+            value = b''
+        return value
 
 
 class TextField(Field):
@@ -215,16 +205,10 @@ class TextField(Field):
         self._index = self._index or self._fts
 
     def db_value(self, value):
-        if value is None:
-            return ''
-        elif isinstance(value, unicode_type):
-            return value.encode('utf-8')
-        return value
+        return b'' if value is None else encode(value)
 
     def python_value(self, value):
-        if value:
-            return value.decode('utf-8')
-        return value
+        return decode(value)
 
     def get_indexes(self):
         indexes = super(TextField, self).get_indexes()
@@ -244,7 +228,7 @@ class BooleanField(Field):
         return '1' if value else '0'
 
     def python_value(self, value):
-        return str(value) == '1'
+        return decode(value) == '1'
 
 
 class UUIDField(Field):
@@ -254,13 +238,10 @@ class UUIDField(Field):
         super(UUIDField, self).__init__(**kwargs)
 
     def db_value(self, value):
-        return str(value) if value is not None else ''
+        return encode(value.hex if value is not None else '')
 
     def python_value(self, value):
-        if not value:
-            return None
-        else:
-            return uuid.UUID(decode(value))
+        return uuid.UUID(decode(value)) if value else None
 
     def _generate_key(self):
         return uuid.uuid4()
@@ -292,9 +273,20 @@ class DateField(DateTimeField):
 
 class JSONField(Field):
     """Store arbitrary JSON data."""
-    def __init__(self, *args, **kwargs):
-        kwargs['as_json'] = True
-        super(JSONField, self).__init__(*args, **kwargs)
+    def db_value(self, value):
+        return encode(json.dumps(value))
+
+    def python_value(self, value):
+        return json.loads(decode(value))
+
+
+class PickledField(Field):
+    """Store arbitrary Python objects."""
+    def db_value(self, value):
+        return pickle.dumps(value, pickle.HIGHEST_PROTOCOL)
+
+    def python_value(self, value):
+        return pickle.loads(value)
 
 
 class _ContainerField(Field):

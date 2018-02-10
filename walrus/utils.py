@@ -13,15 +13,11 @@ else:
 
 
 def encode(s):
-    if PY3 and isinstance(s, unicode_type):
-        return s.encode('utf-8')
-    return s
+    return s.encode('utf-8') if isinstance(s, unicode_type) else s
 
 
 def decode(s):
-    if PY3 and isinstance(s, bytes):
-        return s.decode('utf-8')
-    return s
+    return s.decode('utf-8') if isinstance(s, bytes) else s
 
 
 class memoize(dict):
