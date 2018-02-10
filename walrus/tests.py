@@ -56,10 +56,6 @@ class Stat(BaseModel):
     stat_type = ByteField(index=True)
     value = IntegerField(index=True)
 
-class HashModel(BaseModel):
-    data = HashField()
-    name = TextField()
-
 class DefaultOption(BaseModel):
     default_empty = JSONField()
     txt = TextField(default='')
@@ -642,6 +638,10 @@ class TestModels(WalrusTestCase):
         self.assertEqual([user for user in User.all()], [])
 
     def test_container_field_persistence(self):
+        class HashModel(BaseModel):
+            data = HashField()
+            name = TextField()
+
         hm1 = HashModel.create(name='hm1')
         hm1.data.update(k1='v1', k2='v2')
 
@@ -656,6 +656,10 @@ class TestModels(WalrusTestCase):
         self.assertEquivalent(hm1.data.as_dict(), {'k1': 'v1', 'k2': 'v2'})
 
     def test_delete_container_fields(self):
+        class HashModel(BaseModel):
+            data = HashField()
+            name = TextField()
+
         hm1 = HashModel.create(name='hm1')
         hm1.data.update(k1='v1', k2='v2')
 
