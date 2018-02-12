@@ -848,6 +848,30 @@ class TestSearchIndex(WalrusTestCase):
         self.assertEqual(decode(huey['type']), 'kitten')
         self.assertTrue(huey['color'] is None)
 
+    def test_search_phonetic(self):
+        data = (
+            ('pf', 'python and flask'),
+            ('lcp', 'learning cython programming'),
+            ('lwd', 'learning web development with flask'),
+            ('pwd', 'python web development'))
+        data_dict = dict(data)
+        idx = db.Index('test-index', metaphone=True)
+        for key, content in data:
+            idx.add(key, content)
+
+        def assertResults(query, keys):
+            result = idx.search(query)
+            self.assertEqual([decode(obj['content']) for obj in result],
+                             [data_dict[key] for key in keys])
+
+        assertResults('flasck', ['pf', 'lwd'])
+        assertResults('pythonn', ['pf', 'pwd'])
+        assertResults('sithon', ['lcp'])
+        assertResults('webb development', ['pwd', 'lwd'])
+
+        assertResults('sithon OR (flasck AND pythonn)', ['pf', 'lcp'])
+        assertResults('garbage', [])
+
     def test_search_parser(self):
         messages = [
             'foo green',
