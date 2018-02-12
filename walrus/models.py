@@ -14,18 +14,16 @@ from walrus.containers import HyperLogLog
 from walrus.containers import List
 from walrus.containers import Set
 from walrus.containers import ZSet
+from walrus.fts import Tokenizer
 from walrus.query import ABSOLUTE
 from walrus.query import CONTINUOUS
 from walrus.query import Desc
 from walrus.query import Executor
 from walrus.query import FTS
 from walrus.query import Node
-from walrus.search.metaphone import dm as double_metaphone
-from walrus.search.porter import PorterStemmer
 from walrus.utils import basestring_type
 from walrus.utils import decode
 from walrus.utils import encode
-from walrus.utils import load_stopwords
 from walrus.utils import PY3
 from walrus.utils import unicode_type
 
@@ -451,110 +449,15 @@ class ContinuousIndex(BaseIndex):
 
 class FullTextIndex(BaseIndex):
     operations = FTS
-    _stopwords = set()
-    _stopwords_file = 'stopwords.txt'
 
     def __init__(self, field, stemmer=True, metaphone=False,
                  stopwords_file=None, min_word_length=None):
         super(FullTextIndex, self).__init__(field)
-        self._stemmer = stemmer
-        self._metaphone = metaphone
-        if stopwords_file:
-            self._stopwords_file = stopwords_file
-        self._min_word_length = min_word_length
-        self._load_stopwords()
-        self._symbols_re = re.compile(
-            '[\.,;:"\'\\/!@#\$%\?\*\(\)\-=+\[\]\{\}_]')
-
-    def _load_stopwords(self):
-        stopwords = load_stopwords(self._stopwords_file)
-        if stopwords:
-            self._stopwords = set(stopwords.splitlines())
-
-    def split_phrase(self, phrase):
-        """Split the document or search query into tokens."""
-        return self._symbols_re.sub(' ', decode(phrase)).split()
-
-    def stem(self, words):
-        """
-        Use the porter stemmer to generate consistent forms of
-        words, e.g.::
-
-            from walrus.search.utils import PorterStemmer
-            stemmer = PorterStemmer()
-            for word in ['faith', 'faiths', 'faithful']:
-                print s.stem(word, 0, len(word) - 1)
-
-            # Prints:
-            # faith
-            # faith
-            # faith
-        """
-        stemmer = PorterStemmer()
-        _stem = stemmer.stem
-        for word in words:
-            yield _stem(word, 0, len(word) - 1)
-
-    def metaphone(self, words):
-        """
-        Apply the double metaphone algorithm to the given words.
-        Using metaphone allows the search index to tolerate
-        misspellings and small typos.
-
-        Example::
-
-            >>> from walrus.search.metaphone import dm as metaphone
-            >>> print metaphone('walrus')
-            ('ALRS', 'FLRS')
-
-            >>> print metaphone('python')
-            ('P0N', 'PTN')
-
-            >>> print metaphone('pithonn')
-            ('P0N', 'PTN')
-        """
-        for word in words:
-            r = 0
-            for w in double_metaphone(word):
-                if w:
-                    w = w.strip()
-                    if w:
-                        r += 1
-                        yield w
-            if not r:
-                yield word
-
-    def filter_stop_words(self, words):
-        """Remove any stop-words from the collection of words."""
-        return [w for w in words if w not in self._stopwords]
-
-    def tokenize(self, value):
-        """
-        Split the incoming value into tokens and process each token,
-        optionally stemming or running metaphone.
-
-        :returns: A ``dict`` mapping token to score. The score is
-            based on the relative frequency of the word in the
-            document.
-        """
-        words = self.split_phrase(value.lower())
-        words = self.filter_stop_words(words)
-
-        fraction = 1. / (len(words) + 1)  # Prevent division by zero.
-
-        # Apply optional transformations.
-        if self._min_word_length:
-            words = [w for w in words if len(w) >= self._min_word_length]
-        if self._stemmer:
-            words = self.stem(words)
-        if self._metaphone:
-            words = self.metaphone(words)
-
-        scores = {}
-        for word in words:
-            scores.setdefault(word, 0)
-            scores[word] += fraction
-        return scores
+        self.tokenizer = Tokenizer(
+            stemmer=stemmer,
+            metaphone=metaphone,
+            stopwords_file=stopwords_file or 'stopwords.txt',
+            min_word_length=min_word_length)
 
     def get_key(self, value):
         key = self.query_helper.make_key(
@@ -565,13 +468,13 @@ class FullTextIndex(BaseIndex):
 
     def store_instance(self, key, instance, value):
         hash_id = instance.get_hash_id()
-        for word, score in self.tokenize(value).items():
+        for word, score in self.tokenizer.tokenize(value).items():
             key = self.get_key(word)
             key[hash_id] = score
 
     def delete_instance(self, key, instance, value):
         hash_id = instance.get_hash_id()
-        for word in self.tokenize(value):
+        for word in self.tokenizer.tokenize(value):
             key = self.get_key(word)
             del key[hash_id]
             if len(key) == 0:

@@ -293,7 +293,7 @@ class Executor(object):
     def execute_match(self, lhs, rhs):
         index = lhs.get_index(OP_MATCH)
         db_value = lhs.db_value(rhs)
-        words = index.tokenize(db_value)
+        words = index.tokenizer.tokenize(db_value)
         index_keys = []
         for word in words:
             index_keys.append(index.get_key(word).key)
