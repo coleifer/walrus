@@ -6,15 +6,21 @@ Lightweight Python utilities for working with [Redis](http://redis.io).
 
 The purpose of [walrus](https://github.com/coleifer/walrus) is to make working with Redis in Python a little easier by wrapping rich objects in Pythonic containers. walrus consists of:
 
-* Wrappers for the Redis object types:
+* Pythonic container classes for the Redis data-types:
     * [Hash](https://walrus.readthedocs.io/en/latest/containers.html#hashes)
     * [List](https://walrus.readthedocs.io/en/latest/containers.html#lists)
     * [Set](https://walrus.readthedocs.io/en/latest/containers.html#sets)
     * [Sorted Set](https://walrus.readthedocs.io/en/latest/containers.html#sorted-sets-zset)
     * [HyperLogLog](https://walrus.readthedocs.io/en/latest/containers.html#hyperloglog)
     * [Array](https://walrus.readthedocs.io/en/latest/containers.html#arrays) (custom type)
-* A simple [Cache](https://walrus.readthedocs.io/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.
-* Lightweight data [Model](https://walrus.readthedocs.io/en/latest/models.html) objects that support persisting structured information and performing complex queries using secondary indexes.
+* [Autocomplete](https://walrus.readthedocs.io/en/latest/autocomplete.html)
+* [Cache](https://walrus.readthedocs.io/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.
+* [Full-text search](https://walrus.readthedocs.io/en/latest/full-text-search.html) supporting set operations.
+* [Graph store](https://walrus.readthedocs.io/en/latest/graph.html)
+* [Rate-limiting](https://walrus.readthedocs.io/en/latest/rate-limit.html)
+* [Locking](https://walrus.readthedocs.io/en/latest/api.html#walrus.Lock)
+* Active-record style [Models](https://walrus.readthedocs.io/en/latest/models.html) that support persisting structured information and performing complex queries using secondary indexes.
+* More? [More!](https://walrus.readthedocs.io)
 
 ### Models
 

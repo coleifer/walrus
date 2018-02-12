@@ -15,6 +15,7 @@ Python utilities for working with `Redis <http://redis.io>`_:
 * container classes
 * autocomplete
 * cache
+* full-text search
 * graph store
 * rate limiting
 * active-record models (secondary indexes, full-text search)
@@ -39,6 +40,7 @@ Contents:
    containers
    autocomplete
    cache
+   full-text-search
    graph
    rate-limit
    models
