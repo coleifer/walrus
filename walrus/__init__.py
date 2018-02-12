@@ -32,6 +32,7 @@ from walrus.containers import List
 from walrus.containers import Set
 from walrus.containers import ZSet
 from walrus.database import Database
+from walrus.fts import Index
 from walrus.lock import Lock
 from walrus.models import *
 from walrus.rate_limit import RateLimit

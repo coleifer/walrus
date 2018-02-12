@@ -6,7 +6,25 @@ from walrus.search import Tokenizer
 
 
 class Index(object):
+    """
+    Full-text search index.
+
+    Store documents, along with arbitrary metadata, and perform full-text
+    search on the document content. Supports porter-stemming, stopword
+    filtering, basic result ranking, and (optionally) double-metaphone for
+    phonetic search.
+    """
     def __init__(self, db, name, **tokenizer_settings):
+        """
+        :param Database db: a walrus database object.
+        :param str name: name for the search index.
+        :param bool stemmer: use porter stemmer (default True).
+        :param bool metaphone: use double metaphone (default False).
+        :param str stopwords_file: defaults to walrus stopwords.txt.
+        :param int min_word_length: specify minimum word length.
+
+        Create a search index for storing and searching documents.
+        """
         self.db = db
         self.name = name
         self.tokenizer = Tokenizer(**tokenizer_settings)
@@ -16,9 +34,21 @@ class Index(object):
         return self.db.ZSet('fts.%s.%s' % (self.name, word))
 
     def get_document(self, document_id):
+        """
+        :param document_id: Document unique identifier.
+        :returns: a :py:class:`Hash` containing the document content and
+                  any associated metadata.
+        """
         return self.db.Hash('doc.%s.%s' % (self.name, decode(document_id)))
 
     def add(self, key, content, **metadata):
+        """
+        :param key: Document unique identifier.
+        :param str content: Content to store and index for search.
+        :param metadata: Arbitrary key/value pairs to store for document.
+
+        Add a document to the search index.
+        """
         self.members.add(key)
         document_hash = self.get_document(key)
         document_hash.update(content=content, **metadata)
@@ -28,6 +58,11 @@ class Index(object):
             word_key[key] = -score
 
     def remove(self, key, preserve_data=False):
+        """
+        :param key: Document unique identifier.
+
+        Remove the document from the search index.
+        """
         if self.members.remove(key) != 1:
             raise KeyError('Document with key "%s" not found.' % key)
         document_hash = self.get_document(key)
@@ -42,10 +77,26 @@ class Index(object):
                 word_key.clear()
 
     def update(self, key, content, **metadata):
+        """
+        :param key: Document unique identifier.
+        :param str content: Content to store and index for search.
+        :param metadata: Arbitrary key/value pairs to store for document.
+
+        Update the given document. Existing metadata will be preserved and,
+        optionally, updated with the provided metadata.
+        """
         self.remove(key, preserve_data=True)
         self.add(key, content, **metadata)
 
     def replace(self, key, content, **metadata):
+        """
+        :param key: Document unique identifier.
+        :param str content: Content to store and index for search.
+        :param metadata: Arbitrary key/value pairs to store for document.
+
+        Update the given document. Existing metadata will not be removed and
+        replaced with the provided metadata.
+        """
         self.remove(key)
         self.add(key, content, **metadata)
 
@@ -64,4 +115,15 @@ class Index(object):
         return executor.execute(expression)
 
     def search(self, query):
+        """
+        :param str query: Search query. May contain boolean/set operations
+            and parentheses.
+        :returns: a list of document hashes corresponding to matching
+            documents.
+
+        Search the index. The return value is a list of redis :py:class:`Hash`
+        objects corresponding to the documents that matched. These hashes
+        contain a ``content`` key with the original indexed content, along with
+        any additional metadata that was specified.
+        """
         return [self.get_document(key) for key, _ in self._search(query)]

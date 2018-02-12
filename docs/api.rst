@@ -18,6 +18,7 @@ API Documentation
       graph,
       lock,
       rate_limit,
+      Index,
       List,
       Hash,
       Set,
@@ -161,6 +162,16 @@ High-level APIs
       incr,
       decr,
       value
+
+.. autoclass:: Index
+    :members:
+      __init__,
+      get_document,
+      add,
+      remove,
+      update,
+      replace,
+      search
 
 .. autoclass:: Graph
     :members:

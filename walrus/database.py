@@ -223,6 +223,10 @@ class Database(Redis):
         return RateLimit(self, name, limit, per, debug)
 
     def Index(self, name, **options):
+        """
+        Create a :py:class:`Index` full-text search index with the given
+        name and options.
+        """
         return Index(self, name, **options)
 
     def List(self, key):
