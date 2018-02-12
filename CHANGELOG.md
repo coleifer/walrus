@@ -2,6 +2,12 @@
 
 This document describes changes to the APIs.
 
+### 0.5.1
+
+* Added standalone [full-text search](https://walrus.readthedocs.io/en/latest/full-text-search.html).
+* Refactored various internal classes that support the new standalone full-text
+  search index.
+
 ### 0.5.0
 
 * The `models` API uses a backwards-incompatible serialization approach. This
