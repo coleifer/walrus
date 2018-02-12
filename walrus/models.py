@@ -567,13 +567,13 @@ class FullTextIndex(BaseIndex):
         hash_id = instance.get_hash_id()
         for word, score in self.tokenize(value).items():
             key = self.get_key(word)
-            key[instance.get_hash_id()] = score
+            key[hash_id] = score
 
     def delete_instance(self, key, instance, value):
         hash_id = instance.get_hash_id()
         for word in self.tokenize(value):
             key = self.get_key(word)
-            del key[instance.get_hash_id()]
+            del key[hash_id]
             if len(key) == 0:
                 key.clear()
 
