@@ -14,13 +14,13 @@ from walrus.containers import HyperLogLog
 from walrus.containers import List
 from walrus.containers import Set
 from walrus.containers import ZSet
-from walrus.fts import Tokenizer
 from walrus.query import ABSOLUTE
 from walrus.query import CONTINUOUS
 from walrus.query import Desc
 from walrus.query import Executor
 from walrus.query import FTS
 from walrus.query import Node
+from walrus.search import Tokenizer
 from walrus.utils import basestring_type
 from walrus.utils import decode
 from walrus.utils import encode

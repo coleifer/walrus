@@ -1,105 +1,51 @@
-import re
-
-from walrus.search.metaphone import dm as double_metaphone
-from walrus.search.porter import PorterStemmer
-from walrus.utils import decode
-from walrus.utils import load_stopwords
+from walrus.query import Executor
+from walrus.query import OP_MATCH
+from walrus.query import parse
+from walrus.search import Tokenizer
 
 
-class Tokenizer(object):
-    def __init__(self, stemmer=True, metaphone=False,
-                 stopwords_file='stopwords.txt', min_word_length=None):
-        self._use_stemmer = stemmer
-        self._use_metaphone = metaphone
-        self._min_word_length = min_word_length
-        self._symbols_re = re.compile(
-            '[\.,;:"\'\\/!@#\$%\?\*\(\)\-=+\[\]\{\}_]')
+class Index(object):
+    def __init__(self, db, name, **tokenizer_settings):
+        self.db = db
+        self.name = name
+        self.tokenizer = Tokenizer(**tokenizer_settings)
 
-        self._stopwords = self._load_stopwords(stopwords_file)
+    def get_key(self, word):
+        return self.db.ZSet('fts.%s.%s' % (self.name, word))
 
-    def _load_stopwords(self, filename):
-        stopwords = load_stopwords(filename)
-        if stopwords:
-            return set(stopwords.splitlines())
+    def get_document_hash(self, document_id):
+        return self.db.Hash('doc.%s.%s' % (self.name, document_id))
 
-    def split_phrase(self, phrase):
-        """Split the document or search query into tokens."""
-        return self._symbols_re.sub(' ', phrase).split()
+    def add(self, key, content, **metadata):
+        document_hash = self.get_document_hash(key)
+        document_hash.update(content=content, **metadata)
 
-    def stem(self, words):
-        """
-        Use the porter stemmer to generate consistent forms of
-        words, e.g.::
+        for word, score in self.tokenizer.tokenize(content).items():
+            word_key = self.get_key(word)
+            word_key[key] = score
 
-            from walrus.search.utils import PorterStemmer
-            stemmer = PorterStemmer()
-            for word in ['faith', 'faiths', 'faithful']:
-                print s.stem(word, 0, len(word) - 1)
+    def remove(self, key):
+        document_hash = self.get_document_hash(key)
+        content = document_hash['content']
+        document_hash.clear()
+        for word in self.tokenizer.tokenize(content):
+            word_key = self.get_key(word)
+            del word_key[key]
+            if len(word_key) == 0:
+                word_key.clear()
 
-            # Prints:
-            # faith
-            # faith
-            # faith
-        """
-        stemmer = PorterStemmer()
-        _stem = stemmer.stem
-        for word in words:
-            yield _stem(word, 0, len(word) - 1)
+    def update(self, key, content, **metadata):
+        self.remove(key)
+        self.add(key, content, **metadata)
 
-    def metaphone(self, words):
-        """
-        Apply the double metaphone algorithm to the given words.
-        Using metaphone allows the search index to tolerate
-        misspellings and small typos.
+    def get_index(self, op):
+        assert op == OP_MATCH
+        return self
 
-        Example::
+    def db_value(self, value):
+        return value
 
-            >>> from walrus.search.metaphone import dm as metaphone
-            >>> print metaphone('walrus')
-            ('ALRS', 'FLRS')
-
-            >>> print metaphone('python')
-            ('P0N', 'PTN')
-
-            >>> print metaphone('pithonn')
-            ('P0N', 'PTN')
-        """
-        for word in words:
-            r = 0
-            for w in double_metaphone(word):
-                if w:
-                    w = w.strip()
-                    if w:
-                        r += 1
-                        yield w
-            if not r:
-                yield word
-
-    def tokenize(self, value):
-        """
-        Split the incoming value into tokens and process each token,
-        optionally stemming or running metaphone.
-
-        :returns: A ``dict`` mapping token to score. The score is
-            based on the relative frequency of the word in the
-            document.
-        """
-        words = self.split_phrase(decode(value).lower())
-        if self._stopwords:
-            words = [w for w in words if w not in self._stopwords]
-        if self._min_word_length:
-            words = [w for w in words if len(w) >= self._min_word_length]
-
-        fraction = 1. / (len(words) + 1)  # Prevent division by zero.
-
-        # Apply optional transformations.
-        if self._use_stemmer:
-            words = self.stem(words)
-        if self._use_metaphone:
-            words = self.metaphone(words)
-
-        scores = {}
-        for word in words:
-            scores.setdefault(word, 0)
-            scores[word] += fraction
-        return scores
+    def search(self, expression):
+        query = parse(expression, self)
+        executor = Executor(self.db)
+        return executor.execute(query)
