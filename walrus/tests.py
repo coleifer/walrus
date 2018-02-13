@@ -324,9 +324,9 @@ class TestModels(WalrusTestCase):
                 Message.query(Message.content.match(search)),
                 indexes)
 
-        assertSearch('faith', [4, 3, 2, 0, 1])
+        assertSearch('faith', [1, 4, 3, 2, 0])
         assertSearch('faith man', [0])
-        assertSearch('things', [4, 2])
+        assertSearch('things', [2, 4])
         assertSearch('blah', [])
 
         query = Message.query(
@@ -397,11 +397,11 @@ class TestModels(WalrusTestCase):
             results = [message.content for message in query]
             self.assertEquivalent(results, [phrases[i] for i in indexes])
 
-        assertMatches('web application', [4, 0])
-        assertMatches('web application', [4, 0], True)
+        assertMatches('web application', [0, 4])
+        assertMatches('web application', [0, 4], True)
 
-        assertMatches('python', [2, 1, 0])
-        assertMatches('python', [2, 1, 0], True)
+        assertMatches('python', [0, 1, 2])
+        assertMatches('python', [0, 1, 2], True)
 
         assertMatches('testing', [3, 2])
         assertMatches('testing', [3, 2], True)

@@ -470,7 +470,7 @@ class FullTextIndex(BaseIndex):
         hash_id = instance.get_hash_id()
         for word, score in self.tokenizer.tokenize(value).items():
             key = self.get_key(word)
-            key[hash_id] = score
+            key[hash_id] = -score
 
     def delete_instance(self, key, instance, value):
         hash_id = instance.get_hash_id()
