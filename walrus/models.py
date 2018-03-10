@@ -249,7 +249,7 @@ class DateTimeField(_ScalarField):
     """Store Python datetime objects."""
     def db_value(self, value):
         if value is None:
-            return b''
+            return 0.
 
         timestamp = time.mktime(value.timetuple())
         micro = value.microsecond * (10 ** -6)
@@ -268,7 +268,7 @@ class DateField(DateTimeField):
     """Store Python date objects."""
     def db_value(self, value):
         if value is None:
-            return b''
+            return 0.
         return time.mktime(value.timetuple())
 
     def python_value(self, value):
