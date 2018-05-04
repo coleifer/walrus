@@ -148,20 +148,18 @@ class Cache(object):
 
             @wraps(fn)
             def inner(*args, **kwargs):
-                if metrics:
-                    start = time.time()
-                    is_hit = True
+                start = time.time()
+                is_cache_hit = True
                 key = make_key(args, kwargs)
                 res = self.get(key)
                 if res is None:
                     res = fn(*args, **kwargs)
                     self.set(key, res, timeout)
-                    if metrics:
-                        is_hit = False
+                    is_cache_hit = False
 
                 if metrics:
                     dur = time.time() - start
-                    if is_hit:
+                    if is_cache_hit:
                         _metrics['hits'] += 1
                         _metrics['avg_hit_time'] += (dur / _metrics['hits'])
                     else:
