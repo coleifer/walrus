@@ -266,7 +266,7 @@ class Database(Redis):
         """
         return Array(self, key)
 
-    def listener(self, channels=None, patterns=None, async=False):
+    def listener(self, channels=None, patterns=None, is_async=False):
         """
         Decorator for wrapping functions used to listen for Redis
         pub-sub messages.
@@ -276,7 +276,7 @@ class Database(Redis):
 
         :param list channels: Channels to listen on.
         :param list patterns: Patterns to match.
-        :param bool async: Whether to start the listener in a
+        :param bool is_async: Whether to start the listener in a
             separate thread.
         """
         def decorator(fn):
@@ -300,7 +300,7 @@ class Database(Redis):
                             pubsub.close()
                             break
 
-                if async:
+                if is_async:
                     worker = threading.Thread(target=listen)
                     worker.start()
                     return worker
