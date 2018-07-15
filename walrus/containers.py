@@ -226,6 +226,10 @@ class List(Sortable, Container):
         opposed to delete by index. If an integer is passed into the
         function, it will be treated as an index, otherwise it will
         be treated as a value.
+
+        If a slice is passed, then the list will be trimmed so that it *ONLY*
+        contains the range specified by the slice start and stop. Note that
+        this differs from the default behavior of Python's `list` type.
         """
         if isinstance(item, slice):
             start = item.start or 0

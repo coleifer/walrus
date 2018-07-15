@@ -1282,9 +1282,13 @@ class TestList(WalrusTestCase):
 
         l = db.List('l1')
         l.extend(range(10))
+
+        # LTRIM, preserve the 1st to last (removes the 0th element).
         del l[1:-1]
         self.assertEquivalent([int(i) for i in l], [1, 2, 3, 4, 5, 6, 7, 8, 9])
 
+        # Trim the list so that it contains only the values within the
+        # specified range.
         del l[:3]
         self.assertEquivalent([int(i) for i in l], [1, 2, 3])
 
