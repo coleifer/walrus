@@ -226,7 +226,7 @@ class Autocomplete(object):
         while True:
             id_chunk = obj_id_zset[i:i + chunk_size]
             if not id_chunk:
-                raise StopIteration
+                return
 
             i += chunk_size
             for raw_data in self._data[id_chunk]:
@@ -238,7 +238,7 @@ class Autocomplete(object):
                     yield raw_data
                 ct += 1
                 if limit and ct == limit:
-                    raise StopIteration
+                    return
 
     def _load_saved_boosts(self):
         boosts = {}
@@ -269,7 +269,7 @@ class Autocomplete(object):
         """
         cleaned = self.tokenize_title(phrase, stopwords=False)
         if not cleaned:
-            raise StopIteration
+            return
 
         all_boosts = self._load_saved_boosts()
         if PY3 and boosts:
