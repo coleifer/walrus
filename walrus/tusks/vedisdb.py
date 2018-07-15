@@ -91,29 +91,29 @@ class TestWalrusVedis(unittest.TestCase):
 
     def test_basic(self):
         self.db['foo'] = 'bar'
-        self.assertEqual(self.db['foo'], 'bar')
+        self.assertEqual(self.db['foo'], b'bar')
         self.assertTrue('foo' in self.db)
         self.assertFalse('xx' in self.db)
         self.assertIsNone(self.db['xx'])
 
         self.db.mset(k1='v1', k2='v2', k3='v3')
         results = self.db.mget('k1', 'k2', 'k3', 'kx')
-        self.assertEqual(list(results), ['v1', 'v2', 'v3', None])
+        self.assertEqual(list(results), [b'v1', b'v2', b'v3', None])
 
         self.db.append('foo', 'baz')
-        self.assertEqual(self.db.get('foo'), 'barbaz')
+        self.assertEqual(self.db.get('foo'), b'barbaz')
 
         self.db.incr_by('counter', 1)
         self.assertEqual(self.db.incr_by('counter', 5), 6)
         self.assertEqual(self.db.decr_by('counter', 2), 4)
 
         self.assertEqual(self.db.strlen('foo'), 6)
-        self.assertEqual(self.db.getset('foo', 'nug'), 'barbaz')
-        self.assertEqual(self.db['foo'], 'nug')
+        self.assertEqual(self.db.getset('foo', 'nug'), b'barbaz')
+        self.assertEqual(self.db['foo'], b'nug')
 
         self.assertFalse(self.db.setnx('foo', 'xxx'))
         self.assertTrue(self.db.setnx('bar', 'yyy'))
-        self.assertEqual(self.db['bar'], 'yyy')
+        self.assertEqual(self.db['bar'], b'yyy')
 
         del self.db['foo']
         self.assertFalse('foo' in self.db)
@@ -122,26 +122,29 @@ class TestWalrusVedis(unittest.TestCase):
         h = self.db.Hash('hash_obj')
         h['k1'] = 'v1'
         h.update({'k2': 'v2', 'k3': 'v3'})
-        self.assertEqual(h.as_dict(), {'k1': 'v1', 'k2': 'v2', 'k3': 'v3'})
+        self.assertEqual(h.as_dict(), {
+            b'k1': b'v1',
+            b'k2': b'v2',
+            b'k3': b'v3'})
 
-        self.assertEqual(h['k2'], 'v2')
+        self.assertEqual(h['k2'], b'v2')
         self.assertIsNone(h['kx'])
         self.assertTrue('k2' in h)
         self.assertEqual(len(h), 3)
 
         del h['k2']
         del h['kxx']
-        self.assertEqual(sorted(h.keys()), ['k1', 'k3'])
-        self.assertEqual(sorted(h.values()), ['v1', 'v3'])
+        self.assertEqual(sorted(h.keys()), [b'k1', b'k3'])
+        self.assertEqual(sorted(h.values()), [b'v1', b'v3'])
 
     def test_list(self):
         l = self.db.List('list_obj')
         l.prepend('charlie')
         l.extend(['mickey', 'huey', 'zaizee'])
-        self.assertEqual(l[0], 'charlie')
-        self.assertEqual(l[-1], 'zaizee')
+        self.assertEqual(l[0], b'charlie')
+        self.assertEqual(l[-1], b'zaizee')
         self.assertEqual(len(l), 4)
-        self.assertEqual(l.pop(), 'charlie')
+        self.assertEqual(l.pop(), b'charlie')
 
     def test_set(self):
         s = self.db.Set('set_obj')
@@ -152,15 +155,15 @@ class TestWalrusVedis(unittest.TestCase):
         self.assertFalse('xx' in s)
         del s['huey']
         self.assertFalse('huey' in s)
-        self.assertEqual(s.members(), set(['charlie', 'mickey']))
+        self.assertEqual(s.members(), set([b'charlie', b'mickey']))
 
         s1 = self.db.Set('s1')
         s2 = self.db.Set('s2')
         s1.add(*map(str, range(5)))
         s2.add(*map(str, range(3, 7)))
-        self.assertEqual(s1 - s2, set(['0', '1', '2']))
-        self.assertEqual(s2 - s1, set(['5', '6']))
-        self.assertEqual(s1 & s2, set(['3', '4']))
+        self.assertEqual(s1 - s2, set([b'0', b'1', b'2']))
+        self.assertEqual(s2 - s1, set([b'5', b'6']))
+        self.assertEqual(s1 & s2, set([b'3', b'4']))
 
     def test_unsupported(self):
         def assertUnsupported(cmd, *args):
@@ -187,10 +190,10 @@ class TestWalrusVedis(unittest.TestCase):
         self.db['n1'] = 'charlie'
         self.db['n2'] = 'huey'
         self.assertTrue(_ktitle_impl('n1'))
-        self.assertEqual(self.db['n1'], 'Charlie')
+        self.assertEqual(self.db['n1'], b'Charlie')
 
         self.assertTrue(self.db.execute('KTITLE n2'))
-        self.assertEqual(self.db['n2'], 'Huey')
+        self.assertEqual(self.db['n2'], b'Huey')
 
         self.assertFalse(self.db.execute('KTITLE nx'))
         self.assertIsNone(self.db['nx'])
