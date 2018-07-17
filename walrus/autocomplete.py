@@ -319,8 +319,10 @@ class Autocomplete(object):
 
         :rtype: list
         """
-        values = self._data.values()
-        return [json.loads(v) for v in values] if self._use_json else values
+        if self._use_json:
+            return [json.loads(v.decode('utf-8')) for v in self._data.values()]
+
+        return self._data.values()
 
     def list_titles(self):
         """
