@@ -1,7 +1,15 @@
 language: python
+dist: trusty
 python:
-  - "2.7"
-  - "3.5"
+  - 2.7
+  - 3.4
+  - 3.5
+  - 3.6
+matrix:
+  include:
+    - python: 3.7
+      dist: xenial
+      sudo: true
 services:
   - redis-server
 install: "pip install -r requirements.txt"
