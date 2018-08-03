@@ -2,6 +2,11 @@
 
 This document describes changes to the APIs.
 
+### 0.5.2
+
+* Fixed incompatibilities with Python 3.7.
+* Fixed incorrect result scoring in full-text search model.
+
 ### 0.5.1
 
 * Added standalone [full-text search](https://walrus.readthedocs.io/en/latest/full-text-search.html).
