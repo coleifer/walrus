@@ -25,6 +25,7 @@ API Documentation
       ZSet,
       HyperLogLog,
       Array,
+      cas,
       listener,
       stream_log
 

@@ -266,6 +266,13 @@ class Database(Redis):
         """
         return Array(self, key)
 
+    def cas(self, key, value, new_value):
+        """
+        Perform an atomic compare-and-set on the value in "key", using a prefix
+        match on the provided value.
+        """
+        return self.run_script('cas', keys=[key], args=[value, new_value])
+
     def listener(self, channels=None, patterns=None, is_async=False):
         """
         Decorator for wrapping functions used to listen for Redis

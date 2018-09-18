@@ -1424,6 +1424,16 @@ class TestWalrus(WalrusTestCase):
 
         self.assertEquivalent(db._transaction_local.pipe, None)
 
+    def test_cas(self):
+        db['k1'] = 'v1'
+        self.assertTrue(db.cas('k1', 'v1', 'v1-x'))
+        self.assertFalse(db.cas('k1', 'v1-z', 'v1-y'))
+
+        self.assertEqual(db['k1'], 'v1-x')
+        self.assertTrue(db.cas('k1', 'v1-', 'v2'))
+        self.assertFalse(db.cas('k1', 'v1', 'v3'))
+        self.assertEqual(db['k1'], 'v2')
+
 
 class TestCounter(WalrusTestCase):
     def test_counter(self):
