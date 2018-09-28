@@ -1153,6 +1153,13 @@ class TestZSet(WalrusTestCase):
         self.assertEquivalent(self.zs.range_by_score(0, 9), ['i9'])
         self.assertEquivalent(self.zs.range_by_score(-3, 0), ['i0', 'i2'])
 
+        self.assertEquivalent(self.zs.pop(), 'i0')
+        self.assertEqual(len(self.zs), 2)
+        self.assertEquivalent(self.zs.pop(), 'i2')
+        self.assertEquivalent(self.zs.pop(), 'i9')
+        self.assertTrue(self.zs.pop() is None)
+        self.assertEqual(len(self.zs), 0)
+
     def test_item_apis(self):
         self.zs['i1'] = 1
         self.zs['i0'] = 0

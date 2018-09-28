@@ -717,6 +717,15 @@ class ZSet(Sortable, Container):
         self.database.zunionstore(dest, keys, **kwargs)
         return self.database.ZSet(dest)
 
+    def pop(self):
+        pipe = self.database.pipeline()
+        r1, r2 = (pipe
+                  .zrange(self.key, 0, 0)
+                  .zremrangebyrank(self.key, 0, 0)
+                  .execute())
+        if r2:
+            return r1[0]
+
 
 class HyperLogLog(Container):
     """
