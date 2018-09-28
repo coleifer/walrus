@@ -109,7 +109,9 @@ Container types
       remove_by_lex,
       incr,
       interstore,
-      unionstore
+      unionstore,
+      pop,
+      popright
 
 .. autoclass:: HyperLogLog(Container)
     :members:

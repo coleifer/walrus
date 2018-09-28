@@ -718,6 +718,11 @@ class ZSet(Sortable, Container):
         return self.database.ZSet(dest)
 
     def pop(self):
+        """
+        Atomically remove the lowest-scoring item in the set.
+
+        :returns: the key or ``None`` if the sorted set is empty.
+        """
         pipe = self.database.pipeline()
         r1, r2 = (pipe
                   .zrange(self.key, 0, 0)
@@ -727,6 +732,11 @@ class ZSet(Sortable, Container):
             return r1[0]
 
     def popright(self):
+        """
+        Atomically remove the highest-scoring item in the set.
+
+        :returns: the key or ``None`` if the sorted set is empty.
+        """
         pipe = self.database.pipeline()
         r1, r2 = (pipe
                   .zrange(self.key, -1, -1)
