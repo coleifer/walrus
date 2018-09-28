@@ -1155,9 +1155,10 @@ class TestZSet(WalrusTestCase):
 
         self.assertEquivalent(self.zs.pop(), 'i0')
         self.assertEqual(len(self.zs), 2)
+        self.assertEquivalent(self.zs.popright(), 'i9')
         self.assertEquivalent(self.zs.pop(), 'i2')
-        self.assertEquivalent(self.zs.pop(), 'i9')
         self.assertTrue(self.zs.pop() is None)
+        self.assertTrue(self.zs.popright() is None)
         self.assertEqual(len(self.zs), 0)
 
     def test_item_apis(self):

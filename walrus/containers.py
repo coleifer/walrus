@@ -726,6 +726,15 @@ class ZSet(Sortable, Container):
         if r2:
             return r1[0]
 
+    def popright(self):
+        pipe = self.database.pipeline()
+        r1, r2 = (pipe
+                  .zrange(self.key, -1, -1)
+                  .zremrangebyrank(self.key, -1, -1)
+                  .execute())
+        if r2:
+            return r1[0]
+
 
 class HyperLogLog(Container):
     """
