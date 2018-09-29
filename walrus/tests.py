@@ -1,4 +1,5 @@
 import datetime
+import os
 import random
 import sys
 import threading
@@ -1153,13 +1154,38 @@ class TestZSet(WalrusTestCase):
         self.assertEquivalent(self.zs.range_by_score(0, 9), ['i9'])
         self.assertEquivalent(self.zs.range_by_score(-3, 0), ['i0', 'i2'])
 
-        self.assertEquivalent(self.zs.pop(), 'i0')
+        self.assertEquivalent(self.zs.popmin_compat(), [('i0', -2.)])
         self.assertEqual(len(self.zs), 2)
-        self.assertEquivalent(self.zs.popright(), 'i9')
-        self.assertEquivalent(self.zs.pop(), 'i2')
-        self.assertTrue(self.zs.pop() is None)
-        self.assertTrue(self.zs.popright() is None)
+        self.assertEquivalent(self.zs.popmax_compat(3),
+                              [('i9', 9.), ('i2', -1.)])
+        self.assertEquivalent(self.zs.popmin_compat(), [])
+        self.assertEquivalent(self.zs.popmax_compat(), [])
         self.assertEqual(len(self.zs), 0)
+
+    @unittest.skipIf(not os.environ.get('TEST_ZPOP'), 'skipping zpop tests')
+    def test_popmin_popmax(self):
+        for i in range(10):
+            self.zs.add('i%s' % i, i)
+
+        # a list of item/score tuples is returned.
+        self.assertEquivalent(self.zs.popmin(2), [('i0', 0.), ('i1', 1.)])
+        self.assertEquivalent(self.zs.popmax(2), [('i9', 9.), ('i8', 8.)])
+
+        # when called with no args, a list is still returned.
+        self.assertEquivalent(self.zs.popmin(), [('i2', 2.)])
+        self.assertEquivalent(self.zs.popmax(), [('i7', 7.)])
+
+        # blocking pop returns single item.
+        self.assertEquivalent(self.zs.bpopmin(), ('i3', 3.))
+        self.assertEquivalent(self.zs.bpopmax(), ('i6', 6.))
+
+        # blocking-pop with timeout.
+        self.assertEquivalent(self.zs.bpopmin(2), ('i4', 4.))
+        self.assertEquivalent(self.zs.bpopmax(2), ('i5', 5.))
+
+        # empty list is returned when zset is empty.
+        self.assertEquivalent(self.zs.popmin(), [])
+        self.assertEquivalent(self.zs.popmax(), [])
 
     def test_item_apis(self):
         self.zs['i1'] = 1

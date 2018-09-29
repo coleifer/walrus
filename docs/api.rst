@@ -110,8 +110,12 @@ Container types
       incr,
       interstore,
       unionstore,
-      pop,
-      popright
+      popmin,
+      popmax,
+      bpopmin,
+      bpopmax,
+      popmin_compat,
+      popmax_compat
 
 .. autoclass:: HyperLogLog(Container)
     :members:

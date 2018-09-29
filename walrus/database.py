@@ -1,13 +1,16 @@
 from functools import wraps
 import glob
 import os
+import sys
 import threading
 import uuid
 
 try:
     from redis import Redis
+    from redis.client import zset_score_pairs
 except ImportError:
     Redis = object
+    zset_score_pairs = None
 
 from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
@@ -22,6 +25,7 @@ from walrus.fts import Index
 from walrus.graph import Graph
 from walrus.lock import Lock
 from walrus.rate_limit import RateLimit
+from walrus.utils import basestring_type
 
 
 class TransactionLocal(threading.local):
@@ -66,6 +70,29 @@ class Database(Redis):
         self._transaction_local = TransactionLocal()
         self._transaction_lock = threading.RLock()
         self.init_scripts(script_dir=script_dir)
+
+        if not hasattr(self, 'zpopmin'):
+            self._add_zset_pop_methods()
+
+    def _add_zset_pop_methods(self):
+        def _zpopcmd(cmd):
+            def zpopcmd(key, count=1):
+                res = self.execute_command(cmd, key, count)
+                return zset_score_pairs(res, withscores=True)
+            return zpopcmd
+        self.zpopmin = _zpopcmd('zpopmin')
+        self.zpopmax = _zpopcmd('zpopmax')
+        def _bzpopcmd(cmd):
+            def bzpopcmd(keys, timeout=0):
+                a = [keys] if isinstance(keys, basestring_type) else list(keys)
+                a.append(timeout or 0)
+                res = self.execute_command(cmd, *a)
+                if res is not None:
+                    res[2] = float(res[2])
+                    return res
+            return bzpopcmd
+        self.bzpopmin = _bzpopcmd('bzpopmin')
+        self.bzpopmax = _bzpopcmd('bzpopmax')
 
     def get_transaction(self):
         with self._transaction_lock:

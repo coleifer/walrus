@@ -1,4 +1,8 @@
 from functools import wraps
+try:
+    from redis.client import zset_score_pairs
+except ImportError:
+    zset_score_pairs = None
 
 
 def chainable_method(fn):
@@ -288,6 +292,24 @@ class List(Sortable, Container):
         """Remove the last item from the list."""
         return self.database.rpop(self.key)
     pop = popright
+
+    def bpopleft(self, timeout=0):
+        """
+        Remove the first item from the list, blocking until an item becomes
+        available or timeout is reached (0 for no timeout, default).
+        """
+        ret = self.database.blpop(self.key, timeout)
+        if ret is not None:
+            return ret[1]
+
+    def bpopright(self, timeout=0):
+        """
+        Remove the last item from the list, blocking until an item becomes
+        available or timeout is reached (0 for no timeout, default).
+        """
+        ret = self.database.blpop(self.key, timeout)
+        if ret is not None:
+            return ret[1]
 
     def move_tail(self, key):
         return self.database.rpoplpush(self.key, key)
@@ -717,33 +739,73 @@ class ZSet(Sortable, Container):
         self.database.zunionstore(dest, keys, **kwargs)
         return self.database.ZSet(dest)
 
-    def pop(self):
+    def popmin(self, count=1):
         """
-        Atomically remove the lowest-scoring item in the set.
+        Atomically remove the lowest-scoring item(s) in the set.
 
-        :returns: the key or ``None`` if the sorted set is empty.
+        :returns: a list of item, score tuples or ``None`` if the set is empty.
+        """
+        return self.database.zpopmin(self.key, count)
+
+    def popmax(self, count=1):
+        """
+        Atomically remove the highest-scoring item(s) in the set.
+
+        :returns: a list of item, score tuples or ``None`` if the set is empty.
+        """
+        return self.database.zpopmax(self.key, count)
+
+    def bpopmin(self, timeout=0):
+        """
+        Atomically remove the lowest-scoring item from the set, blocking until
+        an item becomes available or timeout is reached (0 for no timeout,
+        default).
+
+        Returns a 2-tuple of (item, score).
+        """
+        res = self.database.bzpopmin(self.key, timeout)
+        if res is not None:
+            return (res[1], res[2])
+
+    def bpopmax(self, timeout=0):
+        """
+        Atomically remove the highest-scoring item from the set, blocking until
+        an item becomes available or timeout is reached (0 for no timeout,
+        default).
+
+        Returns a 2-tuple of (item, score).
+        """
+        res = self.database.bzpopmax(self.key, timeout)
+        if res is not None:
+            return (res[1], res[2])
+
+    def popmin_compat(self, count=1):
+        """
+        Atomically remove the lowest-scoring item(s) in the set. Compatible
+        with Redis versions < 5.0.
+
+        :returns: a list of item, score tuples or ``None`` if the set is empty.
         """
         pipe = self.database.pipeline()
         r1, r2 = (pipe
-                  .zrange(self.key, 0, 0)
-                  .zremrangebyrank(self.key, 0, 0)
+                  .zrange(self.key, 0, count - 1, withscores=True)
+                  .zremrangebyrank(self.key, 0, count - 1)
                   .execute())
-        if r2:
-            return r1[0]
+        return r1
 
-    def popright(self):
+    def popmax_compat(self, count=1):
         """
-        Atomically remove the highest-scoring item in the set.
+        Atomically remove the highest-scoring item(s) in the set. Compatible
+        with Redis versions < 5.0.
 
-        :returns: the key or ``None`` if the sorted set is empty.
+        :returns: a list of item, score tuples or ``None`` if the set is empty.
         """
         pipe = self.database.pipeline()
         r1, r2 = (pipe
-                  .zrange(self.key, -1, -1)
-                  .zremrangebyrank(self.key, -1, -1)
+                  .zrange(self.key, 0 - count, -1, withscores=True)
+                  .zremrangebyrank(self.key, 0 - count, -1)
                   .execute())
-        if r2:
-            return r1[0]
+        return r1[::-1]
 
 
 class HyperLogLog(Container):
