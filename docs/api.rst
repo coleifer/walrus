@@ -49,8 +49,8 @@ Container types
       values,
       items,
       update,
-      as_dict,
-      incr
+      incr,
+      as_dict
 
 .. autoclass:: List(Container)
     :members:
@@ -65,7 +65,8 @@ Container types
       insert_before,
       insert_after,
       popleft,
-      popright
+      popright,
+      as_list
 
 .. autoclass:: Set(Container)
     :members:
@@ -84,7 +85,8 @@ Container types
       __and__,
       diffstore,
       interstore,
-      unionstore
+      unionstore,
+      as_set
 
 .. autoclass:: ZSet(Container)
     :members:
@@ -115,7 +117,8 @@ Container types
       bpopmin,
       bpopmax,
       popmin_compat,
-      popmax_compat
+      popmax_compat,
+      as_items
 
 .. autoclass:: HyperLogLog(Container)
     :members:
@@ -133,7 +136,8 @@ Container types
       extend,
       pop,
       __contains__,
-      __iter__
+      __iter__,
+      as_list
 
 High-level APIs
 ---------------

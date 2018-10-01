@@ -53,6 +53,11 @@ class TestHash(WalrusTestCase):
             (b'bar', b'v2'),
             (b'baz', b'v3')])
 
+    def test_as_dict(self):
+        self.hsh.update(k1='v1', k2='v2')
+        self.assertEqual(self.hsh.as_dict(True), {'k1': 'v1', 'k2': 'v2'})
+        self.assertEqual(db.Hash('test').as_dict(), {})
+
 
 class TestSet(WalrusTestCase):
     def setUp(self):
@@ -127,6 +132,11 @@ class TestSet(WalrusTestCase):
 
         self.set.sort(ordering='DESC', limit=3, store='s_dest')
         self.assertList(db.List('s_dest'), [b'zaizee', b'mickey', b'huey'])
+
+    def test_as_set(self):
+        self.set.add('foo', 'bar', 'baz')
+        self.assertEqual(self.set.as_set(True), set(('foo', 'bar', 'baz')))
+        self.assertEqual(db.Set('test').as_set(), set())
 
 
 class TestZSet(WalrusTestCase):
@@ -286,6 +296,12 @@ class TestZSet(WalrusTestCase):
         res = db.List('z_dest')
         self.assertEqual(list(res), [b'zaizee', b'mickey', b'huey'])
 
+    def test_as_items(self):
+        self.zs.add('foo', 3, 'bar', 1, 'baz', 2)
+        self.assertEqual(self.zs.as_items(True),
+                         [('bar', 1.), ('baz', 2.), ('foo', 3.)])
+        self.assertEqual(db.ZSet('test').as_items(), [])
+
 
 class TestList(WalrusTestCase):
     def setUp(self):
@@ -356,6 +372,11 @@ class TestList(WalrusTestCase):
         self.lst.sort(ordering='DESC', limit=3, store='l_dest')
         self.assertList(db.List('l_dest'), [b'zaizee', b'mickey', b'huey'])
 
+    def test_as_list(self):
+        self.lst.extend(['foo', 'bar'])
+        self.assertEqual(self.lst.as_list(True), ['foo', 'bar'])
+        self.assertEqual(db.List('test').as_list(), [])
+
 
 class TestArray(WalrusTestCase):
     def setUp(self):
@@ -394,3 +415,8 @@ class TestArray(WalrusTestCase):
 
         self.arr.extend(['foo', 'bar', 'baz'])
         self.assertList(self.arr, [b'ix', b'iy', b'foo', b'bar', b'baz'])
+
+    def test_as_list(self):
+        self.arr.extend(['foo', 'bar'])
+        self.assertEqual(self.arr.as_list(True), ['foo', 'bar'])
+        self.assertEqual(db.Array('test').as_list(), [])

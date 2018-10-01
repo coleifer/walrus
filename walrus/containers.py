@@ -4,6 +4,7 @@ try:
 except ImportError:
     zset_score_pairs = None
 
+from walrus.utils import decode as _decode
 from walrus.utils import decode_dict
 from walrus.utils import encode
 
@@ -318,6 +319,13 @@ class List(Sortable, Container):
     def move_tail(self, key):
         return self.database.rpoplpush(self.key, key)
 
+    def as_list(self, decode=False):
+        """
+        Return a list containing all the items in the list.
+        """
+        items = self.database.lrange(self.key, 0, -1)
+        return [_decode(item) for item in items] if decode else items
+
 
 class Set(Sortable, Container):
     """
@@ -458,6 +466,13 @@ class Set(Sortable, Container):
         self.database.sunionstore(dest, keys)
         return self.database.Set(dest)
 
+    def as_set(self, decode=False):
+        """
+        Return a Python set containing all the items in the collection.
+        """
+        items = self.database.smembers(self.key)
+        return set(_decode(item) for item in items) if decode else items
+
 
 class ZSet(Sortable, Container):
     """
@@ -586,12 +601,21 @@ class ZSet(Sortable, Container):
 
     def iterator(self, with_scores=False, reverse=False):
         if with_scores and not reverse:
-            return self.database.search(None)
+            return self.search(None)
         return self.range(
             0,
             -1,
             with_scores=with_scores,
             reverse=reverse)
+
+    def as_items(self, decode=False):
+        """
+        Return a list of 2-tuples consisting of key/score.
+        """
+        items = self.database.zrange(self.key, 0, -1, withscores=True)
+        if decode:
+            items = [(_decode(k), score) for k, score in items]
+        return items
 
     def search(self, pattern, count=None):
         """
@@ -924,3 +948,9 @@ class Array(Container):
         """Return an iterable that yields array items."""
         return iter(
             item[1] for item in sorted(self.database.hscan_iter(self.key)))
+
+    def as_list(self, decode=False):
+        """
+        Return a list of items in the array.
+        """
+        return [_decode(i) for i in self] if decode else list(self)
