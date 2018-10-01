@@ -33,13 +33,20 @@ class Index(object):
     def get_key(self, word):
         return self.db.ZSet('fts.%s.%s' % (self.name, word))
 
+    def _get_hash(self, document_id):
+        return self.db.Hash('doc.%s.%s' % (self.name, decode(document_id)))
+
     def get_document(self, document_id):
         """
         :param document_id: Document unique identifier.
-        :returns: a :py:class:`Hash` containing the document content and
+        :returns: a dictionary containing the document content and
                   any associated metadata.
         """
-        return self.db.Hash('doc.%s.%s' % (self.name, decode(document_id)))
+        data = self.db.hgetall('doc.%s.%s' % (self.name, decode(document_id)))
+        accum = {}
+        for key in data:
+            accum[decode(key)] = decode(data[key])
+        return accum
 
     def add(self, key, content, **metadata):
         """
@@ -50,7 +57,7 @@ class Index(object):
         Add a document to the search index.
         """
         self.members.add(key)
-        document_hash = self.get_document(key)
+        document_hash = self._get_hash(key)
         document_hash.update(content=content, **metadata)
 
         for word, score in self.tokenizer.tokenize(content).items():
@@ -65,7 +72,7 @@ class Index(object):
         """
         if self.members.remove(key) != 1:
             raise KeyError('Document with key "%s" not found.' % key)
-        document_hash = self.get_document(key)
+        document_hash = self._get_hash(key)
         content = decode(document_hash['content'])
         if not preserve_data:
             document_hash.clear()
@@ -121,9 +128,9 @@ class Index(object):
         :returns: a list of document hashes corresponding to matching
             documents.
 
-        Search the index. The return value is a list of redis :py:class:`Hash`
-        objects corresponding to the documents that matched. These hashes
-        contain a ``content`` key with the original indexed content, along with
-        any additional metadata that was specified.
+        Search the index. The return value is a list of dictionaries
+        corresponding to the documents that matched. These dictionaries contain
+        a ``content`` key with the original indexed content, along with any
+        additional metadata that was specified.
         """
         return [self.get_document(key) for key, _ in self._search(query)]

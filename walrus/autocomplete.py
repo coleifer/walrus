@@ -319,10 +319,8 @@ class Autocomplete(object):
 
         :rtype: list
         """
-        if self._use_json:
-            return [json.loads(v.decode('utf-8')) for v in self._data.values()]
-
-        return self._data.values()
+        fn = (lambda v: json.loads(decode(v))) if self._use_json else decode
+        return map(fn, self._data.values())
 
     def list_titles(self):
         """
@@ -330,7 +328,7 @@ class Autocomplete(object):
 
         :rtype: list
         """
-        return self._title_data.values()
+        return map(decode, self._title_data.values())
 
     def flush(self, batch_size=1000):
         """
