@@ -797,14 +797,17 @@ class Model(_with_metaclass(BaseModel)):
         if not cls.__database__.hash_exists(primary_key):
             raise KeyError('Object not found.')
         raw_data = cls.__database__.hgetall(primary_key)
+        if PY3:
+            accum = {}
+            for key in raw_data:
+                accum[decode(key)] = raw_data[key]
+            raw_data = accum
         data = {}
         for name, field in cls._fields.items():
             if isinstance(field, _ContainerField):
                 continue
             elif name in raw_data:
                 data[name] = field.python_value(raw_data[name])
-            elif PY3 and encode(name) in raw_data:
-                data[name] = field.python_value(raw_data[encode(name)])
             else:
                 data[name] = None
 
