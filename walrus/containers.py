@@ -4,6 +4,8 @@ try:
 except ImportError:
     zset_score_pairs = None
 
+from walrus.utils import encode
+
 
 def chainable_method(fn):
     @wraps(fn)
@@ -910,6 +912,7 @@ class Array(Container):
         Return a boolean indicating whether the given item is stored
         in the array. O(n).
         """
+        item = encode(item)
         for value in self:
             if value == item:
                 return True
