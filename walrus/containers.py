@@ -179,6 +179,14 @@ class Hash(Container):
         else:
             self.database.hmset(self.key, kwargs)
 
+    def incr(self, key, incr_by=1):
+        """Increment the key by the given amount."""
+        return self.database.hincrby(self.key, key, incr_by)
+
+    def incr_float(self, key, incr_by=1.):
+        """Increment the key by the given amount."""
+        return self.database.hincrbyfloat(self.key, key, incr_by)
+
     def as_dict(self, decode=False):
         """
         Return a dictionary containing all the key/value pairs in the
@@ -187,13 +195,16 @@ class Hash(Container):
         res = self.database.hgetall(self.key)
         return decode_dict(res) if decode else res
 
-    def incr(self, key, incr_by=1):
-        """Increment the key by the given amount."""
-        return self.database.hincrby(self.key, key, incr_by)
-
-    def incr_float(self, key, incr_by=1.):
-        """Increment the key by the given amount."""
-        return self.database.hincrbyfloat(self.key, key, incr_by)
+    @classmethod
+    def from_dict(cls, database, key, data, clear=False):
+        """
+        Create and populate a Hash object from a data dictionary.
+        """
+        hsh = cls(database, key)
+        if clear:
+            hsh.clear()
+        hsh.update(data)
+        return hsh
 
 
 class List(Sortable, Container):
@@ -325,6 +336,17 @@ class List(Sortable, Container):
         """
         items = self.database.lrange(self.key, 0, -1)
         return [_decode(item) for item in items] if decode else items
+
+    @classmethod
+    def from_list(cls, database, key, data, clear=False):
+        """
+        Create and populate a List object from a data list.
+        """
+        lst = cls(database, key)
+        if clear:
+            lst.clear()
+        lst.extend(data)
+        return lst
 
 
 class Set(Sortable, Container):
@@ -473,6 +495,17 @@ class Set(Sortable, Container):
         items = self.database.smembers(self.key)
         return set(_decode(item) for item in items) if decode else items
 
+    @classmethod
+    def from_set(cls, database, key, data, clear=False):
+        """
+        Create and populate a Set object from a data set.
+        """
+        s = cls(database, key)
+        if clear:
+            s.clear()
+        s.add(*data)
+        return s
+
 
 class ZSet(Sortable, Container):
     """
@@ -607,15 +640,6 @@ class ZSet(Sortable, Container):
             -1,
             with_scores=with_scores,
             reverse=reverse)
-
-    def as_items(self, decode=False):
-        """
-        Return a list of 2-tuples consisting of key/score.
-        """
-        items = self.database.zrange(self.key, 0, -1, withscores=True)
-        if decode:
-            items = [(_decode(k), score) for k, score in items]
-        return items
 
     def search(self, pattern, count=None):
         """
@@ -835,6 +859,26 @@ class ZSet(Sortable, Container):
                   .execute())
         return r1[::-1]
 
+    def as_items(self, decode=False):
+        """
+        Return a list of 2-tuples consisting of key/score.
+        """
+        items = self.database.zrange(self.key, 0, -1, withscores=True)
+        if decode:
+            items = [(_decode(k), score) for k, score in items]
+        return items
+
+    @classmethod
+    def from_dict(cls, database, key, data, clear=False):
+        """
+        Create and populate a ZSet object from a data dictionary.
+        """
+        zset = cls(database, key)
+        if clear:
+            zset.clear()
+        zset.add(*[k_or_v for k in data for k_or_v in (k, data[k])])
+        return zset
+
 
 class HyperLogLog(Container):
     """
@@ -954,3 +998,14 @@ class Array(Container):
         Return a list of items in the array.
         """
         return [_decode(i) for i in self] if decode else list(self)
+
+    @classmethod
+    def from_list(cls, database, key, data, clear=False):
+        """
+        Create and populate an Array object from a data dictionary.
+        """
+        arr = cls(database, key)
+        if clear:
+            arr.clear()
+        arr.extend(data)
+        return arr
