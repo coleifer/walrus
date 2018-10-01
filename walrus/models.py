@@ -23,6 +23,7 @@ from walrus.query import Node
 from walrus.search import Tokenizer
 from walrus.utils import basestring_type
 from walrus.utils import decode
+from walrus.utils import decode_dict_keys
 from walrus.utils import encode
 from walrus.utils import PY3
 from walrus.utils import unicode_type
@@ -798,10 +799,7 @@ class Model(_with_metaclass(BaseModel)):
             raise KeyError('Object not found.')
         raw_data = cls.__database__.hgetall(primary_key)
         if PY3:
-            accum = {}
-            for key in raw_data:
-                accum[decode(key)] = raw_data[key]
-            raw_data = accum
+            raw_data = decode_dict_keys(raw_data)
         data = {}
         for name, field in cls._fields.items():
             if isinstance(field, _ContainerField):

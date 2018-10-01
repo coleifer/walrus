@@ -56,7 +56,7 @@ class Autocomplete(object):
 
     def tokenize_title(self, phrase, stopwords=True):
         if isinstance(phrase, bytes):
-            phrase = phrase.decode("utf-8")
+            phrase = decode(phrase)
         phrase = re.sub('[^a-z0-9_\-\s]', '', phrase.lower())
         if stopwords:
             return [w for w in phrase.split() if w not in self._stopwords]
@@ -233,7 +233,7 @@ class Autocomplete(object):
                 if not raw_data:
                     continue
                 if self._use_json:
-                    yield json.loads(raw_data.decode('utf-8'))
+                    yield json.loads(decode(raw_data))
                 else:
                     yield raw_data
                 ct += 1

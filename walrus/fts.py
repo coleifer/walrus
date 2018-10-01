@@ -2,6 +2,7 @@ from walrus.query import Executor
 from walrus.query import OP_MATCH
 from walrus.query import parse
 from walrus.utils import decode
+from walrus.utils import decode_dict
 from walrus.search import Tokenizer
 
 
@@ -42,11 +43,8 @@ class Index(object):
         :returns: a dictionary containing the document content and
                   any associated metadata.
         """
-        data = self.db.hgetall('doc.%s.%s' % (self.name, decode(document_id)))
-        accum = {}
-        for key in data:
-            accum[decode(key)] = decode(data[key])
-        return accum
+        key = 'doc.%s.%s' % (self.name, decode(document_id))
+        return decode_dict(self.db.hgetall(key))
 
     def add(self, key, content, **metadata):
         """

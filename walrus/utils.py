@@ -20,6 +20,20 @@ def decode(s):
     return s.decode('utf-8') if isinstance(s, bytes) else s
 
 
+def decode_dict(d):
+    accum = {}
+    for key in d:
+        accum[decode(key)] = decode(d[key])
+    return accum
+
+
+def decode_dict_keys(d):
+    accum = {}
+    for key in d:
+        accum[decode(key)] = d[key]
+    return accum
+
+
 class memoize(dict):
     def __init__(self, fn):
         self._fn = fn

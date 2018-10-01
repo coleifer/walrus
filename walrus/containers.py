@@ -4,6 +4,7 @@ try:
 except ImportError:
     zset_score_pairs = None
 
+from walrus.utils import decode_dict
 from walrus.utils import encode
 
 
@@ -177,12 +178,13 @@ class Hash(Container):
         else:
             self.database.hmset(self.key, kwargs)
 
-    def as_dict(self):
+    def as_dict(self, decode=False):
         """
         Return a dictionary containing all the key/value pairs in the
         hash.
         """
-        return self.database.hgetall(self.key)
+        res = self.database.hgetall(self.key)
+        return decode_dict(res) if decode else res
 
     def incr(self, key, incr_by=1):
         """Increment the key by the given amount."""
