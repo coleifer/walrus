@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import optparse
+import os
 import sys
 import unittest
-
-from walrus import tests
 
 def runtests(verbose=False, failfast=False, names=None):
     if names:
@@ -31,7 +30,14 @@ if __name__ == '__main__':
                       dest='verbose', help='Verbose output.')
     parser.add_option('-f', '--failfast', action='store_true', default=False,
                       help='Stop on first failure or error.')
+    parser.add_option('-z', '--zpop', action='store_true',
+                      help='Run ZPOP* tests.')
     options, args = parser.parse_args()
+    if options.zpop:
+        os.environ['TEST_ZPOP'] = '1'
+
+    from walrus import tests
+
     result = runtests(
         verbose=options.verbose,
         failfast=options.failfast,
