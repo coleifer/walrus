@@ -7,6 +7,7 @@ import uuid
 
 try:
     from redis import Redis
+    from redis.client import pairs_to_dict
     from redis.client import zset_score_pairs
 except ImportError:
     Redis = object
@@ -47,10 +48,37 @@ class TransactionLocal(threading.local):
         pipe.reset()
 
 
+# XREVRANGE, XRANGE.
+def _stream_list(response):
+    if response is None: return
+    accum = []
+    for item in response:
+        timestamp, kv_list = item
+        accum.append((timestamp, pairs_to_dict(kv_list)))
+    return accum
+
+# XREAD.
+def _multi_stream_list(response):
+    if response is None: return
+    accum = {}
+    for (identifier, stream_response) in response:
+        accum[identifier.decode('utf-8')] = _stream_list(stream_response)
+    return accum
+
+
 class Database(Redis):
     """
     Redis-py client with some extras.
     """
+    RESPONSE_CALLBACKS = Redis.RESPONSE_CALLBACKS
+    RESPONSE_CALLBACKS.update(
+        XDEL=int,
+        XLEN=int,
+        XRANGE=_stream_list,
+        XREVRANGE=_stream_list,
+        XREAD=_multi_stream_list,
+        XTRIM=int)
+
     def __init__(self, *args, **kwargs):
         """
         :param args: Arbitrary positional arguments to pass to the
@@ -93,6 +121,115 @@ class Database(Redis):
             return bzpopcmd
         self.bzpopmin = _bzpopcmd('bzpopmin')
         self.bzpopmax = _bzpopcmd('bzpopmax')
+
+    def xadd(self, key, data, id='*', maxlen=None, approximate=True):
+        """
+        Add data to a stream.
+
+        :param key: stream identifier
+        :param dict data: data to add to stream
+        :param id: identifier for record ('*' to automatically append)
+        :param maxlen: maximum length for stream
+        :param approximate: allow stream max length to be approximate
+        """
+        parts = []
+        if maxlen is not None:
+            if not isinstance(maxlen, int) or maxlen < 1:
+                raise ValueError('XADD maxlen must be a positive integer')
+            parts.append('MAXLEN')
+            if approximate:
+                parts.append('~')
+            parts.append(str(maxlen))
+        parts.append(id)
+        for k, v in data.items():
+            parts.append(k)
+            parts.append(v)
+        return self.execute_command('XADD', key, *parts)
+
+    def _xrange(self, cmd, key, start, stop, count):
+        parts = [start, stop]
+        if count is not None:
+            if not isinstance(count, int) or count < 1:
+                raise ValueError('%s count must be a positive integer' % cmd)
+            parts.append('COUNT %s' % count)
+        return self.execute_command(cmd, key, *parts)
+
+    def xrange(self, key, start='-', stop='+', count=None):
+        """
+        Read a range of values from a stream.
+
+        :param key: stream identifier
+        :param start: starting ID ('-' for oldest available)
+        :param stop: stop ID ('+' for latest available)
+        :param count: limit number of records returned
+        """
+        return self._xrange('XRANGE', key, start, stop, count)
+
+    def xrevrange(self, key, start='+', stop='-', count=None):
+        """
+        Read a range of values from a stream in reverse order.
+
+        :param key: stream identifier
+        :param start: starting ID ('+' for latest available)
+        :param stop: stop ID ('-' for oldest available)
+        :param count: limit number of records returned
+        """
+        return self._xrange('XREVRANGE', key, start, stop, count)
+
+    def xlen(self, key):
+        """
+        Return the length of a stream.
+
+        :param key: stream identifier
+        """
+        return self.execute_command('XLEN', key)
+
+    def xread(self, key=None, key_to_id=None, keys=None, count=None,
+              block=None):
+        """
+        Monitor one or more streams for new data.
+
+        :param key: stream identifier to monitor
+        :param key_to_id: alternatively, specify key-to-minimum id mapping
+        :param keys: alternatively, a list of stream identifiers
+        :param int count: limit number of records returned
+        :param int block: milliseconds to block
+        """
+        if sum(1 for a in [key, key_to_id, keys] if a is not None) != 1:
+            raise ValueError('XREAD requires one of key, key_to_id, or keys '
+                             'be specified.')
+        if key:
+            key_to_id = {key: '0-0'}
+        elif keys:
+            key_to_id = dict((key, '0-0') for key in keys)
+        parts = []
+        if block is not None:
+            if not isinstance(block, int) or block < 1:
+                raise ValueError('XREAD block must be a positive integer')
+            parts.append('BLOCK %s' % block)
+        if count is not None:
+            if not isinstance(count, int) or count < 1:
+                raise ValueError('XREAD count must be a positive integer')
+            parts.append('COUNT %s' % count)
+        parts.append('STREAMS')
+        stream_ids = []
+        for key, stream_id in key_to_id.iteritems():
+            parts.append(key)
+            stream_ids.append(str(stream_id))
+        parts.extend(stream_ids)
+        return self.execute_command('XREAD', *parts)
+
+    def xdel(self, key, *id_list):
+        return self.execute_command('XDEL', key, *id_list)
+
+    def xtrim(self, key, count, approximate=True):
+        parts = ['MAXLEN']
+        if approximate:
+            parts.append('~')
+        parts.append(str(count))
+        return self.execute_command('XTRIM', key, *parts)
+
+    # TODO: xinfo, xgroup, xreadgroup, xack, xclaim, xpending.
 
     def get_transaction(self):
         with self._transaction_lock:
