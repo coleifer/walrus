@@ -151,7 +151,8 @@ class Database(Redis):
         if count is not None:
             if not isinstance(count, int) or count < 1:
                 raise ValueError('%s count must be a positive integer' % cmd)
-            parts.append('COUNT %s' % count)
+            parts.append('COUNT')
+            parts.append(str(count))
         return self.execute_command(cmd, key, *parts)
 
     def xrange(self, key, start='-', stop='+', count=None):
@@ -206,11 +207,13 @@ class Database(Redis):
         if block is not None:
             if not isinstance(block, int) or block < 1:
                 raise ValueError('XREAD block must be a positive integer')
-            parts.append('BLOCK %s' % block)
+            parts.append('BLOCK')
+            parts.append(str(block))
         if count is not None:
             if not isinstance(count, int) or count < 1:
                 raise ValueError('XREAD count must be a positive integer')
-            parts.append('COUNT %s' % count)
+            parts.append('COUNT')
+            parts.append(str(count))
         parts.append('STREAMS')
         stream_ids = []
         for key, stream_id in key_to_id.iteritems():
