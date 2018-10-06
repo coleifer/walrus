@@ -10,15 +10,15 @@ class RateLimitException(Exception):
 
 class RateLimit(object):
     """
-    Rate limit implementation. Allows up to `number` of events every `per`
-    seconds.
+    Rate limit implementation. Allows up to "limit" number of events every per
+    the given number of seconds.
     """
     def __init__(self, database, name, limit=5, per=60, debug=False):
         """
         :param database: :py:class:`Database` instance.
         :param name: Namespace for this cache.
         :param int limit: Number of events allowed during a given time period.
-        :param int per: Time period the ``limit` applies to, in seconds.
+        :param int per: Time period the ``limit`` applies to, in seconds.
         :param debug: Disable rate-limit for debugging purposes. All events
                       will appear to be allowed and valid.
         """

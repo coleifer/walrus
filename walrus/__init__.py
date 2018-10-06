@@ -30,9 +30,12 @@ from walrus.containers import Hash
 from walrus.containers import HyperLogLog
 from walrus.containers import List
 from walrus.containers import Set
+from walrus.containers import Stream
 from walrus.containers import ZSet
+from walrus.counter import Counter
 from walrus.database import Database
 from walrus.fts import Index
+from walrus.graph import Graph
 from walrus.lock import Lock
 from walrus.models import *
 from walrus.rate_limit import RateLimit
