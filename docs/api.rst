@@ -25,7 +25,15 @@ API Documentation
       ZSet,
       HyperLogLog,
       Array,
+      Stream,
       cas,
+      xadd,
+      xrange,
+      xrevrange,
+      xlen,
+      xread,
+      xdel,
+      xtrim,
       listener,
       stream_log
 
@@ -138,6 +146,17 @@ Container types
       __contains__,
       __iter__,
       as_list
+
+.. autoclass:: Stream(Container)
+    :members:
+      __getitem__,
+      __delitem__,
+      __len__,
+      add,
+      read,
+      delete,
+      trim,
+      __iter__
 
 High-level APIs
 ---------------

@@ -132,6 +132,7 @@ class Database(Redis):
         :param id: identifier for record ('*' to automatically append)
         :param maxlen: maximum length for stream
         :param approximate: allow stream max length to be approximate
+        :returns: the added record's ID.
         """
         parts = []
         if maxlen is not None:
@@ -164,6 +165,7 @@ class Database(Redis):
         :param start: starting ID ('-' for oldest available)
         :param stop: stop ID ('+' for latest available)
         :param count: limit number of records returned
+        :returns: a list of (record ID, data) 2-tuples.
         """
         return self._xrange('XRANGE', key, start, stop, count)
 
@@ -175,6 +177,7 @@ class Database(Redis):
         :param start: starting ID ('+' for latest available)
         :param stop: stop ID ('-' for oldest available)
         :param count: limit number of records returned
+        :returns: a list of (record ID, data) 2-tuples.
         """
         return self._xrange('XREVRANGE', key, start, stop, count)
 
@@ -183,6 +186,7 @@ class Database(Redis):
         Return the length of a stream.
 
         :param key: stream identifier
+        :returns: length of the stream
         """
         return self.execute_command('XLEN', key)
 
@@ -196,6 +200,9 @@ class Database(Redis):
         :param keys: alternatively, a list of stream identifiers
         :param int count: limit number of records returned
         :param int timeout: milliseconds to block
+        :returns: a dict keyed by the stream key, whose value is a list of
+            (record ID, data) 2-tuples. If no data is available or a timeout
+            occurs, ``None`` is returned.
         """
         if sum(1 for a in [key, key_to_id, keys] if a is not None) != 1:
             raise ValueError('XREAD requires one of key, key_to_id, or keys '
@@ -217,16 +224,30 @@ class Database(Redis):
             parts.append(str(count))
         parts.append('STREAMS')
         stream_ids = []
-        for key, stream_id in key_to_id.iteritems():
+        for key, stream_id in key_to_id.items():
             parts.append(key)
             stream_ids.append(str(stream_id))
         parts.extend(stream_ids)
         return self.execute_command('XREAD', *parts)
 
     def xdel(self, key, *id_list):
+        """
+        Remove one or more records from a stream.
+
+        :param key: stream identifier
+        :param id_list: one or more record ids to remove.
+        """
         return self.execute_command('XDEL', key, *id_list)
 
     def xtrim(self, key, count, approximate=True):
+        """
+        Trim the stream to the given "count" of records, discarding the oldest
+        records first.
+
+        :param key: stream identifier
+        :param count: maximum size of stream
+        :param approximate: allow size to be approximate
+        """
         parts = ['MAXLEN']
         if approximate:
             parts.append('~')

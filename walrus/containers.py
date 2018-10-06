@@ -1012,29 +1012,98 @@ class Array(Container):
 
 
 class Stream(Container):
+    """
+    Redis stream container.
+    """
     def add(self, data, id='*', maxlen=None, approximate=True):
+        """
+        Add data to a stream.
+
+        :param dict data: data to add to stream
+        :param id: identifier for record ('*' to automatically append)
+        :param maxlen: maximum length for stream
+        :param approximate: allow stream max length to be approximate
+        :returns: the added record's ID.
+        """
         return self.database.xadd(self.key, data, id, maxlen, approximate)
 
     def __getitem__(self, item):
+        """
+        Read a range of values from a stream.
+
+        The index must be a slice. An empty slice will result in reading all
+        values from the stream. Record IDs provided as lower or upper bounds
+        are inclusive.
+
+        To specify a maximum number of records, use the "step" parameter of
+        the slice.
+        """
         if not isinstance(item, slice):
             raise ValueError('streams may only be indexed using slices')
         return self.database.xrange(self.key, item.start or '-',
                                     item.stop or '+', item.step or None)
 
+    def get(self, docid):
+        """
+        Get a record by ID.
+
+        :param docid: the record ID to retrieve.
+        :returns: a 2-tuple of (record ID, data) or None if not found.
+        """
+        items = self[docid:docid]
+        if len(items) != 0:
+            return items[0]
+
+    def __iter__(self):
+        return iter(self[:])
+
     def __delitem__(self, item):
+        """
+        Delete one or more records by ID. The index can be either a single
+        record ID or a list/tuple of multiple IDs.
+        """
         if not isinstance(item, (list, tuple)):
             item = (item,)
         self.database.xdel(self.key, *item)
 
     def __len__(self):
+        """
+        Return the length of a stream.
+        """
         return self.database.xlen(self.key)
     length = __len__
 
-    def read(self, count=None, timeout=None):
-        return self.database.xread(self.key, count=count, timeout=timeout)
+    def read(self, count=None, timeout=None, last_id=None):
+        """
+        Monitor stream for new data.
+
+        :param int count: limit number of records returned
+        :param int timeout: milliseconds to block
+        :param last_id: Last ID read (an exclusive lower-bound).
+        :returns: a dict keyed by the stream key, whose value is a list of
+            (record ID, data) 2-tuples. If no data is available or a timeout
+            occurs, ``None`` is returned.
+        """
+        kwargs = {'count': count, 'timeout': timeout}
+        if last_id is not None:
+            kwargs['key_to_id'] = {self.key: _decode(last_id)}
+        else:
+            kwargs['key'] = self.key
+        return self.database.xread(**kwargs)
 
     def delete(self, *id_list):
+        """
+        Delete one or more records by ID. The index can be either a single
+        record ID or a list/tuple of multiple IDs.
+        """
         return self.database.xdel(self.key, *id_list)
 
     def trim(self, count, approximate=True):
+        """
+        Trim the stream to the given "count" of records, discarding the oldest
+        records first.
+
+        :param count: maximum size of stream
+        :param approximate: allow size to be approximate
+        """
         return self.database.xtrim(self.key, count, approximate)

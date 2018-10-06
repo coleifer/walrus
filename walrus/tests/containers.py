@@ -458,72 +458,207 @@ class TestStream(WalrusTestCase):
     def setUp(self):
         super(TestStream, self).setUp()
         db.delete('my-stream')
-        self.stream = db.Stream('my-stream')
+
+    @stream_test
+    def test_read_api(self):
+        sa = db.Stream('a')
+        sb = db.Stream('b')
+        sc = db.Stream('c')
+        streams = [sa, sb, sc]
+        docids = []
+        for i in range(20):
+            stream = streams[i % 3]
+            docids.append(stream.add({'k': 'v%s' % i}, id=i + 1))
+
+        def assertData(ret, idxs):
+            accum = {}
+            for idx in idxs:
+                sname = 'abc'[idx % 3]
+                accum.setdefault(sname, [])
+                accum[sname].append((docids[idx], {b'k': encode('v%s' % idx)}))
+            self.assertEqual(ret, accum)
+
+        assertData(sa.read(), [0, 3, 6, 9, 12, 15, 18])
+        assertData(sc.read(), [2, 5, 8, 11, 14, 17])
+
+        # We can specify a maximum number of records via "count".
+        assertData(sa.read(3), [0, 3, 6])
+        assertData(sb.read(2), [1, 4])
+        assertData(sc.read(4), [2, 5, 8, 11])
+
+        # We get the same values we read earlier.
+        assertData(sa.read(2), [0, 3])
+
+        # We can pass a minimum ID and will get newer data -- even if the ID
+        # does not exist in the stream. We can also pass an exact ID and unlike
+        # the range function, it is not inclusive.
+        assertData(sa.read(2, last_id=docids[3]), [6, 9])
+        assertData(sa.read(2, last_id=docids[4]), [6, 9])
+
+        # If the last ID exceeds the highest ID (indicating no data), None is
+        # returned. This is the same whether or not "count" is specified.
+        self.assertTrue(sa.read(last_id=docids[18]) is None)
+        self.assertTrue(sa.read(2, last_id=docids[18]) is None)
+
+        # The count is a maximum, so up-to 2 items are return -- but since only
+        # one item in the stream exceeds the given ID, we only get one result.
+        assertData(sa.read(2, last_id=docids[17]), [18])
+
+        # If a timeout is set and any stream can return a value, then that
+        # value is returned immediately.
+        assertData(sa.read(2, timeout=1, last_id=docids[17]), [18])
+        assertData(sb.read(2, timeout=1, last_id=docids[18]), [19])
+
+        # If no items are available and we timed-out, None is returned.
+        self.assertTrue(sc.read(timeout=1, last_id=docids[19]) is None)
+        self.assertTrue(sc.read(2, timeout=1, last_id=docids[19]) is None)
+
+        # When multiple keys are given, up-to "count" items per stream
+        # are returned.
+        res = db.xread(keys=['a', 'b', 'c'], count=2)
+        assertData(res, [0, 1, 2, 3, 4, 5])
+
+        # Specify max-ids for each stream. The max value in "c" is 17, so
+        # nothing will be returned for "c".
+        uids = [decode(docid) for docid in docids]
+        res = db.xread(key_to_id={'a': uids[15], 'b': uids[16], 'c': uids[17]},
+                       count=3)
+        assertData(res, [18, 19])
+
+        # Now we limit ourselves to being able to pull only a single item from
+        # stream "c".
+        res = db.xread(key_to_id={'a': uids[18], 'b': uids[19], 'c': uids[16]})
+        assertData(res, [17])
+
+        # None is returned when no results are present and timeout is None or
+        # if we reach the timeout.
+        res = db.xread(key_to_id={'a': uids[18], 'b': uids[19], 'c': uids[17]})
+        self.assertTrue(res is None)
+
+        res = db.xread(key_to_id={'a': uids[18], 'b': uids[19], 'c': uids[17]},
+                       count=1, timeout=1)
+        self.assertTrue(res is None)
 
     @stream_test
     def test_basic_apis(self):
-        # Item ids will be 1, 11, 21, ...91.
-        item_ids = [self.stream.add({'k': 'v%s' % i}, id='%s1' % i)
+        stream = db.Stream('my-stream')
+
+        # Item ids will be 1-0, 11-0, ...91-0.
+        item_ids = [stream.add({'k': 'v%s' % i}, id='%s1' % i)
                     for i in range(10)]
-        self.assertEqual(len(self.stream), 10)
+        self.assertEqual(len(stream), 10)
+
+        # Redis automatically adds the sequence number.
+        self.assertEqual(item_ids[:3], [b'1-0', b'11-0', b'21-0'])
+        self.assertEqual(item_ids[7:], [b'71-0', b'81-0', b'91-0'])
 
         def assertData(items, expected):
             self.assertEqual(items, [(item_ids[e], {b'k': encode('v%s' % e)})
                                      for e in expected])
 
-        assertData(self.stream[:'1'], [0])
-        assertData(self.stream['91':], [9])
-        assertData(self.stream[:'31'], [0, 1, 2, 3])
-        assertData(self.stream['71':], [7, 8, 9])
-        assertData(self.stream['21':'41'], [2, 3, 4])
-        assertData(self.stream['41'::3], [4, 5, 6])
-        assertData(self.stream['81'::3], [8, 9])
+        # The sequence number is optional if it's zero.
+        assertData(stream[:'1'], [0])
+        assertData(stream[:'1-0'], [0])
+        assertData(stream['91':], [9])
+        assertData(stream['91-0':], [9])
+        assertData(stream['91-1':], [])
 
-        assertData(self.stream[:'5'], [0])
-        assertData(self.stream[:'25'], [0, 1, 2])
-        assertData(self.stream['25':'55'], [3, 4, 5])
-        assertData(self.stream['55':'92'], [6, 7, 8, 9])
-        assertData(self.stream['91':'92'], [9])
-        assertData(self.stream['92':], [])
-        assertData(self.stream[:'0'], [])
+        # We can slice up to a value. If the sequence number is omitted it will
+        # be treated as zero.
+        assertData(stream[:'31'], [0, 1, 2, 3])
+        assertData(stream[:'31-0'], [0, 1, 2, 3])
+        assertData(stream[:'31-1'], [0, 1, 2, 3])
 
-        assertData(self.stream['25':'55':2], [3, 4])
-        assertData(self.stream['55':'92':1], [6])
+        # We can slice up from a value as well.
+        assertData(stream['71':], [7, 8, 9])
+        assertData(stream['71-0':], [7, 8, 9])
+        assertData(stream['71-1':], [8, 9])
 
-        del self.stream['21', '41', '61']
-        assertData(self.stream['5':'65'], [1, 3, 5])
-        self.assertEqual(len(self.stream), 7)
+        # We can also slice between values.
+        assertData(stream['21':'41'], [2, 3, 4])
+        assertData(stream['21-0':'41'], [2, 3, 4])
+        assertData(stream['21':'41-0'], [2, 3, 4])
+        assertData(stream['21-1':'41'], [3, 4])
+        assertData(stream['21-1':'41-1'], [3, 4])
 
-        del self.stream['21']  # Can delete non-existent items.
+        # The "step" parameter, the third part of the slice, indicates count.
+        assertData(stream['41'::3], [4, 5, 6])
+        assertData(stream[:'41':3], [0, 1, 2])
+        assertData(stream['81'::3], [8, 9])
 
-        # Cannot add lower than maximum ID, even if we add a "-0" sequence.
-        self.assertRaises(Exception, self.stream.add, {'k': 'v2'}, id='90-0')
-        self.assertRaises(Exception, self.stream.add, {'k': 'v2'}, id='91-0')
+        # Test using in-between values. The endpoints of the slice are
+        # inclusive.
+        assertData(stream[:'5'], [0])
+        assertData(stream[:'5-1'], [0])
+        assertData(stream[:'25'], [0, 1, 2])
+        assertData(stream[:'25-1'], [0, 1, 2])
+        assertData(stream['25':'55'], [3, 4, 5])
+        assertData(stream['55':'92'], [6, 7, 8, 9])
+        assertData(stream['91':'92'], [9])
+
+        # If we go above or below, it returns an empty list.
+        assertData(stream['92':], [])
+        assertData(stream[:'0'], [])
+
+        # We can also provide a count when indexing in-between.
+        assertData(stream['25':'55':2], [3, 4])
+        assertData(stream['55':'92':1], [6])
+
+        # Use "del" to remove items by ID. The sequence number will be treated
+        # as zero if not provided.
+        del stream['21', '41-0', '61']
+        del stream['51-1']  # Has no effect since we only have 51-0.
+        assertData(stream['5':'65'], [1, 3, 5])
+        self.assertEqual(len(stream), 7)
+
+        del stream['21']  # Can delete non-existent items.
+
+        # Cannot add lower than maximum ID.
+        self.assertRaises(Exception, stream.add, {'k': 'v2'}, id='90-1')
+        self.assertRaises(Exception, stream.add, {'k': 'v2'}, id='91-0')
 
         # Adding a "1" to the sequence works:
-        new_id = self.stream.add({'k': 'v10'}, id='91-1')
+        new_id = stream.add({'k': 'v10'}, id='91-1')
         self.assertEqual(new_id, b'91-1')
 
         # Length reflects the latest addition.
-        self.assertEqual(len(self.stream), 8)
+        self.assertEqual(len(stream), 8)
 
-        # Even though the first item with id="91" did not have a sequence
-        # number, now that there are two "91's", the first one is also
-        # accessible at 91-0. So range starting at 91-0 yields 91-0 and 91-1.
-        data = self.stream['91-0':]
+        # Range starting at 91-0 yields 91-0 and 91-1.
+        data = stream['91-0':]
         self.assertEqual(len(data), 2)
         self.assertEqual([obj_id for obj_id, _ in data], [b'91-0', b'91-1'])
 
         # Remove the two 91-x items.
-        del self.stream['91', '91-1']
+        del stream['91', '91-1']
 
         # Sanity check that the data was really remove.
-        self.assertEqual(len(self.stream), 6)
-        assertData(self.stream['61':], [7, 8])
+        self.assertEqual(len(stream), 6)
+        assertData(stream['61':], [7, 8])
 
-        # Can we add an item with an id lower than 91?
+        # Can we add an item with an id lower than 91? We've deleted it so the
+        # last value is 81, but this still doesn't work (?).
         for docid in ('90', '91', '91-1'):
-            self.assertRaises(Exception, self.stream.add, {'k': 'v9'}, id='90')
+            self.assertRaises(Exception, stream.add, {'k': 'v9'}, id='90')
 
-        new_id = self.stream.add({'k': 'v9'}, id='91-2')
+        new_id = stream.add({'k': 'v9'}, id='91-2')
         self.assertEqual(new_id, b'91-2')
+        self.assertEqual(stream['91':], [(b'91-2', {b'k': b'v9'})])
+        del stream['91-2']
+
+        nremoved = stream.trim(4, approximate=False)
+        self.assertEqual(nremoved, 2)
+        assertData(stream[:], [3, 5, 7, 8])
+
+        # Trimming again returns 0, no items removed.
+        self.assertEqual(stream.trim(4, approximate=False), 0)
+
+        # Verify we can iterate over the stream.
+        assertData(list(stream), [3, 5, 7, 8])
+
+        # Verify we can get items by id.
+        d5 = stream.get('51-0')
+        self.assertEqual(d5, (b'51-0', {b'k': b'v5'}))
+
+        # Nonexistant values return None.
+        self.assertTrue(stream.get('61-0') is None)
