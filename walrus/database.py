@@ -52,11 +52,7 @@ class TransactionLocal(threading.local):
 # XREVRANGE, XRANGE.
 def _stream_list(response):
     if response is None: return
-    accum = []
-    for item in response:
-        timestamp, kv_list = item
-        accum.append((timestamp, pairs_to_dict(kv_list)))
-    return accum
+    return [(ts_seq, pairs_to_dict(kv_list)) for ts_seq, kv_list in response]
 
 # XREAD.
 def _multi_stream_list(response):
