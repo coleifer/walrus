@@ -1009,3 +1009,32 @@ class Array(Container):
             arr.clear()
         arr.extend(data)
         return arr
+
+
+class Stream(Container):
+    def add(self, data, id='*', maxlen=None, approximate=True):
+        return self.database.xadd(self.key, data, id, maxlen, approximate)
+
+    def __getitem__(self, item):
+        if not isinstance(item, slice):
+            raise ValueError('streams may only be indexed using slices')
+        return self.database.xrange(self.key, item.start or '-',
+                                    item.stop or '+', item.step or None)
+
+    def __delitem__(self, item):
+        if not isinstance(item, (list, tuple)):
+            item = (item,)
+        self.database.xdel(self.key, *item)
+
+    def __len__(self):
+        return self.database.xlen(self.key)
+    length = __len__
+
+    def read(self, count=None, timeout=None):
+        return self.database.xread(self.key, count=count, timeout=timeout)
+
+    def delete(self, *id_list):
+        return self.database.xdel(self.key, *id_list)
+
+    def trim(self, count, approximate=True):
+        return self.database.xtrim(self.key, count, approximate)

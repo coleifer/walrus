@@ -5,6 +5,7 @@ from walrus.containers import *
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 from walrus.utils import decode
+from walrus.utils import decode_dict
 from walrus.utils import encode
 
 
@@ -446,3 +447,83 @@ class TestArray(WalrusTestCase):
         data = list('abcdefghij')
         arr = Array.from_list(db, 'test', data)
         self.assertEqual(arr.as_list(True), data)
+
+
+def stream_test(fn):
+    test_stream = os.environ.get('TEST_STREAM')
+    return unittest.skipIf(not test_stream, 'skipping stream tests')(fn)
+
+
+class TestStream(WalrusTestCase):
+    def setUp(self):
+        super(TestStream, self).setUp()
+        db.delete('my-stream')
+        self.stream = db.Stream('my-stream')
+
+    @stream_test
+    def test_basic_apis(self):
+        # Item ids will be 1, 11, 21, ...91.
+        item_ids = [self.stream.add({'k': 'v%s' % i}, id='%s1' % i)
+                    for i in range(10)]
+        self.assertEqual(len(self.stream), 10)
+
+        def assertData(items, expected):
+            self.assertEqual(items, [(item_ids[e], {b'k': encode('v%s' % e)})
+                                     for e in expected])
+
+        assertData(self.stream[:'1'], [0])
+        assertData(self.stream['91':], [9])
+        assertData(self.stream[:'31'], [0, 1, 2, 3])
+        assertData(self.stream['71':], [7, 8, 9])
+        assertData(self.stream['21':'41'], [2, 3, 4])
+        assertData(self.stream['41'::3], [4, 5, 6])
+        assertData(self.stream['81'::3], [8, 9])
+
+        assertData(self.stream[:'5'], [0])
+        assertData(self.stream[:'25'], [0, 1, 2])
+        assertData(self.stream['25':'55'], [3, 4, 5])
+        assertData(self.stream['55':'92'], [6, 7, 8, 9])
+        assertData(self.stream['91':'92'], [9])
+        assertData(self.stream['92':], [])
+        assertData(self.stream[:'0'], [])
+
+        assertData(self.stream['25':'55':2], [3, 4])
+        assertData(self.stream['55':'92':1], [6])
+
+        del self.stream['21', '41', '61']
+        assertData(self.stream['5':'65'], [1, 3, 5])
+        self.assertEqual(len(self.stream), 7)
+
+        del self.stream['21']  # Can delete non-existent items.
+
+        # Cannot add lower than maximum ID, even if we add a "-0" sequence.
+        self.assertRaises(Exception, self.stream.add, {'k': 'v2'}, id='90-0')
+        self.assertRaises(Exception, self.stream.add, {'k': 'v2'}, id='91-0')
+
+        # Adding a "1" to the sequence works:
+        new_id = self.stream.add({'k': 'v10'}, id='91-1')
+        self.assertEqual(new_id, b'91-1')
+
+        # Length reflects the latest addition.
+        self.assertEqual(len(self.stream), 8)
+
+        # Even though the first item with id="91" did not have a sequence
+        # number, now that there are two "91's", the first one is also
+        # accessible at 91-0. So range starting at 91-0 yields 91-0 and 91-1.
+        data = self.stream['91-0':]
+        self.assertEqual(len(data), 2)
+        self.assertEqual([obj_id for obj_id, _ in data], [b'91-0', b'91-1'])
+
+        # Remove the two 91-x items.
+        del self.stream['91', '91-1']
+
+        # Sanity check that the data was really remove.
+        self.assertEqual(len(self.stream), 6)
+        assertData(self.stream['61':], [7, 8])
+
+        # Can we add an item with an id lower than 91?
+        for docid in ('90', '91', '91-1'):
+            self.assertRaises(Exception, self.stream.add, {'k': 'v9'}, id='90')
+
+        new_id = self.stream.add({'k': 'v9'}, id='91-2')
+        self.assertEqual(new_id, b'91-2')

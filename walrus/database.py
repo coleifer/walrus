@@ -20,6 +20,7 @@ from walrus.containers import Hash
 from walrus.containers import HyperLogLog
 from walrus.containers import List
 from walrus.containers import Set
+from walrus.containers import Stream
 from walrus.containers import ZSet
 from walrus.counter import Counter
 from walrus.fts import Index
@@ -186,7 +187,7 @@ class Database(Redis):
         return self.execute_command('XLEN', key)
 
     def xread(self, key=None, key_to_id=None, keys=None, count=None,
-              block=None):
+              timeout=None):
         """
         Monitor one or more streams for new data.
 
@@ -194,7 +195,7 @@ class Database(Redis):
         :param key_to_id: alternatively, specify key-to-minimum id mapping
         :param keys: alternatively, a list of stream identifiers
         :param int count: limit number of records returned
-        :param int block: milliseconds to block
+        :param int timeout: milliseconds to block
         """
         if sum(1 for a in [key, key_to_id, keys] if a is not None) != 1:
             raise ValueError('XREAD requires one of key, key_to_id, or keys '
@@ -204,11 +205,11 @@ class Database(Redis):
         elif keys:
             key_to_id = dict((key, '0-0') for key in keys)
         parts = []
-        if block is not None:
-            if not isinstance(block, int) or block < 1:
-                raise ValueError('XREAD block must be a positive integer')
+        if timeout is not None:
+            if not isinstance(timeout, int) or timeout < 1:
+                raise ValueError('XREAD timeout must be a positive integer')
             parts.append('BLOCK')
-            parts.append(str(block))
+            parts.append(str(timeout))
         if count is not None:
             if not isinstance(count, int) or count < 1:
                 raise ValueError('XREAD count must be a positive integer')
@@ -432,6 +433,12 @@ class Database(Redis):
         Create a :py:class:`Array` instance wrapping the given key.
         """
         return Array(self, key)
+
+    def Stream(self, key):
+        """
+        Create a :py:class:`Stream` instance wrapping the given key.
+        """
+        return Stream(self, key)
 
     def cas(self, key, value, new_value):
         """

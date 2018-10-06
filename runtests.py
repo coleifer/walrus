@@ -30,9 +30,13 @@ if __name__ == '__main__':
                       dest='verbose', help='Verbose output.')
     parser.add_option('-f', '--failfast', action='store_true', default=False,
                       help='Stop on first failure or error.')
-    parser.add_option('-z', '--zpop', action='store_true',
+    parser.add_option('-s', '--stream', action='store_true', dest='stream',
+                      help='Run stream command tests.')
+    parser.add_option('-z', '--zpop', action='store_true', dest='zpop',
                       help='Run ZPOP* tests.')
     options, args = parser.parse_args()
+    if options.stream:
+        os.environ['TEST_STREAM'] = '1'
     if options.zpop:
         os.environ['TEST_ZPOP'] = '1'
 
