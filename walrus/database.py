@@ -198,7 +198,7 @@ class Database(Redis):
             added 8after* our command started blocking.
         :param keys: alternatively, a list of stream identifiers
         :param int count: limit number of records returned
-        :param int timeout: milliseconds to block
+        :param int timeout: milliseconds to block, 0 for indefinitely.
         :returns: a dict keyed by the stream key, whose value is a list of
             (record ID, data) 2-tuples. If no data is available or a timeout
             occurs, ``None`` is returned.
@@ -212,8 +212,8 @@ class Database(Redis):
             key_to_id = dict((key, '0-0') for key in keys)
         parts = []
         if timeout is not None:
-            if not isinstance(timeout, int) or timeout < 1:
-                raise ValueError('XREAD timeout must be a positive integer')
+            if not isinstance(timeout, int) or timeout < 0:
+                raise ValueError('XREAD timeout must be >= 0')
             parts.append('BLOCK')
             parts.append(str(timeout))
         if count is not None:

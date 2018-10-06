@@ -1078,7 +1078,7 @@ class Stream(Container):
         Monitor stream for new data.
 
         :param int count: limit number of records returned
-        :param int timeout: milliseconds to block
+        :param int timeout: milliseconds to block, 0 for indefinitely
         :param last_id: Last ID read (an exclusive lower-bound). If the '$'
             value is given, we will only read values added *after* our command
             started blocking.
