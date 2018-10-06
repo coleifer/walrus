@@ -69,11 +69,13 @@ class Database(Redis):
     """
     RESPONSE_CALLBACKS = Redis.RESPONSE_CALLBACKS
     RESPONSE_CALLBACKS.update(
+        XCLAIM=_stream_list,
         XDEL=int,
         XLEN=int,
         XRANGE=_stream_list,
         XREVRANGE=_stream_list,
         XREAD=_multi_stream_list,
+        XREADGROUP=_multi_stream_list,
         XTRIM=int)
 
     def __init__(self, *args, **kwargs):
@@ -186,30 +188,34 @@ class Database(Redis):
         """
         return self.execute_command('XLEN', key)
 
-    def xread(self, key=None, key_to_id=None, keys=None, count=None,
-              timeout=None):
+    def _normalize_stream_keys(self, keys, default_id='0-0'):
+        if isinstance(keys, basestring_type):
+            return {keys: default_id}
+        elif isinstance(keys, (list, tuple)):
+            return dict([(key, default_id) for key in keys])
+        elif isinstance(keys, dict):
+            return keys
+        else:
+            raise ValueError('keys must be either a stream key, a list of '
+                             'stream keys, or a dictionary mapping key to '
+                             'minimum record ID.')
+
+    def xread(self, keys, count=None, timeout=None):
         """
         Monitor one or more streams for new data.
 
-        :param key: stream identifier to monitor
-        :param key_to_id: alternatively, specify key-to-minimum id mapping. The
+        :param keys: stream identifier(s) to monitor. May be a single stream
+            key, a list of stream keys, or a key-to-minimum id mapping. The
             minimum ID for each stream should be considered an exclusive
             lower-bound. The '$' value can also be used to only read values
-            added 8after* our command started blocking.
-        :param keys: alternatively, a list of stream identifiers
+            added *after* our command started blocking.
         :param int count: limit number of records returned
         :param int timeout: milliseconds to block, 0 for indefinitely.
         :returns: a dict keyed by the stream key, whose value is a list of
             (record ID, data) 2-tuples. If no data is available or a timeout
             occurs, ``None`` is returned.
         """
-        if sum(1 for a in [key, key_to_id, keys] if a is not None) != 1:
-            raise ValueError('XREAD requires one of key, key_to_id, or keys '
-                             'be specified.')
-        if key:
-            key_to_id = {key: '0-0'}
-        elif keys:
-            key_to_id = dict((key, '0-0') for key in keys)
+        key_to_id = self._normalize_stream_keys(keys)
         parts = []
         if timeout is not None:
             if not isinstance(timeout, int) or timeout < 0:
@@ -254,6 +260,139 @@ class Database(Redis):
         return self.execute_command('XTRIM', key, *parts)
 
     # TODO: xinfo, xgroup, xreadgroup, xack, xclaim, xpending.
+    def xgroup_create(self, key, group, id='$'):
+        """
+        Create a consumer group.
+
+        :param key: stream key -- must exist before creating a group
+        :param group: consumer group name
+        :param id: set the ID of the last-received-message
+        """
+        return self.execute_command('XGROUP', 'CREATE', key, group, id)
+
+    def xgroup_setid(self, key, id='$'):
+        """
+        Set the ID of the last-received-message for a stream
+
+        :param key: stream key
+        :param id: set the ID of the last-received-message
+        """
+        return self.execute_command('XGROUP', 'SETID', key, id)
+
+    def xgroup_destroy(self, key, group):
+        """
+        Destroy a consumer group.
+
+        :param key: stream key
+        :param group: consumer group name
+        """
+        return self.execute_command('XGROUP', 'DESTROY', key, group)
+
+    def xgroup_delete_consumer(self, key, group, consumer):
+        """
+        Delete a consumer within a consumer group.
+
+        :param key: stream key
+        :param group: consumer group name
+        :param consumer: consumer name
+        """
+        return self.execute_command('XGROUP', 'DELCONSUMER', key, group,
+                                    consumer)
+
+    def xreadgroup(self, group, consumer, keys, count=None, timeout=None):
+        """
+        Monitor one or more streams for new data using a consumer group.
+
+        :param group: group name
+        :param consumer: consumer name
+        :param keys: stream identifier(s) to monitor. May be a single stream
+            key, a list of stream keys, or a key-to-minimum id mapping. The
+            minimum ID for each stream should be considered an exclusive
+            lower-bound. The '>' value can also be used to only read values
+            that have never been delivered to a consumer.
+        :param int count: limit number of records returned
+        :param int timeout: milliseconds to block, 0 for indefinitely.
+        :returns: a dict keyed by the stream key, whose value is a list of
+            (record ID, data) 2-tuples. If no data is available or a timeout
+            occurs, ``None`` is returned.
+        """
+        key_to_id = self._normalize_stream_keys(keys, '>')
+        parts = ['XREADGROUP', 'GROUP', group, consumer]
+        if count is not None:
+            if not isinstance(count, int) or count < 1:
+                raise ValueError('XREADGROUP count must be a positive integer')
+            parts.append('COUNT')
+            parts.append(str(count))
+        if timeout is not None:
+            if not isinstance(timeout, int) or timeout < 0:
+                raise ValueError('XREADGROUP timeout must be >= 0')
+            parts.append('BLOCK')
+            parts.append(str(timeout))
+        parts.append('STREAMS')
+        stream_ids = []
+        for key, stream_id in key_to_id.items():
+            parts.append(key)
+            stream_ids.append(str(stream_id))
+        parts.extend(stream_ids)
+        return self.execute_command(*parts)
+
+    def xack(self, key, group, *id_list):
+        """
+        Acknowledge that a message has been processed by a consumer.
+
+        :param key: stream identifier
+        :param group: consumer group name
+        :param id_list: one or more message IDs to acknowledge
+        :returns: number of messages marked acknowledged
+        """
+        return self.execute_command('XACK', key, group, *id_list)
+
+    def xclaim(self, key, group, consumer, min_idle_time, *id_list):
+        """
+        Claim pending - but unacknowledged - messages.
+
+        :param key: stream identifier
+        :param group: consumer group name
+        :param min_idle_time: minimum idle time in milliseconds
+        :param id_list: one or more message IDs to acknowledge
+        :returns: list of (record id, data) 2-tuples of messages that were
+            successfully claimed
+        """
+        if not isinstance(min_idle_time, int) or min_idle_time < 0:
+            raise ValueError('min_idle_time must be a non-negative number')
+        return self.execute_command('XCLAIM', key, group, consumer,
+                                    str(min_idle_time), *id_list)
+
+    def xpending(self, key, group, start='-', stop='+', count=-1,
+                 consumer=None):
+        """
+        List pending messages.
+
+        :param key: stream identifier
+        :param group: consumer group name
+        :param start: start id (or '-' for oldest pending)
+        :param stop: stop id (or '+' for newest pending)
+        :param count: limit number of messages returned
+        :param consumer: restrict message list to the given consumer
+        :returns: A list containing status for each pending message. Each
+            pending message returns [id, consumer, idle time, deliveries].
+        """
+        parts = ['XPENDING', key, group, start, stop, str(count)]
+        if consumer is not None:
+            parts.append(consumer)
+        return self.execute_command(*parts)
+
+    def xpending_summary(self, key, group):
+        """
+        Pending message summary report.
+
+        :param key: stream identifier
+        :param group: consumer group name
+        :returns: (count, min id, max id, {consumer: count, ...})
+        """
+        resp = self.execute_command('XPENDING', key, group)
+        count, min_id, max_id, consumer_counts = resp
+        return count, min_id, max_id, dict(consumer_counts)
 
     def get_transaction(self):
         with self._transaction_lock:
