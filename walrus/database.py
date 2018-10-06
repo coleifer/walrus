@@ -196,7 +196,10 @@ class Database(Redis):
         Monitor one or more streams for new data.
 
         :param key: stream identifier to monitor
-        :param key_to_id: alternatively, specify key-to-minimum id mapping
+        :param key_to_id: alternatively, specify key-to-minimum id mapping. The
+            minimum ID for each stream should be considered an exclusive
+            lower-bound. The '$' value can also be used to only read values
+            added 8after* our command started blocking.
         :param keys: alternatively, a list of stream identifiers
         :param int count: limit number of records returned
         :param int timeout: milliseconds to block
