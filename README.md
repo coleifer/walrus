@@ -4,7 +4,14 @@
 
 Lightweight Python utilities for working with [Redis](http://redis.io).
 
-The purpose of [walrus](https://github.com/coleifer/walrus) is to make working with Redis in Python a little easier by wrapping rich objects in Pythonic containers. walrus consists of:
+The purpose of [walrus](https://github.com/coleifer/walrus) is to make working
+with Redis in Python a little easier. Rather than ask you to learn a new
+library, walrus subclasses and extends the popular `redis-py` client, allowing
+it to be used as a drop-in replacement. In addition to all the features in
+`redis-py`, walrus adds support for some newer commands, including full support
+for streams and consumer groups.
+
+walrus consists of:
 
 * Pythonic container classes for the Redis data-types:
     * [Hash](https://walrus.readthedocs.io/en/latest/containers.html#hashes)

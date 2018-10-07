@@ -10,16 +10,25 @@ walrus
 
 .. py:module:: walrus
 
-Python utilities for working with `Redis <http://redis.io>`_:
+Lightweight Python utilities for working with `Redis <http://redis.io>`_.
 
-* container classes
-* support for all stream commands, plus regular and blocking ``zpop`` variants.
+The purpose of `walrus <https://github.com/coleifer/walrus>`_ is to make
+working with Redis in Python a little easier. Rather than ask you to learn a
+new library, walrus subclasses and extends the popular ``redis-py`` client,
+allowing it to be used as a drop-in replacement. In addition to all the
+features in ``redis-py``, walrus adds support for some newer commands,
+including full support for streams and consumer groups.
+
+walrus consists of:
+
+* pythonic container classes for the Redis data-types.
+* support for stream APIs, plus regular and blocking ``zpop`` variants.
 * autocomplete
 * cache
 * full-text search
 * graph store
 * rate limiting
-* active-record models (secondary indexes, full-text search)
+* active-record models (secondary indexes, full-text search, composable query filters, etc)
 * locks
 * more? more!
 
