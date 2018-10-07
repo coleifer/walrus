@@ -16,6 +16,7 @@ except ImportError:
 from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
+from walrus.containers import ConsumerGroup
 from walrus.containers import Hash
 from walrus.containers import HyperLogLog
 from walrus.containers import List
@@ -268,7 +269,8 @@ class Database(Redis):
         :param group: consumer group name
         :param id: set the ID of the last-received-message
         """
-        return self.execute_command('XGROUP', 'CREATE', key, group, id)
+        resp = self.execute_command('XGROUP', 'CREATE', key, group, id)
+        return resp == b'OK'
 
     def xgroup_setid(self, key, group, id='$'):
         """
@@ -599,6 +601,9 @@ class Database(Redis):
         Create a :py:class:`Stream` instance wrapping the given key.
         """
         return Stream(self, key)
+
+    def ConsumerGroup(self, group, keys):
+        return ConsumerGroup(self, group, keys)
 
     def cas(self, key, value, new_value):
         """

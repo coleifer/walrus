@@ -1109,3 +1109,64 @@ class Stream(Container):
         :param approximate: allow size to be approximate
         """
         return self.database.xtrim(self.key, count, approximate)
+
+
+class _ConsumerGroupKey(object):
+    __slots__ = ('database', 'group', 'key')
+
+    def __init__(self, database, group, key):
+        self.database = database
+        self.group = group
+        self.key = key
+
+    def ack(self, *id_list):
+        return self.database.xack(self.key, self.group, *id_list)
+
+    def claim(self, consumer=None, min_idle_time=0, *id_list):
+        if consumer is None: consumer = self.group + '.c1'
+        return self.database.xclaim(self.key, self.group, consumer,
+                                    min_idle_time, *id_list)
+
+    def pending(self, start='-', stop='+', count=-1, consumer=None):
+        return self.database.xpending(self.key, self.group, start, stop,
+                                      count, consumer)
+
+    def read(self, consumer=None, count=None, timeout=None):
+        if consumer is None: consumer = self.group + '.c1'
+        resp = self.database.xreadgroup(self.group, consumer, self.key,
+                                        count, timeout)
+        if resp is not None:
+            return resp[self.key]
+
+
+class ConsumerGroup(object):
+    def __init__(self, database, name, keys):
+        self.database = database
+        self.name = name
+        self._default_consumer = self.name + '.c1'
+        self.keys = self.database._normalize_stream_keys(keys)
+
+        # Add attributes for each stream exposed as part of the group.
+        for key in self.keys:
+            setattr(self, key, _ConsumerGroupKey(self.database, name, key))
+
+    def create(self):
+        resp = {}
+        for key, value in self.keys.items():
+            resp[key] = self.database.xgroup_create(key, self.name, value)
+        return resp
+
+    def reset(self):
+        for key in self.keys:
+            self.database.xgroup_setid(key, self.name, '0-0')
+
+    def destroy(self):
+        resp = {}
+        for key in self.keys:
+            resp[key] = self.database.xgroup_destroy(key, self.name)
+        return resp
+
+    def read(self, consumer=None, count=None, timeout=None):
+        if consumer is None: consumer = self._default_consumer
+        return self.database.xreadgroup(self.name, consumer, list(self.keys),
+                                        count, timeout)

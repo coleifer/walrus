@@ -462,6 +462,36 @@ class TestStream(WalrusTestCase):
         db.delete('sb')
 
     @stream_test
+    def test_consumer_group_container(self):
+        ra1 = db.xadd('sa', {'k': 'a1'}, b'1')
+        rb1 = db.xadd('sb', {'k': 'b1'}, b'2')
+        ra2 = db.xadd('sa', {'k': 'a2'}, b'3')
+        rb2 = db.xadd('sb', {'k': 'b2'}, b'4')
+        rb3 = db.xadd('sb', {'k': 'b3'}, b'5')
+        cg1 = db.ConsumerGroup('g1', {'sa': '1', 'sb': '0'})
+        cg2 = db.ConsumerGroup('g2', {'sb': '2'})
+
+        self.assertEqual(cg1.create(), {'sa': True, 'sb': True})
+        self.assertEqual(cg2.create(), {'sb': True})
+
+        self.assertEqual(cg1.read(count=2), {
+            'sa': [(ra2, {b'k': b'a2'})],
+            'sb': [(rb1, {b'k': b'b1'}), (rb2, {b'k': b'b2'})]})
+        self.assertTrue(cg1.sa.read() is None)
+        self.assertEqual(cg1.sb.read(), [(rb3, {b'k': b'b3'})])
+
+        self.assertEqual(cg1.sa.ack(ra2), 1)
+        self.assertEqual(cg1.sb.ack(rb1, rb3), 2)
+        p1, = cg1.sb.pending()
+        self.assertEqual(p1[:2], [rb2, b'g1.c1'])
+
+        self.assertEqual(cg2.read(count=1), {'sb': [(rb2, {b'k': b'b2'})]})
+        self.assertEqual(cg2.sb.read(), [(rb3, {b'k': b'b3'})])
+
+        self.assertEqual(cg1.destroy(), {'sa': 1, 'sb': 1})
+        self.assertEqual(cg2.destroy(), {'sb': 1})
+
+    @stream_test
     def test_group_multikey(self):
         ra1 = db.xadd('sa', {'k': 'a1'}, b'1')
         rb1 = db.xadd('sb', {'k': 'b1'}, b'2')
