@@ -13,6 +13,7 @@ walrus
 Python utilities for working with `Redis <http://redis.io>`_:
 
 * container classes
+* support for all stream commands, plus regular and blocking ``zpop`` variants.
 * autocomplete
 * cache
 * full-text search
