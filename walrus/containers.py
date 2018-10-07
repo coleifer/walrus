@@ -1139,6 +1139,9 @@ class _ConsumerGroupKey(object):
         if resp is not None:
             return resp[self.key]
 
+    def set_id(self, id='$'):
+        return self.database.xgroup_setid(self.key, self.group, id)
+
 
 class ConsumerGroup(object):
     def __init__(self, database, name, keys, consumer=None):
@@ -1175,3 +1178,9 @@ class ConsumerGroup(object):
         if consumer is None: consumer = self._default_consumer
         return self.database.xreadgroup(self.name, consumer, list(self.keys),
                                         count, timeout)
+
+    def set_id(self, id='$'):
+        accum = {}
+        for key in self.keys:
+            accum[key] = self.database.xgroup_setid(key, self.name, id)
+        return accum
