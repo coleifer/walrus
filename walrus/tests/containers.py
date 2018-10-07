@@ -571,6 +571,10 @@ class TestStream(WalrusTestCase):
         self.assertEqual(p2[:2], [r3, b'cg2-2'])
         self.assertEqual(p2[3], 1)
 
+        # We can inspect pending for a specific consumer.
+        p1, = db.xpending(key, 'cg2', consumer='cg2-2')
+        self.assertEqual(p1[:2], [r3, b'cg2-2'])
+
         # Claim r3 for cg2-1. Pending info is updated:
         resp = db.xclaim(key, 'cg2', 'cg2-1', 0, r3)
         p1, p2 = db.xpending(key, 'cg2')
