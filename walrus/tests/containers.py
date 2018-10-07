@@ -460,6 +460,135 @@ class TestStream(WalrusTestCase):
         db.delete('my-stream')
 
     @stream_test
+    def test_group_apis(self):
+        key = 'my-stream'
+        r1 = db.xadd(key, {'k': 'v1'})
+        r2 = db.xadd(key, {'k': 'v2'})
+
+        self.assertTrue(db.xgroup_create(key, 'cg1'))
+        self.assertTrue(db.xgroup_create(key, 'cg2', id='0'))
+
+        # First consumer group reads nothing because last_id=$.
+        self.assertTrue(db.xreadgroup('cg1', 'cg1-1', key) is None)
+
+        # Second consumer group reads the first record, because last_id=0.
+        resp = db.xreadgroup('cg2', 'cg2-1', key, count=1)
+        self.assertEqual(resp, {key: [(r1, {b'k': b'v1'})]})
+
+        # Another call for cg2/cg2-1 returns the next item. Then returns None.
+        resp2 = db.xreadgroup('cg2', 'cg2-1', key)
+        self.assertEqual(resp2, {key: [(r2, {b'k': b'v2'})]})
+        self.assertTrue(db.xreadgroup('cg2', 'cg2-1', key) is None)
+
+        # First consumer group has no pending since nothing read.
+        self.assertEqual(db.xpending(key, 'cg1'), [])
+
+        # Second group has two pending.
+        self.assertEqual(len(db.xpending(key, 'cg2')), 2)
+
+        # Each item in the response is [id, consumer, idle time, deliveries].
+        p1, p2 = db.xpending(key, 'cg2')
+        self.assertEqual(p1[:2], [r1, b'cg2-1'])
+        self.assertEqual(p1[3], 1)
+        self.assertEqual(p2[:2], [r2, b'cg2-1'])
+        self.assertEqual(p2[3], 1)
+
+        # Acknowledge receipt of second item.
+        self.assertEqual(db.xack(key, 'cg2', r2), 1)
+        self.assertEqual(db.xack(key, 'cg2', r2), 0)  # Already ACK-ed.
+
+        # Verify update to pending.
+        p1, = db.xpending(key, 'cg2')
+        self.assertEqual(p1[:2], [r1, b'cg2-1'])
+        self.assertEqual(p1[3], 1)
+
+        # We'll attempt to claim both, but since r2 is acknowledged, we only
+        # end up claiming r1.
+        resp = db.xclaim(key, 'cg2', 'cg2-1', 0, r1, r2)
+        self.assertEqual(resp, [(r1, {b'k': b'v1'})])
+
+        # Acknowledge receipt of r1.
+        self.assertEqual(db.xack(key, 'cg2', r1), 1)
+
+        # Write a new record to the stream.
+        r3 = db.xadd(key, {'k': 'v3'})
+
+        # It should be visible to cg1 AND cg2.
+        resp = db.xreadgroup('cg1', 'cg1-1', key)
+        self.assertEqual(resp, {key: [(r3, {b'k': b'v3'})]})
+
+        resp2 = db.xreadgroup('cg2', 'cg2-1', key)
+        self.assertEqual(resp2, resp)
+
+        # Subsequent reads are empty.
+        self.assertTrue(db.xreadgroup('cg1', 'cg1-1', key) is None)
+        self.assertTrue(db.xreadgroup('cg2', 'cg2-1', key) is None)
+
+        # A new consumer can't read old messages.
+        self.assertTrue(db.xreadgroup('cg1', 'cg1-2', key) is None)
+
+        # Deleting a consumer returns 1 on succes, 0 if name not found.
+        self.assertEqual(db.xgroup_delete_consumer(key, 'cg2', 'cg2-1'), 1)
+        self.assertEqual(db.xgroup_delete_consumer(key, 'cg2', 'cg2-1'), 0)
+
+        # The consumer group retains state regardless of consumers.
+        self.assertTrue(db.xreadgroup('cg2', 'cg2-1', key) is None)
+
+        # We can explicitly set the ID. In that case subsequent reads will read
+        # the succeeding record(s).
+        db.xgroup_setid(key, 'cg2', r1)
+        resp = db.xreadgroup('cg2', 'cg2-2', key)
+        self.assertEqual(resp, {key: [
+            (r2, {b'k': b'v2'}),
+            (r3, {b'k': b'v3'})]})
+
+        pending_summary = db.xpending_summary(key, 'cg2')
+        self.assertEqual(pending_summary, (2, r2, r3, {b'cg2-2': b'2'}))
+
+        # Resetting the ID does not affect pending status.
+        db.xgroup_setid(key, 'cg2', r1)
+        pending_summary2 = db.xpending_summary(key, 'cg2')
+        self.assertEqual(pending_summary2, pending_summary)
+
+        # Re-read using cg2-1.
+        resp = db.xreadgroup('cg2', 'cg2-1', key, count=1)
+        self.assertEqual(resp, {key: [(r2, {b'k': b'v2'})]})
+
+        # The pending status has changed!
+        pending_summary = db.xpending_summary(key, 'cg2')
+        self.assertEqual(pending_summary, (2, r2, r3, {
+            b'cg2-1': b'1',
+            b'cg2-2': b'1'}))
+
+        # cg2 was reset to id=r1.
+        # cg2-2 read r2 and r3.
+        # cg2 was reset to id=r1.
+        # cg2-1 read r2 (count=1).
+        # Pending details show cg2-1 -> r2, cg2-2 -> r3.
+        p1, p2 = db.xpending(key, 'cg2')
+        self.assertEqual(p1[:2], [r2, b'cg2-1'])
+        self.assertEqual(p1[3], 1)
+        self.assertEqual(p2[:2], [r3, b'cg2-2'])
+        self.assertEqual(p2[3], 1)
+
+        # Claim r3 for cg2-1. Pending info is updated:
+        resp = db.xclaim(key, 'cg2', 'cg2-1', 0, r3)
+        p1, p2 = db.xpending(key, 'cg2')
+        self.assertEqual(p1[:2], [r2, b'cg2-1'])
+        self.assertEqual(p2[:2], [r3, b'cg2-1'])
+
+        # Consume and ack stream from cg2.
+        resp = db.xreadgroup('cg2', 'cg2-1', key)
+        self.assertEqual(resp, {key: [(r3, {b'k': b'v3'})]})
+        self.assertEqual(db.xack(key, 'cg2', r2, r3), 2)
+        self.assertEqual(db.xpending(key, 'cg2'), [])
+
+        # Destroy the consumer groups.
+        self.assertEqual(db.xgroup_destroy(key, 'cg1'), 1)
+        self.assertEqual(db.xgroup_destroy(key, 'cg2'), 1)
+        self.assertEqual(db.xgroup_destroy(key, 'cg2'), 0)  # Already gone.
+
+    @stream_test
     def test_read_api(self):
         sa = db.Stream('a')
         sb = db.Stream('b')
@@ -515,27 +644,27 @@ class TestStream(WalrusTestCase):
 
         # When multiple keys are given, up-to "count" items per stream
         # are returned.
-        res = db.xread(keys=['a', 'b', 'c'], count=2)
+        res = db.xread(['a', 'b', 'c'], count=2)
         assertData(res, [0, 1, 2, 3, 4, 5])
 
         # Specify max-ids for each stream. The max value in "c" is 17, so
         # nothing will be returned for "c".
         uids = [decode(docid) for docid in docids]
-        res = db.xread(key_to_id={'a': uids[15], 'b': uids[16], 'c': uids[17]},
+        res = db.xread({'a': uids[15], 'b': uids[16], 'c': uids[17]},
                        count=3)
         assertData(res, [18, 19])
 
         # Now we limit ourselves to being able to pull only a single item from
         # stream "c".
-        res = db.xread(key_to_id={'a': uids[18], 'b': uids[19], 'c': uids[16]})
+        res = db.xread({'a': uids[18], 'b': uids[19], 'c': uids[16]})
         assertData(res, [17])
 
         # None is returned when no results are present and timeout is None or
         # if we reach the timeout.
-        res = db.xread(key_to_id={'a': uids[18], 'b': uids[19], 'c': uids[17]})
+        res = db.xread({'a': uids[18], 'b': uids[19], 'c': uids[17]})
         self.assertTrue(res is None)
 
-        res = db.xread(key_to_id={'a': uids[18], 'b': uids[19], 'c': uids[17]},
+        res = db.xread({'a': uids[18], 'b': uids[19], 'c': uids[17]},
                        count=1, timeout=1)
         self.assertTrue(res is None)
 

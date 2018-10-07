@@ -1088,9 +1088,9 @@ class Stream(Container):
         """
         kwargs = {'count': count, 'timeout': timeout}
         if last_id is not None:
-            kwargs['key_to_id'] = {self.key: _decode(last_id)}
+            kwargs['keys'] = {self.key: _decode(last_id)}
         else:
-            kwargs['key'] = self.key
+            kwargs['keys'] = self.key
         return self.database.xread(**kwargs)
 
     def delete(self, *id_list):

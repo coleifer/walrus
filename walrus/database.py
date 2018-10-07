@@ -259,7 +259,7 @@ class Database(Redis):
         parts.append(str(count))
         return self.execute_command('XTRIM', key, *parts)
 
-    # TODO: xinfo, xgroup, xreadgroup, xack, xclaim, xpending.
+    # TODO: xinfo
     def xgroup_create(self, key, group, id='$'):
         """
         Create a consumer group.
@@ -270,14 +270,15 @@ class Database(Redis):
         """
         return self.execute_command('XGROUP', 'CREATE', key, group, id)
 
-    def xgroup_setid(self, key, id='$'):
+    def xgroup_setid(self, key, group, id='$'):
         """
         Set the ID of the last-received-message for a stream
 
         :param key: stream key
+        :param group: consumer group name
         :param id: set the ID of the last-received-message
         """
-        return self.execute_command('XGROUP', 'SETID', key, id)
+        return self.execute_command('XGROUP', 'SETID', key, group, id)
 
     def xgroup_destroy(self, key, group):
         """
