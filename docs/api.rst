@@ -34,6 +34,15 @@ API Documentation
       xread,
       xdel,
       xtrim,
+      xgroup_create,
+      xgroup_setid,
+      xgroup_destroy,
+      xgroup_delete_consumer,
+      xreadgroup,
+      xack,
+      xclaim,
+      xpending,
+      xpending_summary,
       listener,
       stream_log
 

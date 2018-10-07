@@ -458,6 +458,60 @@ class TestStream(WalrusTestCase):
     def setUp(self):
         super(TestStream, self).setUp()
         db.delete('my-stream')
+        db.delete('sa')
+        db.delete('sb')
+
+    @stream_test
+    def test_group_multikey(self):
+        ra1 = db.xadd('sa', {'k': 'a1'}, b'1')
+        rb1 = db.xadd('sb', {'k': 'b1'}, b'2')
+        ra2 = db.xadd('sa', {'k': 'a2'}, b'3')
+        rb2 = db.xadd('sb', {'k': 'b2'}, b'4')
+        rb3 = db.xadd('sb', {'k': 'b3'}, b'5')
+
+        # g1 is a group for sa and sb,
+        # g2 is a group for just sb.
+        db.xgroup_create('sa', 'g1', '0')
+        db.xgroup_create('sb', 'g1', '0')
+        db.xgroup_create('sb', 'g2', '0')
+
+        # We read one record from both sa and sb.
+        resp = db.xreadgroup('g1', 'g1c1', ['sa', 'sb'], count=1)
+        self.assertEqual(resp, {
+            'sa': [(ra1, {b'k': b'a1'})],
+            'sb': [(rb1, {b'k': b'b1'})]})
+
+        # We get the next records from each stream.
+        resp = db.xreadgroup('g1', 'g1c1', ['sa', 'sb'], count=1)
+        self.assertEqual(resp, {
+            'sa': [(ra2, {b'k': b'a2'})],
+            'sb': [(rb2, {b'k': b'b2'})]})
+
+        # Nothing left in sa.
+        self.assertTrue(db.xreadgroup('g1', 'g1c1', 'sa') is None)
+
+        # We get the last remaining unread record.
+        resp = db.xreadgroup('g1', 'g1c1', 'sb')
+        self.assertEqual(resp, {'sb': [(rb3, {b'k': b'b3'})]})
+        self.assertTrue(db.xreadgroup('g1', 'g1c1', 'sb') is None)
+
+        # None of this interferes with g2, however.
+        resp = db.xreadgroup('g2', 'g2c1', 'sb', count=1)
+        self.assertEqual(resp, {'sb': [(rb1, {b'k': b'b1'})]})
+
+        # It's an error to try and read both streams with g2.
+        self.assertRaises(Exception, db.xreadgroup, 'g2', 'g2c1', ['sa', 'sb'])
+
+        # What happens if we delete the group from a stream?
+        self.assertEqual(db.xgroup_destroy('sa', 'g1'), 1)
+        self.assertRaises(Exception, db.xreadgroup, 'g1', 'g1c1', ['sa', 'sb'])
+
+        # We can still read new messages on sb, though.
+        rb4 = db.xadd('sb', {'k': 'b4'}, b'6')
+        self.assertEqual(db.xreadgroup('g1', 'g1c1', 'sb'), {'sb': [
+            (rb4, {b'k': b'b4'})]})
+        self.assertEqual(db.xgroup_destroy('sb', 'g1'), 1)
+        self.assertEqual(db.xgroup_destroy('sb', 'g2'), 1)
 
     @stream_test
     def test_group_apis(self):
