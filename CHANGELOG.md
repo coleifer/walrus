@@ -2,6 +2,13 @@
 
 This document describes changes to the APIs.
 
+### 0.6.0
+
+* Stream support added, including consumer groups.
+* Support for `zpopmin`, `zpopmax`, and the blocking `bzpopmin`, `bzpopmax`
+* Added APIs to container classes for converting to-and-from native data-types.
+* Added atomic compare-and-set method to database.
+
 ### 0.5.2
 
 * Fixed incompatibilities with Python 3.7.
