@@ -1112,18 +1112,19 @@ class Stream(Container):
 
 
 class _ConsumerGroupKey(object):
-    __slots__ = ('database', 'group', 'key')
+    __slots__ = ('database', 'group', 'key', '_default_consumer')
 
-    def __init__(self, database, group, key):
+    def __init__(self, database, group, key, consumer=None):
         self.database = database
         self.group = group
         self.key = key
+        self._default_consumer = consumer
 
     def ack(self, *id_list):
         return self.database.xack(self.key, self.group, *id_list)
 
     def claim(self, consumer=None, min_idle_time=0, *id_list):
-        if consumer is None: consumer = self.group + '.c1'
+        if consumer is None: consumer = self._default_consumer
         return self.database.xclaim(self.key, self.group, consumer,
                                     min_idle_time, *id_list)
 
@@ -1132,7 +1133,7 @@ class _ConsumerGroupKey(object):
                                       count, consumer)
 
     def read(self, consumer=None, count=None, timeout=None):
-        if consumer is None: consumer = self.group + '.c1'
+        if consumer is None: consumer = self._default_consumer
         resp = self.database.xreadgroup(self.group, consumer, self.key,
                                         count, timeout)
         if resp is not None:
@@ -1140,15 +1141,19 @@ class _ConsumerGroupKey(object):
 
 
 class ConsumerGroup(object):
-    def __init__(self, database, name, keys):
+    def __init__(self, database, name, keys, consumer=None):
         self.database = database
         self.name = name
-        self._default_consumer = self.name + '.c1'
+        self._default_consumer = consumer or (self.name + '.c1')
         self.keys = self.database._normalize_stream_keys(keys)
 
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
-            setattr(self, key, _ConsumerGroupKey(self.database, name, key))
+            setattr(self, key, _ConsumerGroupKey(self.database, name, key,
+                                                 self._default_consumer))
+
+    def consumer(self, name):
+        return ConsumerGroup(self.database, self.name, self.keys, name)
 
     def create(self):
         resp = {}

@@ -602,8 +602,11 @@ class Database(Redis):
         """
         return Stream(self, key)
 
-    def ConsumerGroup(self, group, keys):
-        return ConsumerGroup(self, group, keys)
+    def ConsumerGroup(self, group, keys, consumer=None):
+        """
+        Create a named :py:class:`ConsumerGroup` instance for the given key(s).
+        """
+        return ConsumerGroup(self, group, keys, consumer=consumer)
 
     def cas(self, key, value, new_value):
         """

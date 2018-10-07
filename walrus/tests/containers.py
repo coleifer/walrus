@@ -461,13 +461,16 @@ class TestStream(WalrusTestCase):
         db.delete('sa')
         db.delete('sb')
 
+    def _create_test_data(self):
+        return (db.xadd('sa', {'k': 'a1'}, b'1'),
+                db.xadd('sb', {'k': 'b1'}, b'2'),
+                db.xadd('sa', {'k': 'a2'}, b'3'),
+                db.xadd('sb', {'k': 'b2'}, b'4'),
+                db.xadd('sb', {'k': 'b3'}, b'5'))
+
     @stream_test
     def test_consumer_group_container(self):
-        ra1 = db.xadd('sa', {'k': 'a1'}, b'1')
-        rb1 = db.xadd('sb', {'k': 'b1'}, b'2')
-        ra2 = db.xadd('sa', {'k': 'a2'}, b'3')
-        rb2 = db.xadd('sb', {'k': 'b2'}, b'4')
-        rb3 = db.xadd('sb', {'k': 'b3'}, b'5')
+        ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
         cg1 = db.ConsumerGroup('g1', {'sa': '1', 'sb': '0'})
         cg2 = db.ConsumerGroup('g2', {'sb': '2'})
 
@@ -492,12 +495,29 @@ class TestStream(WalrusTestCase):
         self.assertEqual(cg2.destroy(), {'sb': 1})
 
     @stream_test
+    def test_consumer_group_consumers(self):
+        ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
+        cg11 = db.ConsumerGroup('g1', {'sa': '0', 'sb': '0'}, consumer='cg11')
+        cg11.create()
+        cg12 = cg11.consumer('cg12')
+
+        self.assertEqual(cg11.read(count=1), {
+            'sa': [(ra1, {b'k': b'a1'})],
+            'sb': [(rb1, {b'k': b'b1'})]})
+        self.assertEqual(cg12.read(count=1), {
+            'sa': [(ra2, {b'k': b'a2'})],
+            'sb': [(rb2, {b'k': b'b2'})]})
+
+        pa1, pa2 = cg11.sa.pending()
+        self.assertEqual(pa1[:2], [ra1, b'cg11'])
+        self.assertEqual(pa2[:2], [ra2, b'cg12'])
+        pb1, pb2 = cg11.sb.pending()
+        self.assertEqual(pb1[:2], [rb1, b'cg11'])
+        self.assertEqual(pb2[:2], [rb2, b'cg12'])
+
+    @stream_test
     def test_group_multikey(self):
-        ra1 = db.xadd('sa', {'k': 'a1'}, b'1')
-        rb1 = db.xadd('sb', {'k': 'b1'}, b'2')
-        ra2 = db.xadd('sa', {'k': 'a2'}, b'3')
-        rb2 = db.xadd('sb', {'k': 'b2'}, b'4')
-        rb3 = db.xadd('sb', {'k': 'b3'}, b'5')
+        ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
 
         # g1 is a group for sa and sb,
         # g2 is a group for just sb.
