@@ -1050,8 +1050,8 @@ class Stream(Container):
         :param docid: the record ID to retrieve.
         :returns: a 2-tuple of (record ID, data) or None if not found.
         """
-        items = self[docid:docid]
-        if len(items) != 0:
+        items = self[docid:docid:1]
+        if items:
             return items[0]
 
     def __iter__(self):
@@ -1112,29 +1112,38 @@ class Stream(Container):
 
 
 class _ConsumerGroupKey(object):
-    __slots__ = ('database', 'group', 'key', '_default_consumer')
+    __slots__ = ('database', 'group', 'key', '_consumer')
 
-    def __init__(self, database, group, key, consumer=None):
+    def __init__(self, database, group, key, consumer):
         self.database = database
         self.group = group
         self.key = key
-        self._default_consumer = consumer
+        self._consumer = consumer
+
+    def __len__(self):
+        return self.database.xlen(self.key)
 
     def ack(self, *id_list):
         return self.database.xack(self.key, self.group, *id_list)
 
-    def claim(self, consumer=None, min_idle_time=0, *id_list):
-        if consumer is None: consumer = self._default_consumer
-        return self.database.xclaim(self.key, self.group, consumer,
+    def add(self, data, id='*', maxlen=None, approximate=True):
+        return self.database.xadd(self.key, data, id, maxlen, approximate)
+
+    def claim(self, *id_list, **kwargs):
+        min_idle_time = kwargs.pop('min_idle_time', None) or 0
+        if kwargs: raise ValueError('incorrect arguments for claim()')
+        return self.database.xclaim(self.key, self.group, self._consumer,
                                     min_idle_time, *id_list)
+
+    def delete(self, *id_list):
+        return self.database.xdel(self.key, *id_list)
 
     def pending(self, start='-', stop='+', count=-1, consumer=None):
         return self.database.xpending(self.key, self.group, start, stop,
                                       count, consumer)
 
-    def read(self, consumer=None, count=None, timeout=None):
-        if consumer is None: consumer = self._default_consumer
-        resp = self.database.xreadgroup(self.group, consumer, self.key,
+    def read(self, count=None, timeout=None):
+        resp = self.database.xreadgroup(self.group, self._consumer, self.key,
                                         count, timeout)
         if resp is not None:
             return resp[self.key]
@@ -1142,18 +1151,21 @@ class _ConsumerGroupKey(object):
     def set_id(self, id='$'):
         return self.database.xgroup_setid(self.key, self.group, id)
 
+    def trim(self, count, approximate=True):
+        return self.database.xtrim(self.key, count, approximate)
+
 
 class ConsumerGroup(object):
     def __init__(self, database, name, keys, consumer=None):
         self.database = database
         self.name = name
-        self._default_consumer = consumer or (self.name + '.c1')
+        self._consumer = consumer or (self.name + '.c1')
         self.keys = self.database._normalize_stream_keys(keys)
 
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
             setattr(self, key, _ConsumerGroupKey(self.database, name, key,
-                                                 self._default_consumer))
+                                                 self._consumer))
 
     def consumer(self, name):
         return ConsumerGroup(self.database, self.name, self.keys, name)
@@ -1175,7 +1187,7 @@ class ConsumerGroup(object):
         return resp
 
     def read(self, consumer=None, count=None, timeout=None):
-        if consumer is None: consumer = self._default_consumer
+        if consumer is None: consumer = self._consumer
         return self.database.xreadgroup(self.name, consumer, list(self.keys),
                                         count, timeout)
 

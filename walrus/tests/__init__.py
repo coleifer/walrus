@@ -11,6 +11,7 @@ from walrus.tests.graph import *
 from walrus.tests.lock import *
 from walrus.tests.models import *
 from walrus.tests.rate_limit import *
+from walrus.tests.streams import *
 
 try:
     from walrus.tusks.ledisdb import TestWalrusLedis
