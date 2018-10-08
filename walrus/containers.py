@@ -1032,9 +1032,9 @@ class Stream(Container):
         """
         Read a range of values from a stream.
 
-        The index must be a slice. An empty slice will result in reading all
-        values from the stream. Message ids provided as lower or upper bounds
-        are inclusive.
+        The index must be a message id or a slice. An empty slice will result
+        in reading all values from the stream. Message ids provided as lower or
+        upper bounds are inclusive.
 
         To specify a maximum number of messages, use the "step" parameter of
         the slice.
@@ -1142,6 +1142,37 @@ class _ConsumerGroupKey(object):
         Return the total number of messages in the stream.
         """
         return self.database.xlen(self.key)
+    length = __len__
+
+    def __getitem__(self, item):
+        """
+        Read a range of values from a stream.
+
+        The index must be a message id or a slice. An empty slice will result
+        in reading all values from the stream. Message ids provided as lower or
+        upper bounds are inclusive.
+
+        To specify a maximum number of messages, use the "step" parameter of
+        the slice.
+        """
+        if isinstance(item, slice):
+            return self.database.xrange(self.key, item.start or '-',
+                                        item.stop or '+', item.step or None)
+        return self.get(item)
+
+    def get(self, docid):
+        """
+        Get a message by id.
+
+        :param docid: the message id to retrieve.
+        :returns: a 2-tuple of (message id, data) or None if not found.
+        """
+        items = self[docid:docid:1]
+        if items:
+            return items[0]
+
+    def __iter__(self):
+        return iter(self[:])
 
     def ack(self, *id_list):
         """

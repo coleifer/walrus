@@ -105,6 +105,7 @@ class _TimeSeriesKey(object):
         Return the total number of messages in the stream.
         """
         return self.database.xlen(self.key)
+    length = __len__
 
     def pending(self, start='-', stop='+', count=-1, consumer=None):
         start = normalize_id(start)
