@@ -1083,16 +1083,17 @@ class Stream(Container):
         :param last_id: Last id read (an exclusive lower-bound). If the '$'
             value is given, we will only read values added *after* our command
             started blocking.
-        :returns: a dict keyed by the stream key, whose value is a list of
-            (message id, data) 2-tuples. If no data is available or a timeout
-            occurs, ``None`` is returned.
+        :returns: a list of (message id, data) 2-tuples. If no data is
+            available or a timeout occurs, ``None`` is returned.
         """
         kwargs = {'count': count, 'timeout': timeout}
         if last_id is not None:
             kwargs['keys'] = {self.key: _decode(last_id)}
         else:
             kwargs['keys'] = self.key
-        return self.database.xread(**kwargs)
+        resp = self.database.xread(**kwargs)
+        if resp is not None:
+            return resp[self.key]
 
     def delete(self, *id_list):
         """

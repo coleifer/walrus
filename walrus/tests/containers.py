@@ -708,11 +708,17 @@ class TestStream(WalrusTestCase):
             docids.append(stream.add({'k': 'v%s' % i}, id=i + 1))
 
         def assertData(ret, idxs):
-            accum = {}
-            for idx in idxs:
-                sname = 'abc'[idx % 3]
-                accum.setdefault(sname, [])
-                accum[sname].append((docids[idx], {b'k': encode('v%s' % idx)}))
+            if isinstance(ret, dict):
+                accum = {}
+                for idx in idxs:
+                    sname = 'abc'[idx % 3]
+                    accum.setdefault(sname, [])
+                    accum[sname].append((
+                        docids[idx], {b'k': encode('v%s' % idx)}))
+            else:
+                accum = []
+                for idx in idxs:
+                    accum.append((docids[idx], {b'k': encode('v%s' % idx)}))
             self.assertEqual(ret, accum)
 
         assertData(sa.read(), [0, 3, 6, 9, 12, 15, 18])
