@@ -78,8 +78,9 @@ class _TimeSeriesKey(object):
         id_list = [normalize_id(id) for id in id_list]
         min_idle_time = kwargs.pop('min_idle_time', None) or 0
         if kwargs: raise ValueError('incorrect arguments for claim()')
-        return self.database.xclaim(self.key, self.group, self.consumer,
+        resp = self.database.xclaim(self.key, self.group, self.consumer,
                                     min_idle_time, *id_list)
+        return xrange_to_records(self.key, resp)
 
     def delete(self, *id_list):
         id_list = [normalize_id(id) for id in id_list]
@@ -100,8 +101,10 @@ class _TimeSeriesKey(object):
     def pending(self, start='-', stop='+', count=-1, consumer=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
-        return self.database.xpending(self.key, self.group, start, stop,
+        resp = self.database.xpending(self.key, self.group, start, stop,
                                       count, consumer)
+        return [(id_to_datetime(id), decode(c), idle, n)
+                for id, c, idle, n in resp]
 
     def read(self, count=None, timeout=None):
         resp = self.database.xreadgroup(self.group, self.consumer, self.key,
@@ -115,6 +118,7 @@ class _TimeSeriesKey(object):
         return xrange_to_records(self.key, resp)
 
     def set_id(self, id='$'):
+        id = normalize_id(id)
         return self.database.xgroup_setid(self.key, self.group, id)
 
     def trim(self, count, approximate=True):
@@ -126,12 +130,12 @@ class TimeSeries(object):
         self.database = database
         self.group = group
         self.keys = database._normalize_stream_keys(keys)
-        self.consumer = consumer or (self.group + '.c')
+        self._consumer = consumer or (self.group + '.c')
 
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
             setattr(self, key, _TimeSeriesKey(self.database, group, key,
-                                              self.consumer))
+                                              self._consumer))
 
     def consumer(self, name):
         return TimeSeries(self.database, self.group, self.keys, name)
@@ -142,9 +146,8 @@ class TimeSeries(object):
             resp[key] = self.database.xgroup_create(key, self.group, value)
         return resp
 
-    def reset(self):
-        for key in self.keys:
-            self.database.xgroup_setid(key, self.group, '0-0')
+    def reset(self, id='0-0'):
+        return self.set_id(id)
 
     def destroy(self):
         resp = {}
@@ -153,12 +156,13 @@ class TimeSeries(object):
         return resp
 
     def read(self, count=None, timeout=None):
-        resp = self.database.xreadgroup(self.group, self.consumer,
+        resp = self.database.xreadgroup(self.group, self._consumer,
                                         list(self.keys), count, timeout)
         return xread_to_records(resp)
 
     def set_id(self, id='$'):
         accum = {}
+        id = normalize_id(id)
         for key in self.keys:
             accum[key] = self.database.xgroup_setid(key, self.group, id)
         return accum

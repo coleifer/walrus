@@ -280,7 +280,7 @@ class Database(Redis):
         :param group: consumer group name
         :param id: set the ID of the last-received-message
         """
-        return self.execute_command('XGROUP', 'SETID', key, group, id)
+        return self.execute_command('XGROUP', 'SETID', key, group, id) == b'OK'
 
     def xgroup_destroy(self, key, group):
         """
