@@ -471,8 +471,8 @@ class TestStream(WalrusTestCase):
     @stream_test
     def test_consumer_group_container(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
-        cg1 = db.ConsumerGroup('g1', {'sa': '1', 'sb': '0'})
-        cg2 = db.ConsumerGroup('g2', {'sb': '2'})
+        cg1 = db.consumer_group('g1', {'sa': '1', 'sb': '0'})
+        cg2 = db.consumer_group('g2', {'sb': '2'})
 
         self.assertEqual(cg1.create(), {'sa': True, 'sb': True})
         self.assertEqual(cg2.create(), {'sb': True})
@@ -497,7 +497,7 @@ class TestStream(WalrusTestCase):
     @stream_test
     def test_consumer_group_consumers(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
-        cg11 = db.ConsumerGroup('g1', {'sa': '0', 'sb': '0'}, consumer='cg11')
+        cg11 = db.consumer_group('g1', {'sa': '0', 'sb': '0'}, consumer='cg11')
         cg11.create()
         cg12 = cg11.consumer('cg12')
 

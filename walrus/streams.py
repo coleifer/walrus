@@ -5,6 +5,7 @@ import time
 from walrus.utils import basestring_type
 from walrus.utils import decode
 from walrus.utils import decode_dict
+from walrus.utils import make_python_attr
 
 
 def id_to_datetime(ts):
@@ -16,44 +17,45 @@ def datetime_to_id(dt, seq=0):
     return '%s-%s' % (int(tsm + (dt.microsecond / 1000)), seq)
 
 
-class Record(object):
-    __slots__ = ('stream', 'timestamp', 'sequence', 'data', 'record_id')
+class Message(object):
+    __slots__ = ('stream', 'timestamp', 'sequence', 'data', 'message_id')
 
-    def __init__(self, stream, record_id, data):
+    def __init__(self, stream, message_id, data):
         self.stream = stream
-        self.record_id = decode(record_id)
+        self.message_id = decode(message_id)
         self.data = decode_dict(data)
-        self.timestamp, self.sequence = id_to_datetime(record_id)
+        self.timestamp, self.sequence = id_to_datetime(message_id)
 
     def __repr__(self):
-        return '<Record %s %s: %s>' % (self.stream, self.record_id, self.data)
+        return '<Message %s %s: %s>' % (self.stream, self.message_id,
+                                        self.data)
 
 
-def normalize_id(record_id):
-    if isinstance(record_id, basestring_type):
-        return record_id
-    elif isinstance(record_id, datetime.datetime):
-        return datetime_to_id(record_id)
-    elif isinstance(record_id, tuple):
-        return datetime_to_id(*record_id)
-    elif isinstance(record_id, Record):
-        return record_id.record_id
-    return record_id
+def normalize_id(message_id):
+    if isinstance(message_id, basestring_type):
+        return message_id
+    elif isinstance(message_id, datetime.datetime):
+        return datetime_to_id(message_id)
+    elif isinstance(message_id, tuple):
+        return datetime_to_id(*message_id)
+    elif isinstance(message_id, Message):
+        return message_id.message_id
+    return message_id
 
 
-def xread_to_records(resp):
+def xread_to_messages(resp):
     if resp is None: return
     accum = []
-    for stream, records in resp.items():
-        accum.extend(xrange_to_records(stream, records))
+    for stream, messages in resp.items():
+        accum.extend(xrange_to_messages(stream, messages))
     # If multiple streams are present, sort them by timestamp.
     if len(resp) > 1:
-        accum.sort(key=operator.attrgetter('record_id'))
+        accum.sort(key=operator.attrgetter('message_id'))
     return accum
 
 
-def xrange_to_records(stream, resp):
-    return [Record(stream, record_id, data) for record_id, data in resp]
+def xrange_to_messages(stream, resp):
+    return [Message(stream, message_id, data) for message_id, data in resp]
 
 
 class _TimeSeriesKey(object):
@@ -80,7 +82,7 @@ class _TimeSeriesKey(object):
         if kwargs: raise ValueError('incorrect arguments for claim()')
         resp = self.database.xclaim(self.key, self.group, self.consumer,
                                     min_idle_time, *id_list)
-        return xrange_to_records(self.key, resp)
+        return xrange_to_messages(self.key, resp)
 
     def delete(self, *id_list):
         id_list = [normalize_id(id) for id in id_list]
@@ -98,6 +100,12 @@ class _TimeSeriesKey(object):
         if items:
             return items[0]
 
+    def __len__(self):
+        """
+        Return the total number of messages in the stream.
+        """
+        return self.database.xlen(self.key)
+
     def pending(self, start='-', stop='+', count=-1, consumer=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
@@ -109,13 +117,13 @@ class _TimeSeriesKey(object):
     def read(self, count=None, timeout=None):
         resp = self.database.xreadgroup(self.group, self.consumer, self.key,
                                         count, timeout)
-        return xread_to_records(resp)
+        return xread_to_messages(resp)
 
     def range(self, start='-', stop='+', count=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
         resp = self.database.xrange(self.key, start, stop, count)
-        return xrange_to_records(self.key, resp)
+        return xrange_to_messages(self.key, resp)
 
     def set_id(self, id='$'):
         id = normalize_id(id)
@@ -126,6 +134,34 @@ class _TimeSeriesKey(object):
 
 
 class TimeSeries(object):
+    """
+    :py:class:`TimeSeries` is a consumer-group that provides a higher level of
+    abstraction, reading and writing message ids as datetimes, and returning
+    messages using a convenient, lightweight :py:class:`Message` class.
+
+    Rather than creating this class directly, use the
+    :py:meth:`Database.time_series` method.
+
+    Each registered stream within the group is exposed as a special attribute
+    that provides stream-specific APIs within the context of the group. For
+    more information see :py:class:`_TimeSeriesKey`.
+
+    Example::
+
+        ts = db.time_series('groupname', ['stream-1', 'stream-2'])
+        ts.stream_1  # _TimeSeriesKey for "stream-1"
+        ts.stream_2  # _TimeSeriesKey for "stream-2"
+
+    :param Database database: Redis client
+    :param group: name of consumer group
+    :param keys: stream identifier(s) to monitor. May be a single stream
+        key, a list of stream keys, or a key-to-minimum id mapping. The
+        minimum id for each stream should be considered an exclusive
+        lower-bound. The '$' value can also be used to only read values
+        added *after* our command started blocking.
+    :param consumer: name for consumer within group
+    :returns: a :py:class:`TimeSeries` instance
+    """
     def __init__(self, database, group, keys, consumer=None):
         self.database = database
         self.group = group
@@ -134,33 +170,66 @@ class TimeSeries(object):
 
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
-            setattr(self, key, _TimeSeriesKey(self.database, group, key,
-                                              self._consumer))
+            attr = make_python_attr(key)
+            setattr(self, attr, _TimeSeriesKey(self.database, group, key,
+                                               self._consumer))
 
     def consumer(self, name):
+        """
+        Create a new consumer for the :py:class:`TimeSeries`.
+
+        :param name: name of consumer
+        :returns: a :py:class:`TimeSeries` using the given consumer name.
+        """
         return TimeSeries(self.database, self.group, self.keys, name)
 
     def create(self):
+        """
+        Create the consumer group and register it with the group's stream keys.
+        """
         resp = {}
         for key, value in self.keys.items():
             resp[key] = self.database.xgroup_create(key, self.group, value)
         return resp
 
-    def reset(self, id='0-0'):
-        return self.set_id(id)
+    def reset(self):
+        """
+        Reset the consumer group, clearing the last-read status for each
+        stream so it will read from the beginning of each stream.
+        """
+        return self.set_id('0-0')
 
     def destroy(self):
+        """
+        Destroy the consumer group.
+        """
         resp = {}
         for key in self.keys:
             resp[key] = self.database.xgroup_destroy(key, self.group)
         return resp
 
     def read(self, count=None, timeout=None):
+        """
+        Read unseen messages from all streams in the consumer group. Wrapper
+        for :py:class:`Database.xreadgroup` method.
+
+        :param int count: limit number of messages returned
+        :param int timeout: milliseconds to block, 0 for indefinitely.
+        :returns: a list of :py:class:`Message` objects or ``None`` if no data
+            is available.
+        """
         resp = self.database.xreadgroup(self.group, self._consumer,
                                         list(self.keys), count, timeout)
-        return xread_to_records(resp)
+        return xread_to_messages(resp)
 
     def set_id(self, id='$'):
+        """
+        Set the last-read message id for each stream in the consumer group. By
+        default, this will be the special "$" identifier, meaning all messages
+        are marked as having been read.
+
+        :param id: id of last-read message (or "$").
+        """
         accum = {}
         id = normalize_id(id)
         for key in self.keys:

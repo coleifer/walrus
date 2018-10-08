@@ -28,6 +28,7 @@ from walrus.fts import Index
 from walrus.graph import Graph
 from walrus.lock import Lock
 from walrus.rate_limit import RateLimit
+from walrus.streams import TimeSeries
 from walrus.utils import basestring_type
 
 
@@ -124,14 +125,14 @@ class Database(Redis):
 
     def xadd(self, key, data, id='*', maxlen=None, approximate=True):
         """
-        Add data to a stream.
+        Add a new message to a stream.
 
         :param key: stream identifier
         :param dict data: data to add to stream
-        :param id: identifier for record ('*' to automatically append)
+        :param id: identifier for message ('*' to automatically append)
         :param maxlen: maximum length for stream
         :param approximate: allow stream max length to be approximate
-        :returns: the added record's ID.
+        :returns: the added message's id.
         """
         parts = []
         if maxlen is not None:
@@ -161,10 +162,10 @@ class Database(Redis):
         Read a range of values from a stream.
 
         :param key: stream identifier
-        :param start: starting ID ('-' for oldest available)
-        :param stop: stop ID ('+' for latest available)
-        :param count: limit number of records returned
-        :returns: a list of (record ID, data) 2-tuples.
+        :param start: starting id ('-' for oldest available)
+        :param stop: stop id ('+' for latest available)
+        :param count: limit number of messages returned
+        :returns: a list of (message id, data) 2-tuples.
         """
         return self._xrange('XRANGE', key, start, stop, count)
 
@@ -173,10 +174,10 @@ class Database(Redis):
         Read a range of values from a stream in reverse order.
 
         :param key: stream identifier
-        :param start: starting ID ('+' for latest available)
-        :param stop: stop ID ('-' for oldest available)
-        :param count: limit number of records returned
-        :returns: a list of (record ID, data) 2-tuples.
+        :param start: starting id ('+' for latest available)
+        :param stop: stop id ('-' for oldest available)
+        :param count: limit number of messages returned
+        :returns: a list of (message id, data) 2-tuples.
         """
         return self._xrange('XREVRANGE', key, start, stop, count)
 
@@ -199,7 +200,7 @@ class Database(Redis):
         else:
             raise ValueError('keys must be either a stream key, a list of '
                              'stream keys, or a dictionary mapping key to '
-                             'minimum record ID.')
+                             'minimum message id.')
 
     def xread(self, keys, count=None, timeout=None):
         """
@@ -207,13 +208,13 @@ class Database(Redis):
 
         :param keys: stream identifier(s) to monitor. May be a single stream
             key, a list of stream keys, or a key-to-minimum id mapping. The
-            minimum ID for each stream should be considered an exclusive
+            minimum id for each stream should be considered an exclusive
             lower-bound. The '$' value can also be used to only read values
             added *after* our command started blocking.
-        :param int count: limit number of records returned
+        :param int count: limit number of messages returned
         :param int timeout: milliseconds to block, 0 for indefinitely.
         :returns: a dict keyed by the stream key, whose value is a list of
-            (record ID, data) 2-tuples. If no data is available or a timeout
+            (message id, data) 2-tuples. If no data is available or a timeout
             occurs, ``None`` is returned.
         """
         key_to_id = self._normalize_stream_keys(keys)
@@ -238,21 +239,23 @@ class Database(Redis):
 
     def xdel(self, key, *id_list):
         """
-        Remove one or more records from a stream.
+        Remove one or more messages from a stream.
 
         :param key: stream identifier
-        :param id_list: one or more record ids to remove.
+        :param id_list: one or more message ids to remove.
+        :returns: number of messages deleted.
         """
         return self.execute_command('XDEL', key, *id_list)
 
     def xtrim(self, key, count, approximate=True):
         """
-        Trim the stream to the given "count" of records, discarding the oldest
-        records first.
+        Trim the stream to the given "count" of messages, discarding the oldest
+        messages first.
 
         :param key: stream identifier
         :param count: maximum size of stream
         :param approximate: allow size to be approximate
+        :returns: number of messages discarded
         """
         parts = ['MAXLEN']
         if approximate:
@@ -267,18 +270,18 @@ class Database(Redis):
 
         :param key: stream key -- must exist before creating a group
         :param group: consumer group name
-        :param id: set the ID of the last-received-message
+        :param id: set the id of the last-received-message
         """
         resp = self.execute_command('XGROUP', 'CREATE', key, group, id)
         return resp == b'OK'
 
     def xgroup_setid(self, key, group, id='$'):
         """
-        Set the ID of the last-received-message for a stream
+        Set the id of the last-received-message for a stream
 
         :param key: stream key
         :param group: consumer group name
-        :param id: set the ID of the last-received-message
+        :param id: set the id of the last-received-message
         """
         return self.execute_command('XGROUP', 'SETID', key, group, id) == b'OK'
 
@@ -310,13 +313,13 @@ class Database(Redis):
         :param consumer: consumer name
         :param keys: stream identifier(s) to monitor. May be a single stream
             key, a list of stream keys, or a key-to-minimum id mapping. The
-            minimum ID for each stream should be considered an exclusive
+            minimum id for each stream should be considered an exclusive
             lower-bound. The '>' value can also be used to only read values
             that have never been delivered to a consumer.
-        :param int count: limit number of records returned
+        :param int count: limit number of messages returned
         :param int timeout: milliseconds to block, 0 for indefinitely.
         :returns: a dict keyed by the stream key, whose value is a list of
-            (record ID, data) 2-tuples. If no data is available or a timeout
+            (message id, data) 2-tuples. If no data is available or a timeout
             occurs, ``None`` is returned.
         """
         key_to_id = self._normalize_stream_keys(keys, '>')
@@ -345,7 +348,7 @@ class Database(Redis):
 
         :param key: stream identifier
         :param group: consumer group name
-        :param id_list: one or more message IDs to acknowledge
+        :param id_list: one or more message ids to acknowledge
         :returns: number of messages marked acknowledged
         """
         return self.execute_command('XACK', key, group, *id_list)
@@ -357,8 +360,8 @@ class Database(Redis):
         :param key: stream identifier
         :param group: consumer group name
         :param min_idle_time: minimum idle time in milliseconds
-        :param id_list: one or more message IDs to acknowledge
-        :returns: list of (record id, data) 2-tuples of messages that were
+        :param id_list: one or more message ids to acknowledge
+        :returns: list of (message id, data) 2-tuples of messages that were
             successfully claimed
         """
         if not isinstance(min_idle_time, int) or min_idle_time < 0:
@@ -602,11 +605,38 @@ class Database(Redis):
         """
         return Stream(self, key)
 
-    def ConsumerGroup(self, group, keys, consumer=None):
+    def consumer_group(self, group, keys, consumer=None):
         """
         Create a named :py:class:`ConsumerGroup` instance for the given key(s).
+
+        :param group: name of consumer group
+        :param keys: stream identifier(s) to monitor. May be a single stream
+            key, a list of stream keys, or a key-to-minimum id mapping. The
+            minimum id for each stream should be considered an exclusive
+            lower-bound. The '$' value can also be used to only read values
+            added *after* our command started blocking.
+        :param consumer: name for consumer within group
+        :returns: a :py:class:`ConsumerGroup` instance
         """
         return ConsumerGroup(self, group, keys, consumer=consumer)
+
+    def time_series(self, group, keys, consumer=None):
+        """
+        Create a named :py:class:`TimeSeries` consumer-group for the
+        given key(s). TimeSeries objects are almost identical to
+        :py:class:`ConsumerGroup` except they offer a higher level of
+        abstraction and read/write message ids as datetimes.
+
+        :param group: name of consumer group
+        :param keys: stream identifier(s) to monitor. May be a single stream
+            key, a list of stream keys, or a key-to-minimum id mapping. The
+            minimum id for each stream should be considered an exclusive
+            lower-bound. The '$' value can also be used to only read values
+            added *after* our command started blocking.
+        :param consumer: name for consumer within group
+        :returns: a :py:class:`TimeSeries` instance
+        """
+        return TimeSeries(self, group, keys, consumer=consumer)
 
     def cas(self, key, value, new_value):
         """

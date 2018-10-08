@@ -26,6 +26,8 @@ API Documentation
       HyperLogLog,
       Array,
       Stream,
+      consumer_group,
+      time_series,
       cas,
       xadd,
       xrange,
@@ -167,6 +169,27 @@ Container types
       trim,
       __iter__
 
+.. autoclass:: ConsumerGroup
+    :members:
+      consumer,
+      create,
+      destroy,
+      reset,
+      set_id,
+      read
+
+.. autoclass:: walrus.containers._ConsumerGroupKey
+    :members:
+      __len__,
+      ack,
+      add,
+      claim,
+      delete,
+      pending,
+      read,
+      set_id,
+      trim
+
 High-level APIs
 ---------------
 
@@ -252,6 +275,15 @@ High-level APIs
       __init__,
       limit,
       rate_limited
+
+.. autoclass:: TimeSeries
+    :members:
+      consumer,
+      create,
+      destroy,
+      reset,
+      read,
+      set_id
 
 Field types
 -----------

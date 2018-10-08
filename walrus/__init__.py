@@ -25,6 +25,7 @@ __version__ = '0.6.0'
 from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
+from walrus.containers import ConsumerGroup
 from walrus.containers import Container
 from walrus.containers import Hash
 from walrus.containers import HyperLogLog
@@ -40,6 +41,8 @@ from walrus.lock import Lock
 from walrus.models import *
 from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitException
+from walrus.streams import Message
+from walrus.streams import TimeSeries
 
 # Friendly alias.
 Walrus = Database

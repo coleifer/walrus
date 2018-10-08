@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 
@@ -32,6 +33,17 @@ def decode_dict_keys(d):
     for key in d:
         accum[decode(key)] = d[key]
     return accum
+
+
+def make_python_attr(s):
+    if isinstance(s, bytes):
+        s = decode(s)
+    s = re.sub('[^\w]+', '_', s)
+    if not s:
+        raise ValueError('cannot construct python identifer from "%s"' % s)
+    if s[0].isdigit():
+        s = '_' + s
+    return s.lower()
 
 
 class memoize(dict):
