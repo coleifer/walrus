@@ -1039,10 +1039,10 @@ class Stream(Container):
         To specify a maximum number of messages, use the "step" parameter of
         the slice.
         """
-        if not isinstance(item, slice):
-            raise ValueError('streams may only be indexed using slices')
-        return self.database.xrange(self.key, item.start or '-',
-                                    item.stop or '+', item.step or None)
+        if isinstance(item, slice):
+            return self.database.xrange(self.key, item.start or '-',
+                                        item.stop or '+', item.step or None)
+        return self.database.get(item)
 
     def get(self, docid):
         """
