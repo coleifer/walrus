@@ -1042,7 +1042,7 @@ class Stream(Container):
         if isinstance(item, slice):
             return self.database.xrange(self.key, item.start or '-',
                                         item.stop or '+', item.step or None)
-        return self.database.get(item)
+        return self.get(item)
 
     def get(self, docid):
         """
