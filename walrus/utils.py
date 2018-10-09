@@ -8,9 +8,13 @@ PY3 = sys.version_info[0] == 3
 if PY3:
     unicode_type = str
     basestring_type = (str, bytes)
+    def exception_message(exc):
+        return exc.args[0]
 else:
     unicode_type = unicode
     basestring_type = basestring
+    def exception_message(exc):
+        return exc.message
 
 
 def encode(s):

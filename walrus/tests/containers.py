@@ -469,6 +469,59 @@ class TestStream(WalrusTestCase):
                 db.xadd('sb', {'k': 'b3'}, b'5'))
 
     @stream_test
+    def test_consumer_group_create(self):
+        cg = db.consumer_group('cg', ['sa'])
+        self.assertEqual(cg.create(), {'sa': True})
+
+        # Creating the consumer group again will report that it was not created
+        # for the given key(s).
+        self.assertEqual(cg.create(), {'sa': False})
+
+        # We can register the consumer group with another key.
+        cg = db.consumer_group('cg', ['sa', 'sb'])
+        self.assertEqual(cg.create(), {'sa': False, 'sb': True})
+
+    @stream_test
+    def test_consumer_group_stream_creation(self):
+        cg = db.consumer_group('cg1', ['stream-a', 'stream-b'])
+        self.assertFalse(db.exists('stream-a'))
+        self.assertFalse(db.exists('stream-b'))
+
+        cg.create()
+
+        # The streams were created (by adding and then deleting a message).
+        self.assertTrue(db.exists('stream-a'))
+        self.assertTrue(db.exists('stream-b'))
+
+        # The streams that were automatically created will not have any data.
+        self.assertEqual(db.xlen('stream-a'), 0)
+        self.assertEqual(db.xlen('stream-b'), 0)
+
+        # If a stream already exists that's OK.
+        db.xadd('stream-c', {'data': 'dummy'}, id=b'1')
+        cg = db.consumer_group('cg2', ['stream-c', 'stream-d'])
+        self.assertTrue(db.exists('stream-c'))
+        self.assertEqual(db.type('stream-c'), b'stream')
+        self.assertFalse(db.exists('stream-d'))
+
+        cg.create()
+        self.assertTrue(db.exists('stream-d'))
+        self.assertEqual(db.type('stream-c'), b'stream')
+        self.assertEqual(db.type('stream-d'), b'stream')
+        self.assertEqual(db.xlen('stream-c'), 1)
+        self.assertEqual(db.xlen('stream-d'), 0)
+
+        # If a stream key already exists and is a different type, fail.
+        db.lpush('l1', 'item-1')
+        db.hset('h1', 'key', 'data')
+        db.sadd('s1', 'item-1')
+        db.set('k1', 'v1')
+        db.zadd('z1', 'item-1', 1.0)
+        for key in ('l1', 'h1', 's1', 'k1', 'z1'):
+            cg = db.consumer_group('cg-%s' % key, keys=[key])
+            self.assertRaises(ValueError, cg.create)
+
+    @stream_test
     def test_consumer_group_streams(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
         cg = db.consumer_group('g1', ['sa', 'sb'])

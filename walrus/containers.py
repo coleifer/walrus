@@ -1,12 +1,15 @@
 from functools import wraps
 try:
     from redis.client import zset_score_pairs
+    from redis.exceptions import ResponseError
 except ImportError:
+    ResponseError = Exception
     zset_score_pairs = None
 
 from walrus.utils import decode as _decode
 from walrus.utils import decode_dict
 from walrus.utils import encode
+from walrus.utils import exception_message
 from walrus.utils import make_python_attr
 
 
@@ -1225,9 +1228,14 @@ class ConsumerGroup(object):
     that provides stream-specific APIs within the context of the group. For
     more information see :py:class:`ConsumerGroupStream`.
 
+    The streams managed by a consumer group must exist before the consumer
+    group can be created. By default, calling :py:meth:`ConsumerGroup.create`
+    will automatically create stream keys for any that do not exist.
+
     Example::
 
         cg = db.consumer_group('groupname', ['stream-1', 'stream-2'])
+        cg.create()  # Create consumer group.
         cg.stream_1  # ConsumerGroupStream for "stream-1"
         cg.stream_2  # ConsumerGroupStream for "stream-2"
 
@@ -1263,14 +1271,36 @@ class ConsumerGroup(object):
         """
         return type(self)(self.database, self.name, self.keys, name)
 
-    def create(self):
+    def create(self, ensure_keys_exist=True):
         """
         Create the consumer group and register it with the group's stream keys.
+
+        :param ensure_keys_exist: Ensure that the streams exist before creating
+            the consumer group. Streams that do not exist will be created.
         """
+        if ensure_keys_exist:
+            for key in self.keys:
+                if not self.database.exists(key):
+                    msg_id = self.database.xadd(key, {'': ''}, id=b'0-1')
+                    self.database.xdel(key, msg_id)
+                elif self.database.type(key) != b'stream':
+                    raise ValueError('Consumer group key "%s" exists and is '
+                                     'not a stream. To prevent data-loss '
+                                     'this key will not be deleted.')
+
         resp = {}
         for key, value in self.keys.items():
-            resp[key] = self.database.xgroup_create(key, self.name, value)
+            try:
+                resp[key] = self.database.xgroup_create(key, self.name, value)
+            except ResponseError as exc:
+                if exception_message(exc).startswith('BUSYGROUP'):
+                    resp[key] = False
+                else:
+                    raise
         return resp
+
+    def exists(self):
+        pass
 
     def reset(self):
         """
