@@ -14,7 +14,10 @@ def create_consumer_group():
         consumer.set_id('$')
     return consumer
 
-def worker(tid, consumer, stop_signal):
+def worker(tid, consumer_group, stop_signal):
+    # Each worker thread runs as its own consumer within the group.
+    consumer = consumer_group.consumer('worker-%s' % tid)
+
     while not stop_signal.is_set():
         messages = consumer.tasks.read(count=1, timeout=1000)
         if messages is not None:
@@ -23,14 +26,14 @@ def worker(tid, consumer, stop_signal):
             consumer.tasks.ack(message_id)
 
 def main():
-    consumer = create_consumer_group()
-    stream = consumer.tasks
+    consumer_group = create_consumer_group()
+    stream = consumer_group.tasks
 
     stop_signal = threading.Event()
     workers = []
     for i in range(4):
         worker_t = threading.Thread(target=worker,
-                                    args=(i + 1, consumer, stop_signal))
+                                    args=(i + 1, consumer_group, stop_signal))
         worker_t.daemon = True
         workers.append(worker_t)
 
