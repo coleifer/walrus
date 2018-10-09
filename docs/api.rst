@@ -178,13 +178,15 @@ Container types
       set_id,
       read
 
-.. autoclass:: walrus.containers._ConsumerGroupKey
+.. autoclass:: walrus.containers.ConsumerGroupStream(Stream)
     :members:
       __len__,
+      __getitem__,
       ack,
       add,
       claim,
       delete,
+      get,
       pending,
       read,
       set_id,
