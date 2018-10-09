@@ -469,6 +469,42 @@ class TestStream(WalrusTestCase):
                 db.xadd('sb', {'k': 'b3'}, b'5'))
 
     @stream_test
+    def test_consumer_group_streams(self):
+        ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
+        cg = db.consumer_group('g1', ['sa', 'sb'])
+
+        self.assertEqual(cg.sa[ra1], (ra1, {b'k': b'a1'}))
+        self.assertEqual(cg.sb[rb3], (rb3, {b'k': b'b3'}))
+
+        def assertMessages(resp, expected):
+            self.assertEqual([mid for mid, _ in resp], expected)
+
+        assertMessages(cg.sa[ra1:], [ra1, ra2])
+        assertMessages(cg.sa[:ra1], [ra1])
+        assertMessages(cg.sa[ra2:], [ra2])
+        assertMessages(cg.sa[:ra2], [ra1, ra2])
+        assertMessages(cg.sa[rb3:], [])
+        assertMessages(cg.sa[:b'0-1'], [])
+        assertMessages(list(cg.sa), [ra1, ra2])
+
+        assertMessages(cg.sb[rb1:], [rb1, rb2, rb3])
+        assertMessages(cg.sb[rb1::2], [rb1, rb2])
+        assertMessages(cg.sb[:rb1], [rb1])
+        assertMessages(cg.sb[rb3:], [rb3])
+        assertMessages(cg.sb[:rb3], [rb1, rb2, rb3])
+        assertMessages(list(cg.sb), [rb1, rb2, rb3])
+
+        self.assertEqual(len(cg.sa), 2)
+        self.assertEqual(len(cg.sb), 3)
+
+        del cg.sa[ra1]
+        del cg.sb[rb1, rb3]
+        self.assertEqual(len(cg.sa), 1)
+        self.assertEqual(len(cg.sb), 1)
+        assertMessages(list(cg.sa), [ra2])
+        assertMessages(list(cg.sb), [rb2])
+
+    @stream_test
     def test_consumer_group_container(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
         cg1 = db.consumer_group('g1', {'sa': '1', 'sb': '0'})

@@ -1113,7 +1113,7 @@ class Stream(Container):
         return self.database.xtrim(self.key, count, approximate)
 
 
-class _ConsumerGroupKey(object):
+class ConsumerGroupStream(Stream):
     """
     Helper for working with an individual stream within the context of a
     consumer group. This object is exposed as an attribute on a
@@ -1126,8 +1126,8 @@ class _ConsumerGroupKey(object):
     For example::
 
         cg = db.consumer_group('groupname', ['stream-1', 'stream-2'])
-        cg.stream_1  # _ConsumerGroupKey for "stream-1"
-        cg.stream_2  # _ConsumerGroupKey for "stream-2"
+        cg.stream_1  # ConsumerGroupStream for "stream-1"
+        cg.stream_2  # ConsumerGroupStream for "stream-2"
     """
     __slots__ = ('database', 'group', 'key', '_consumer')
 
@@ -1136,43 +1136,6 @@ class _ConsumerGroupKey(object):
         self.group = group
         self.key = key
         self._consumer = consumer
-
-    def __len__(self):
-        """
-        Return the total number of messages in the stream.
-        """
-        return self.database.xlen(self.key)
-    length = __len__
-
-    def __getitem__(self, item):
-        """
-        Read a range of values from a stream.
-
-        The index must be a message id or a slice. An empty slice will result
-        in reading all values from the stream. Message ids provided as lower or
-        upper bounds are inclusive.
-
-        To specify a maximum number of messages, use the "step" parameter of
-        the slice.
-        """
-        if isinstance(item, slice):
-            return self.database.xrange(self.key, item.start or '-',
-                                        item.stop or '+', item.step or None)
-        return self.get(item)
-
-    def get(self, docid):
-        """
-        Get a message by id.
-
-        :param docid: the message id to retrieve.
-        :returns: a 2-tuple of (message id, data) or None if not found.
-        """
-        items = self[docid:docid:1]
-        if items:
-            return items[0]
-
-    def __iter__(self):
-        return iter(self[:])
 
     def ack(self, *id_list):
         """
@@ -1183,18 +1146,6 @@ class _ConsumerGroupKey(object):
         :returns: number of messages marked acknowledged
         """
         return self.database.xack(self.key, self.group, *id_list)
-
-    def add(self, data, id='*', maxlen=None, approximate=True):
-        """
-        Add a new message to the stream.
-
-        :param dict data: data to add to stream
-        :param id: identifier for message ('*' to automatically append)
-        :param maxlen: maximum length for stream
-        :param approximate: allow stream max length to be approximate
-        :returns: the added message's id.
-        """
-        return self.database.xadd(self.key, data, id, maxlen, approximate)
 
     def claim(self, *id_list, **kwargs):
         """
@@ -1210,15 +1161,6 @@ class _ConsumerGroupKey(object):
         if kwargs: raise ValueError('incorrect arguments for claim()')
         return self.database.xclaim(self.key, self.group, self._consumer,
                                     min_idle_time, *id_list)
-
-    def delete(self, *id_list):
-        """
-        Remove one or more messages from a stream.
-
-        :param id_list: one or more message ids to remove.
-        :returns: number of messages deleted.
-        """
-        return self.database.xdel(self.key, *id_list)
 
     def pending(self, start='-', stop='+', count=-1, consumer=None):
         """
@@ -1259,17 +1201,6 @@ class _ConsumerGroupKey(object):
         """
         return self.database.xgroup_setid(self.key, self.group, id)
 
-    def trim(self, count, approximate=True):
-        """
-        Trim the stream to the given "count" of messages, discarding the oldest
-        messages first.
-
-        :param count: maximum size of stream
-        :param approximate: allow size to be approximate
-        :returns: number of messages discarded
-        """
-        return self.database.xtrim(self.key, count, approximate)
-
 
 class ConsumerGroup(object):
     """
@@ -1283,13 +1214,13 @@ class ConsumerGroup(object):
 
     Each registered stream within the group is exposed as a special attribute
     that provides stream-specific APIs within the context of the group. For
-    more information see :py:class:`_ConsumerGroupKey`.
+    more information see :py:class:`ConsumerGroupStream`.
 
     Example::
 
         cg = db.consumer_group('groupname', ['stream-1', 'stream-2'])
-        cg.stream_1  # _ConsumerGroupKey for "stream-1"
-        cg.stream_2  # _ConsumerGroupKey for "stream-2"
+        cg.stream_1  # ConsumerGroupStream for "stream-1"
+        cg.stream_2  # ConsumerGroupStream for "stream-2"
 
     :param Database database: Redis client
     :param name: consumer group name
@@ -1309,8 +1240,8 @@ class ConsumerGroup(object):
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
             attr = make_python_attr(key)
-            setattr(self, attr, _ConsumerGroupKey(self.database, name, key,
-                                                  self._consumer))
+            setattr(self, attr, ConsumerGroupStream(self.database, name, key,
+                                                    self._consumer))
 
     def consumer(self, name):
         """
