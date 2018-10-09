@@ -263,7 +263,37 @@ class Database(Redis):
         parts.append(str(count))
         return self.execute_command('XTRIM', key, *parts)
 
-    # TODO: xinfo
+    def xinfo_stream(self, key):
+        """
+        Retrieve information about a stream.
+
+        :param key: stream key
+        :returns: a dictionary containing stream metadata
+        """
+        return pairs_to_dict(self.execute_command('XINFO', 'STREAM', key))
+
+    def xinfo_groups(self, key):
+        """
+        Retrieve information about consumer groups for the given stream.
+
+        :param key: stream key
+        :returns: a list of dictionaries containing consumer group metadata
+        """
+        resp = self.execute_command('XINFO', 'GROUPS', key)
+        return [pairs_to_dict(cg) for cg in resp]
+
+    def xinfo_consumers(self, key, group):
+        """
+        Retrieve information about consumers within the given consumer group
+        operating on the stream.
+
+        :param key: stream key
+        :param group: consumer group name
+        :returns: a list of dictionaries containing consumer metadata
+        """
+        resp = self.execute_command('XINFO', 'CONSUMERS', key, group)
+        return [pairs_to_dict(c) for c in resp]
+
     def xgroup_create(self, key, group, id='$'):
         """
         Create a consumer group.

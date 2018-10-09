@@ -469,6 +469,58 @@ class TestStream(WalrusTestCase):
                 db.xadd('sb', {'k': 'b3'}, b'5'))
 
     @stream_test
+    def test_stream_group_info(self):
+        sa = db.Stream('sa')
+        ra1 = sa.add({'k': 'a1'})
+        ra2 = sa.add({'k': 'a2'})
+        ra3 = sa.add({'k': 'a3'})
+
+        sb = db.Stream('sb')
+        rb1 = sb.add({'k': 'b1'})
+
+        sa_info = sa.info()
+        self.assertEqual(sa_info[b'groups'], 0)
+        self.assertEqual(sa_info[b'length'], 3)
+        self.assertEqual(sa_info[b'first-entry'][0], ra1)
+        self.assertEqual(sa_info[b'last-entry'][0], ra3)
+
+        sb_info = sb.info()
+        self.assertEqual(sb_info[b'groups'], 0)
+        self.assertEqual(sb_info[b'length'], 1)
+        self.assertEqual(sb_info[b'first-entry'][0], rb1)
+        self.assertEqual(sb_info[b'last-entry'][0], rb1)
+
+        self.assertEqual(sa.groups_info(), [])
+        self.assertEqual(sb.groups_info(), [])
+
+        # Create consumer groups.
+        cga = db.consumer_group('cga', ['sa'])
+        cga.create()
+        cgab = db.consumer_group('cgab', ['sa', 'sb'])
+        cgab.create()
+
+        self.assertEqual(sa.info()[b'groups'], 2)
+        self.assertEqual(sb.info()[b'groups'], 1)
+
+        sa_groups = sa.groups_info()
+        self.assertEqual(len(sa_groups), 2)
+        self.assertEqual(sorted(g[b'name'] for g in sa_groups),
+                         [b'cga', b'cgab'])
+
+        sb_groups = sb.groups_info()
+        self.assertEqual(len(sb_groups), 1)
+        self.assertEqual(sb_groups[0][b'name'], b'cgab')
+
+        # Verify we can get stream info from the consumer group.
+        stream_info = cgab.stream_info()
+        self.assertEqual(sorted(stream_info), ['sa', 'sb'])
+
+        # Destroy consumer group?
+        cgab.destroy()
+        self.assertEqual(len(sa.groups_info()), 1)
+        self.assertEqual(len(sb.groups_info()), 0)
+
+    @stream_test
     def test_consumer_group_create(self):
         cg = db.consumer_group('cg', ['sa'])
         self.assertEqual(cg.create(), {'sa': True})

@@ -1107,6 +1107,34 @@ class Stream(Container):
         if resp is not None:
             return resp[self.key]
 
+    def info(self):
+        """
+        Retrieve information about the stream. Wraps call to
+        :py:meth:`~Database.xinfo_stream`.
+
+        :returns: a dictionary containing stream metadata
+        """
+        return self.database.xinfo_stream(self.key)
+
+    def groups_info(self):
+        """
+        Retrieve information about consumer groups for the stream. Wraps call
+        to :py:meth:`~Database.xinfo_groups`.
+
+        :returns: a list of dictionaries containing consumer group metadata
+        """
+        return self.database.xinfo_groups(self.key)
+
+    def consumers_info(self, group):
+        """
+        Retrieve information about consumers within the given consumer group
+        operating on the stream. Calls :py:meth:`~Database.xinfo_consumers`.
+
+        :param group: consumer group name
+        :returns: a list of dictionaries containing consumer metadata
+        """
+        return self.database.xinfo_consumers(self.key, group)
+
     def delete(self, *id_list):
         """
         Delete one or more message by id. The index can be either a single
@@ -1148,6 +1176,15 @@ class ConsumerGroupStream(Stream):
         self.group = group
         self.key = key
         self._consumer = consumer
+
+    def consumers_info(self):
+        """
+        Retrieve information about consumers within the given consumer group
+        operating on the stream. Calls :py:meth:`~Database.xinfo_consumers`.
+
+        :returns: a list of dictionaries containing consumer metadata
+        """
+        return self.database.xinfo_consumers(self.key, self.group)
 
     def ack(self, *id_list):
         """
@@ -1345,4 +1382,16 @@ class ConsumerGroup(object):
         accum = {}
         for key in self.keys:
             accum[key] = self.database.xgroup_setid(key, self.name, id)
+        return accum
+
+    def stream_info(self):
+        """
+        Retrieve information for each stream managed by the consumer group.
+        Calls :py:meth:`~Database.xinfo_stream` for each stream.
+
+        :returns: a dictionary mapping stream key to a dictionary of metadata
+        """
+        accum = {}
+        for key in self.keys:
+            accum[key] = self.database.xinfo_stream(key)
         return accum
