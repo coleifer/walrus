@@ -164,9 +164,14 @@ Container types
       __delitem__,
       __len__,
       add,
+      get,
+      range,
       read,
       delete,
       trim,
+      info,
+      groups_info,
+      consumers_info,
       __iter__
 
 .. autoclass:: ConsumerGroup
@@ -176,21 +181,17 @@ Container types
       destroy,
       reset,
       set_id,
-      read
+      read,
+      stream_info
 
 .. autoclass:: walrus.containers.ConsumerGroupStream(Stream)
     :members:
-      __len__,
-      __getitem__,
+      consumers_info,
       ack,
-      add,
       claim,
-      delete,
-      get,
       pending,
       read,
-      set_id,
-      trim
+      set_id
 
 High-level APIs
 ---------------

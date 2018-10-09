@@ -1336,9 +1336,6 @@ class ConsumerGroup(object):
                     raise
         return resp
 
-    def exists(self):
-        pass
-
     def reset(self):
         """
         Reset the consumer group, clearing the last-read status for each
