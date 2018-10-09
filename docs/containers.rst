@@ -31,6 +31,8 @@ Redis also supports several primitive data-types:
 * :py:class:`ZSet`: a sorted set
 * :py:class:`HyperLogLog`: probability data-structure
 * :py:class:`Array`: like a Python list (custom data type implemented on top of ``Hash`` using lua scripts).
+* For stream types (:py:class:`Stream`: and :py:class:`ConsumerGroup`) see
+  the :ref:`streams` documentation.
 
 Let's see how to use these types.
 

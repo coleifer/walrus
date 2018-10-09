@@ -53,6 +53,7 @@ Contents:
    full-text-search
    graph
    rate-limit
+   streams
    models
    api
    alt-backends
