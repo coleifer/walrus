@@ -1040,8 +1040,7 @@ class Stream(Container):
         the slice.
         """
         if isinstance(item, slice):
-            return self.database.xrange(self.key, item.start or '-',
-                                        item.stop or '+', item.step or None)
+            return self.range(item.start or '-', item.stop or '+', item.step)
         return self.get(item)
 
     def get(self, docid):
@@ -1055,6 +1054,16 @@ class Stream(Container):
         if items:
             return items[0]
 
+    def range(self, start='-', stop='+', count=None):
+        """
+        Read a range of values from a stream.
+
+        :param start: start key of range (inclusive) or '-' for first message
+        :param stop: stop key of range (inclusive) or '+' for last message
+        :param count: limit number of messages returned
+        """
+        return self.database.xrange(self.key, start, stop, count)
+
     def __iter__(self):
         return iter(self[:])
 
@@ -1065,7 +1074,7 @@ class Stream(Container):
         """
         if not isinstance(item, (list, tuple)):
             item = (item,)
-        self.database.xdel(self.key, *item)
+        self.delete(*item)
 
     def __len__(self):
         """
@@ -1231,17 +1240,19 @@ class ConsumerGroup(object):
         added *after* our command started blocking.
     :param consumer: name for consumer
     """
+    stream_key_class = ConsumerGroupStream
+
     def __init__(self, database, name, keys, consumer=None):
         self.database = database
         self.name = name
-        self._consumer = consumer or (self.name + '.c1')
         self.keys = self.database._normalize_stream_keys(keys)
+        self._consumer = consumer or (self.name + '.c1')
 
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
             attr = make_python_attr(key)
-            setattr(self, attr, ConsumerGroupStream(self.database, name, key,
-                                                    self._consumer))
+            stream = self.stream_key_class(database, name, key, self._consumer)
+            setattr(self, attr, stream)
 
     def consumer(self, name):
         """
@@ -1250,7 +1261,7 @@ class ConsumerGroup(object):
         :param name: name of consumer
         :returns: a :py:class:`ConsumerGroup` using the given consumer name.
         """
-        return ConsumerGroup(self.database, self.name, self.keys, name)
+        return type(self)(self.database, self.name, self.keys, name)
 
     def create(self):
         """

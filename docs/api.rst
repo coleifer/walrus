@@ -278,7 +278,7 @@ High-level APIs
       limit,
       rate_limited
 
-.. autoclass:: TimeSeries
+.. autoclass:: TimeSeries(ConsumerGroup)
     :members:
       consumer,
       create,

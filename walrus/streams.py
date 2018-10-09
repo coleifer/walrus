@@ -2,6 +2,8 @@ import datetime
 import operator
 import time
 
+from walrus.containers import ConsumerGroup
+from walrus.containers import ConsumerGroupStream
 from walrus.utils import basestring_type
 from walrus.utils import decode
 from walrus.utils import decode_dict
@@ -18,6 +20,14 @@ def datetime_to_id(dt, seq=0):
 
 
 class Message(object):
+    """
+    A message stored in a Redis stream.
+
+    When reading messages from a :py:class:`TimeSeries`, the usual 2-tuple of
+    (message id, data) is unpacked into a :py:class:`Message` instance. The
+    message instance provides convenient access to the message timestamp as a
+    datetime. Additionally, the message data is UTF8-decoded for convenience.
+    """
     __slots__ = ('stream', 'timestamp', 'sequence', 'data', 'message_id')
 
     def __init__(self, stream, message_id, data):
@@ -43,6 +53,10 @@ def normalize_id(message_id):
     return message_id
 
 
+def normalize_ids(id_list):
+    return [normalize_id(id) for id in id_list]
+
+
 def xread_to_messages(resp):
     if resp is None: return
     accum = []
@@ -58,54 +72,62 @@ def xrange_to_messages(stream, resp):
     return [Message(stream, message_id, data) for message_id, data in resp]
 
 
-class _TimeSeriesKey(object):
-    __slots__ = ('database', 'group', 'key', 'consumer')
+class TimeSeriesStream(ConsumerGroupStream):
+    """
+    Helper for working with an individual stream within the context of a
+    :py:class:`TimeSeries` consumer group. This object is exposed as an
+    attribute on a :py:class:`TimeSeries` object using the stream key for the
+    attribute name.
 
-    def __init__(self, database, group, key, consumer):
-        self.database = database
-        self.group = group
-        self.key = key
-        self.consumer = consumer
+    This class should not be created directly. It will automatically be added
+    to the ``TimeSeries`` object.
+
+    For example::
+
+        ts = db.time_series('events', ['stream-1', 'stream-2'])
+        ts.stream_1  # TimeSeriesStream for "stream-1"
+        ts.stream_2  # TimeSeriesStream for "stream-2"
+
+    This class implements the same methods as :py:class:`ConsumerGroupStream`,
+    with the following differences in behavior:
+
+    * Anywhere an ID (or list of IDs) is accepted, this class will also accept
+      a datetime, a 2-tuple of (datetime, sequence), a :py:class:`Message`, in
+      addition to a regular bytestring ID.
+    * Instead of returning a list of (message id, data) 2-tuples, this class
+      returns a list of :py:class:`Message` objects.
+    * Data is automatically UTF8 decoded when being read for convenience.
+    """
+    __slots__ = ('database', 'group', 'key', '_consumer')
 
     def ack(self, *id_list):
-        id_list = [normalize_id(id) for id in id_list]
-        return self.database.xack(self.key, self.group, *id_list)
+        return super(TimeSeriesStream, self).ack(*normalize_ids(id_list))
 
     def add(self, data, id='*', maxlen=None, approximate=True):
-        id = normalize_id(id)
-        db_id = self.database.xadd(self.key, data, id, maxlen, approximate)
+        db_id = super(TimeSeriesStream, self).add(data, normalize_id(id),
+                                                  maxlen, approximate)
         return id_to_datetime(db_id)
 
     def claim(self, *id_list, **kwargs):
-        id_list = [normalize_id(id) for id in id_list]
-        min_idle_time = kwargs.pop('min_idle_time', None) or 0
-        if kwargs: raise ValueError('incorrect arguments for claim()')
-        resp = self.database.xclaim(self.key, self.group, self.consumer,
-                                    min_idle_time, *id_list)
+        resp = super(TimeSeriesStream, self).claim(*normalize_ids(id_list),
+                                                   **kwargs)
         return xrange_to_messages(self.key, resp)
 
     def delete(self, *id_list):
-        id_list = [normalize_id(id) for id in id_list]
-        return self.database.xdel(self.key, *id_list)
-
-    def __getitem__(self, item):
-        if isinstance(item, slice):
-            return self.range(item.start or '-', item.stop or '+', item.step)
-        else:
-            return self.get(item)
+        return super(TimeSeriesStream, self).delete(*normalize_ids(id_list))
 
     def get(self, id):
         id = normalize_id(id)
-        items = self.range(id, id, 1)
-        if items:
-            return items[0]
+        messages = self.range(id, id, 1)
+        if messages:
+            return messages[0]
 
-    def __len__(self):
-        """
-        Return the total number of messages in the stream.
-        """
-        return self.database.xlen(self.key)
-    length = __len__
+    def range(self, start='-', stop='+', count=None):
+        resp = super(TimeSeriesStream, self).range(
+            normalize_id(start),
+            normalize_id(stop),
+            count)
+        return xrange_to_messages(self.key, resp)
 
     def pending(self, start='-', stop='+', count=-1, consumer=None):
         start = normalize_id(start)
@@ -116,25 +138,15 @@ class _TimeSeriesKey(object):
                 for id, c, idle, n in resp]
 
     def read(self, count=None, timeout=None):
-        resp = self.database.xreadgroup(self.group, self.consumer, self.key,
-                                        count, timeout)
-        return xread_to_messages(resp)
-
-    def range(self, start='-', stop='+', count=None):
-        start = normalize_id(start)
-        stop = normalize_id(stop)
-        resp = self.database.xrange(self.key, start, stop, count)
-        return xrange_to_messages(self.key, resp)
+        resp = super(TimeSeriesStream, self).read(count, timeout)
+        if resp is not None:
+            return xrange_to_messages(self.key, resp)
 
     def set_id(self, id='$'):
-        id = normalize_id(id)
-        return self.database.xgroup_setid(self.key, self.group, id)
-
-    def trim(self, count, approximate=True):
-        return self.database.xtrim(self.key, count, approximate)
+        return super(TimeSeriesStream, self).set_id(normalize_id(id))
 
 
-class TimeSeries(object):
+class TimeSeries(ConsumerGroup):
     """
     :py:class:`TimeSeries` is a consumer-group that provides a higher level of
     abstraction, reading and writing message ids as datetimes, and returning
@@ -145,13 +157,13 @@ class TimeSeries(object):
 
     Each registered stream within the group is exposed as a special attribute
     that provides stream-specific APIs within the context of the group. For
-    more information see :py:class:`_TimeSeriesKey`.
+    more information see :py:class:`TimeSeriesStream`.
 
     Example::
 
         ts = db.time_series('groupname', ['stream-1', 'stream-2'])
-        ts.stream_1  # _TimeSeriesKey for "stream-1"
-        ts.stream_2  # _TimeSeriesKey for "stream-2"
+        ts.stream_1  # TimeSeriesStream for "stream-1"
+        ts.stream_2  # TimeSeriesStream for "stream-2"
 
     :param Database database: Redis client
     :param group: name of consumer group
@@ -163,51 +175,7 @@ class TimeSeries(object):
     :param consumer: name for consumer within group
     :returns: a :py:class:`TimeSeries` instance
     """
-    def __init__(self, database, group, keys, consumer=None):
-        self.database = database
-        self.group = group
-        self.keys = database._normalize_stream_keys(keys)
-        self._consumer = consumer or (self.group + '.c')
-
-        # Add attributes for each stream exposed as part of the group.
-        for key in self.keys:
-            attr = make_python_attr(key)
-            setattr(self, attr, _TimeSeriesKey(self.database, group, key,
-                                               self._consumer))
-
-    def consumer(self, name):
-        """
-        Create a new consumer for the :py:class:`TimeSeries`.
-
-        :param name: name of consumer
-        :returns: a :py:class:`TimeSeries` using the given consumer name.
-        """
-        return TimeSeries(self.database, self.group, self.keys, name)
-
-    def create(self):
-        """
-        Create the consumer group and register it with the group's stream keys.
-        """
-        resp = {}
-        for key, value in self.keys.items():
-            resp[key] = self.database.xgroup_create(key, self.group, value)
-        return resp
-
-    def reset(self):
-        """
-        Reset the consumer group, clearing the last-read status for each
-        stream so it will read from the beginning of each stream.
-        """
-        return self.set_id('0-0')
-
-    def destroy(self):
-        """
-        Destroy the consumer group.
-        """
-        resp = {}
-        for key in self.keys:
-            resp[key] = self.database.xgroup_destroy(key, self.group)
-        return resp
+    stream_key_class = TimeSeriesStream
 
     def read(self, count=None, timeout=None):
         """
@@ -216,23 +184,10 @@ class TimeSeries(object):
 
         :param int count: limit number of messages returned
         :param int timeout: milliseconds to block, 0 for indefinitely.
-        :returns: a list of :py:class:`Message` objects or ``None`` if no data
-            is available.
+        :returns: a list of :py:class:`Message` objects
         """
-        resp = self.database.xreadgroup(self.group, self._consumer,
-                                        list(self.keys), count, timeout)
+        resp = super(TimeSeries, self).read(count, timeout)
         return xread_to_messages(resp)
 
     def set_id(self, id='$'):
-        """
-        Set the last-read message id for each stream in the consumer group. By
-        default, this will be the special "$" identifier, meaning all messages
-        are marked as having been read.
-
-        :param id: id of last-read message (or "$").
-        """
-        accum = {}
-        id = normalize_id(id)
-        for key in self.keys:
-            accum[key] = self.database.xgroup_setid(key, self.group, id)
-        return accum
+        return super(TimeSeries, self).set_id(normalize_id(id))
