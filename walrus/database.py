@@ -9,9 +9,12 @@ try:
     from redis import Redis
     from redis.client import pairs_to_dict
     from redis.client import zset_score_pairs
+    from redis.exceptions import ConnectionError
+    from redis.exceptions import TimeoutError
 except ImportError:
     Redis = object
     zset_score_pairs = None
+    ConnectionError = TimeoutError = Exception
 
 from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
@@ -102,6 +105,27 @@ class Database(Redis):
 
         if not hasattr(self, 'zpopmin'):
             self._add_zset_pop_methods()
+
+    def execute_command(self, *args, **options):
+        # Override `Redis.execute_command`, which could run the same command
+        # twice in the event of a connection error during the receipt of the
+        # response.
+        pool = self.connection_pool
+        command_name = args[0]
+        connection = pool.get_connection(command_name, **options)
+        try:
+            try:
+                connection.send_command(*args)
+                # NB: removed "return self.parse_response(...)"
+            except (ConnectionError, TimeoutError) as e:
+                connection.disconnect()
+                if not connection.retry_on_timeout and isinstance(e, TimeoutError):
+                    raise
+                # Try sending the command using a fresh connection.
+                connection.send_command(*args)
+            return self.parse_response(connection, command_name, **options)
+        finally:
+            pool.release(connection)
 
     def _add_zset_pop_methods(self):
         def _zpopcmd(cmd):
