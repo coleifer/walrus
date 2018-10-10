@@ -31,9 +31,9 @@ if __name__ == '__main__':
     parser.add_option('-f', '--failfast', action='store_true', default=False,
                       help='Stop on first failure or error.')
     parser.add_option('-s', '--stream', action='store_true', dest='stream',
-                      help='Run stream command tests.')
+                      help='Run stream command tests (default if server>=5.0)')
     parser.add_option('-z', '--zpop', action='store_true', dest='zpop',
-                      help='Run ZPOP* tests.')
+                      help='Run ZPOP* tests (default if server>=5.0)')
     options, args = parser.parse_args()
     if options.stream:
         os.environ['TEST_STREAM'] = '1'

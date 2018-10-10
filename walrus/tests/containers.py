@@ -1,9 +1,10 @@
-import os
 import unittest
 
 from walrus.containers import *
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
+from walrus.tests.base import stream_test
+from walrus.tests.base import zpop_test
 from walrus.utils import decode
 from walrus.utils import decode_dict
 from walrus.utils import encode
@@ -204,7 +205,7 @@ class TestZSet(WalrusTestCase):
         self.assertEqual(self.zs.popmax_compat(), [])
         self.assertEqual(len(self.zs), 0)
 
-    @unittest.skipIf(not os.environ.get('TEST_ZPOP'), 'skipping zpop tests')
+    @zpop_test
     def test_popmin_popmax(self):
         for i in range(10):
             self.zs.add('i%s' % i, i)
@@ -447,11 +448,6 @@ class TestArray(WalrusTestCase):
         data = list('abcdefghij')
         arr = Array.from_list(db, 'test', data)
         self.assertEqual(arr.as_list(True), data)
-
-
-def stream_test(fn):
-    test_stream = os.environ.get('TEST_STREAM')
-    return unittest.skipIf(not test_stream, 'skipping stream tests')(fn)
 
 
 class TestStream(WalrusTestCase):

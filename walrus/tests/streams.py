@@ -1,15 +1,10 @@
 import datetime
-import os
 import unittest
 
 from walrus.streams import TimeSeries
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
-
-
-def stream_test(fn):
-    test_stream = os.environ.get('TEST_STREAM')
-    return unittest.skipIf(not test_stream, 'skipping stream tests')(fn)
+from walrus.tests.base import stream_test
 
 
 class TestTimeSeries(WalrusTestCase):
