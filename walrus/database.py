@@ -72,7 +72,7 @@ class Database(Redis):
     """
     Redis-py client with some extras.
     """
-    RESPONSE_CALLBACKS = Redis.RESPONSE_CALLBACKS
+    RESPONSE_CALLBACKS = getattr(Redis, 'RESPONSE_CALLBACKS', {})
     RESPONSE_CALLBACKS.update(
         XCLAIM=_stream_list,
         XDEL=int,
