@@ -32,6 +32,7 @@ API Documentation
       xadd,
       xrange,
       xrevrange,
+      xsetid,
       xlen,
       xread,
       xdel,
@@ -172,6 +173,7 @@ Container types
       info,
       groups_info,
       consumers_info,
+      set_id,
       __iter__
 
 .. autoclass:: ConsumerGroup
