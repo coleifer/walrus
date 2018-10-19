@@ -920,6 +920,17 @@ class TestStream(WalrusTestCase):
         self.assertTrue(res is None)
 
     @stream_test
+    def test_set_id_stream(self):
+        stream = db.Stream('my-stream')
+        stream.add({'k': 'v1'}, id='3')
+        self.assertTrue(stream.set_id('5'))
+        self.assertRaises(Exception, stream.add, {'k': 'v2'}, id='4')
+        stream.add({'k': 'v3'}, id='6')
+        self.assertEqual(stream.read(), [
+            (b'3-0', {b'k': b'v1'}),
+            (b'6-0', {b'k': b'v3'})])
+
+    @stream_test
     def test_basic_apis(self):
         stream = db.Stream('my-stream')
 

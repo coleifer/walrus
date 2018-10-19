@@ -106,27 +106,6 @@ class Database(Redis):
         if not hasattr(self, 'zpopmin'):
             self._add_zset_pop_methods()
 
-    def execute_command(self, *args, **options):
-        # Override `Redis.execute_command`, which could run the same command
-        # twice in the event of a connection error during the receipt of the
-        # response.
-        pool = self.connection_pool
-        command_name = args[0]
-        connection = pool.get_connection(command_name, **options)
-        try:
-            try:
-                connection.send_command(*args)
-                # NB: removed "return self.parse_response(...)"
-            except (ConnectionError, TimeoutError) as e:
-                connection.disconnect()
-                if not connection.retry_on_timeout and isinstance(e, TimeoutError):
-                    raise
-                # Try sending the command using a fresh connection.
-                connection.send_command(*args)
-            return self.parse_response(connection, command_name, **options)
-        finally:
-            pool.release(connection)
-
     def _add_zset_pop_methods(self):
         def _zpopcmd(cmd):
             def zpopcmd(key, count=1):
@@ -204,6 +183,15 @@ class Database(Redis):
         :returns: a list of (message id, data) 2-tuples.
         """
         return self._xrange('XREVRANGE', key, start, stop, count)
+
+    def xsetid(self, key, id):
+        """
+        Set the last ID of the given stream.
+
+        :param key: stream identifier
+        :param id: new value for last ID
+        """
+        return self.execute_command('XSETID', key, id) == b'OK'
 
     def xlen(self, key):
         """
@@ -318,16 +306,20 @@ class Database(Redis):
         resp = self.execute_command('XINFO', 'CONSUMERS', key, group)
         return [pairs_to_dict(c) for c in resp]
 
-    def xgroup_create(self, key, group, id='$'):
+    def xgroup_create(self, key, group, id='$', mkstream=False):
         """
         Create a consumer group.
 
-        :param key: stream key -- must exist before creating a group
+        :param key: stream key -- must exist before creating a group if
+            mkstream is ``False`` (default).
         :param group: consumer group name
         :param id: set the id of the last-received-message
+        :param mkstream: create the stream automatically
         """
-        resp = self.execute_command('XGROUP', 'CREATE', key, group, id)
-        return resp == b'OK'
+        cmd = ['XGROUP', 'CREATE', key, group, id]
+        if mkstream:
+            cmd.append('MKSTREAM')
+        return self.execute_command(*cmd) == b'OK'
 
     def xgroup_setid(self, key, group, id='$'):
         """

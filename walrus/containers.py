@@ -1142,6 +1142,14 @@ class Stream(Container):
         """
         return self.database.xdel(self.key, *id_list)
 
+    def set_id(self, id):
+        """
+        Set the maximum message id for the stream.
+
+        :param id: id of last-read message
+        """
+        return self.database.xsetid(self.key, id)
+
     def trim(self, count, approximate=True):
         """
         Trim the stream to the given "count" of messages, discarding the oldest
