@@ -5,7 +5,10 @@ from distutils.version import StrictVersion
 from walrus import Database
 
 
-db = Database(db=15)
+HOST = os.environ.get('WALRUS_REDIS_HOST') or '127.0.0.1'
+PORT = os.environ.get('WALRUS_REDIS_PORT') or 6379
+
+db = Database(host=HOST, port=PORT, db=15)
 
 
 REDIS_VERSION = None

@@ -415,7 +415,7 @@ class Database(Redis):
         return self.execute_command('XCLAIM', key, group, consumer,
                                     str(min_idle_time), *id_list)
 
-    def xpending(self, key, group, start='-', stop='+', count=-1,
+    def xpending(self, key, group, start='-', stop='+', count=1000,
                  consumer=None):
         """
         List pending messages.

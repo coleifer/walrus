@@ -1219,7 +1219,7 @@ class ConsumerGroupStream(Stream):
         return self.database.xclaim(self.key, self.group, self._consumer,
                                     min_idle_time, *id_list)
 
-    def pending(self, start='-', stop='+', count=-1, consumer=None):
+    def pending(self, start='-', stop='+', count=1000, consumer=None):
         """
         List pending messages within the consumer group for this stream.
 

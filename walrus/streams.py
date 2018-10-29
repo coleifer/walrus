@@ -129,7 +129,7 @@ class TimeSeriesStream(ConsumerGroupStream):
             count)
         return xrange_to_messages(self.key, resp)
 
-    def pending(self, start='-', stop='+', count=-1, consumer=None):
+    def pending(self, start='-', stop='+', count=1000, consumer=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
         resp = self.database.xpending(self.key, self.group, start, stop,
