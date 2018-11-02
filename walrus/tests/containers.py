@@ -615,9 +615,9 @@ class TestStream(WalrusTestCase):
         self.assertEqual(cg1.create(), {'sa': True, 'sb': True})
         self.assertEqual(cg2.create(), {'sb': True})
 
-        self.assertEqual(cg1.read(count=2), [
-            ['sa', [(ra2, {b'k': b'a2'})]],
-            ['sb', [(rb1, {b'k': b'b1'}), (rb2, {b'k': b'b2'})]]])
+        self.assertEqual(dict(cg1.read(count=2)), {
+            'sa': [(ra2, {b'k': b'a2'})],
+            'sb': [(rb1, {b'k': b'b1'}), (rb2, {b'k': b'b2'})]})
         self.assertEqual(cg1.sa.read(), [])
         self.assertEqual(cg1.sb.read(), [(rb3, {b'k': b'b3'})])
 
@@ -641,13 +641,13 @@ class TestStream(WalrusTestCase):
         cg11.create()
         cg12 = cg11.consumer('cg12')
 
-        self.assertEqual(cg11.read(count=1), [
-            ['sa', [(ra1, {b'k': b'a1'})]],
-            ['sb', [(rb1, {b'k': b'b1'})]]])
+        self.assertEqual(dict(cg11.read(count=1)), {
+            'sa': [(ra1, {b'k': b'a1'})],
+            'sb': [(rb1, {b'k': b'b1'})]})
 
-        self.assertEqual(cg12.read(count=1), [
-            ['sa', [(ra2, {b'k': b'a2'})]],
-            ['sb', [(rb2, {b'k': b'b2'})]]])
+        self.assertEqual(dict(cg12.read(count=1)), {
+            'sa': [(ra2, {b'k': b'a2'})],
+            'sb': [(rb2, {b'k': b'b2'})]})
 
         pa1, pa2 = cg11.sa.pending()
         self.assertEqual(pa1['message_id'], ra1)
