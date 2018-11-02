@@ -20,8 +20,7 @@ walrus consists of:
     * [Sorted Set](https://walrus.readthedocs.io/en/latest/containers.html#sorted-sets-zset)
     * [HyperLogLog](https://walrus.readthedocs.io/en/latest/containers.html#hyperloglog)
     * [Array](https://walrus.readthedocs.io/en/latest/containers.html#arrays) (custom type)
-    * [**Streams**](https://walrus.readthedocs.io/en/latest/api.html#walrus.Stream)
-    * Adds support for all `STREAM` commands, plus regular and blocking `ZPOP` variants.
+    * [**Streams**](https://walrus.readthedocs.io/en/latest/streams.html)
 * [Autocomplete](https://walrus.readthedocs.io/en/latest/autocomplete.html)
 * [Cache](https://walrus.readthedocs.io/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.
 * [Full-text search](https://walrus.readthedocs.io/en/latest/full-text-search.html) supporting set operations.

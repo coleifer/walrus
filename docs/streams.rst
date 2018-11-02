@@ -167,7 +167,7 @@ We can make :py:meth:`~Stream.read` blocking by specifying a special id,
 
 .. code-block:: python
 
-    # This will block for 2 seconds, after which `None` is returned
+    # This will block for 2 seconds, after which an empty list is returned
     # (provided no messages are added while waiting).
     stream.read(timeout=2000, last_id='$')
 
@@ -212,11 +212,14 @@ RDB and replicated.
 To read from all the streams in a consumer group, we can use the
 :py:meth:`ConsumerGroupStream.read` method. Since we marked all messages as
 read and have not added anything new since creating the consumer group, the
-return value is ``None``:
+return value is an empty list:
 
 .. code-block:: python
 
-    resp = cg.read()  # None
+   resp = cg.read()
+
+   # Returns an empty list:
+   []
 
 For convenience, walrus exposes the individual streams within a consumer group
 as attributes on the :py:class:`ConsumerGroup` instance. Let's add some
@@ -238,9 +241,9 @@ that we read no more than one message from each stream in the group:
     cg.read(count=1)
 
     # Returns:
-    {'stream-a': [(b'1539023088125-0', {b'message': b'new a'})],
-     'stream-b': [(b'1539023088125-0', {b'message': b'new for b'})],
-     'stream-c': [(b'1539023088126-0', {b'message': b'c-0'})]}
+    [('stream-a', [(b'1539023088125-0', {b'message': b'new a'})]),
+     ('stream-b', [(b'1539023088125-0', {b'message': b'new for b'})]),
+     ('stream-c', [(b'1539023088126-0', {b'message': b'c-0'})])]
 
 We've now read all the unread messages from streams *a* and *b*, but stream *c*
 still has messages. Calling ``read()`` again will give us the next unread
@@ -254,7 +257,7 @@ message from stream *c*:
     cg.read(count=1)
 
     # Returns:
-    {'stream-c': [(b'1539023088126-1', {b'message': b'c-1'})]}
+    [('stream-c', [(b'1539023088126-1', {b'message': b'c-1'})])]
 
 When using consumer groups, messages that are read need to be **acknowledged**.
 Let's look at the **pending** (read but unacknowledged) messages from
@@ -277,7 +280,7 @@ the :py:meth:`~ConsumerGroupStream.ack` method on the consumer group stream:
 
     # View the pending message list for stream a.
     pending_list = cg.stream_a.pending()
-    msg_id = pending_list[0][0]
+    msg_id = pending_list[0]['message_id']
 
     # Acknowledge the message.
     cg.stream_a.ack(msg_id)
@@ -309,7 +312,7 @@ consumer will pick up from the last-read message, as you would expect:
     cg2.read(count=1)
 
     # Returns:
-    {'stream-c': [(b'1539023088126-2', {b'message': b'c-2'})]}
+    [('stream-c', [(b'1539023088126-2', {b'message': b'c-2'})])]
 
 If we look at the pending message status for stream *c*, we will see that the
 first and second messages were read by the consumer *"cg-abc.c1"* and the third
@@ -321,9 +324,12 @@ message was read by our new consumer, *"cg-abc.c2"*:
     cg.stream_c.pending()
 
     # Returns list of [message id, consumer, message age, delivery count]:
-    [[b'1539023088126-0', b'cg-abc.c1', 51329, 1],
-     [b'1539023088126-1', b'cg-abc.c1', 43772, 1],
-     [b'1539023088126-2', b'cg-abc.c2', 5966, 1]]
+    [{'message_id': b'1539023088126-0', 'consumer': b'cg-abc.c1',
+      'time_since_delivered': 51329, 'times_delivered': 1}],
+     {'message_id': b'1539023088126-1', 'consumer': b'cg-abc.c1',
+      'time_since_delivered': 43772, 'times_delivered': 1},
+     {'message_id': b'1539023088126-2', 'consumer': b'cg-abc.c2',
+      'time_since_delivered': 5966, 'times_delivered': 1}]
 
 Consumers can :py:meth:`~ConsumerGroupStream.claim` pending messages, which
 transfers ownership of the message and returns a list of (message id, data)
@@ -335,7 +341,7 @@ tuples to the caller:
     mc1, mc2, mc3 = cg.stream_c.pending()
 
     # Claim the first message for consumer 2:
-    cg2.stream_c.claim(mc1[0])
+    cg2.stream_c.claim(mc1['message_id'])
 
     # Returns a list of (message id, data) tuples for the claimed messages:
     [(b'1539023088126-0', {b'message': b'c-0'})]
@@ -349,9 +355,12 @@ for the first message has changed and the message age has been reset:
     cg.stream_c.pending()
 
     # Returns:
-    [[b'1539023088126-0', b'cg-abc.c2', 2168, 1],
-     [b'1539023088126-1', b'cg-abc.c1', 47141, 1],
-     [b'1539023088126-2', b'cg-abc.c2', 9335, 1]]
+    [{'message_id': b'1539023088126-0', 'consumer': b'cg-abc.c2',
+      'time_since_delivered': 2168, 'times_delivered': 1},
+     {'message_id': b'1539023088126-1', 'consumer': b'cg-abc.c1',
+      'time_since_delivered': 47141, 'times_delivered': 1},
+     {'message_id': b'1539023088126-2', 'consumer': b'cg-abc.c2',
+      'time_since_delivered': 9335, 'times_delivered': 1}]
 
 The individual streams within the consumer group support a number of
 useful APIs:
