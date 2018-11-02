@@ -1350,12 +1350,14 @@ class ConsumerGroup(object):
         """
         return type(self)(self.database, self.name, self.keys, name)
 
-    def create(self, ensure_keys_exist=True):
+    def create(self, ensure_keys_exist=True, mkstream=False):
         """
         Create the consumer group and register it with the group's stream keys.
 
         :param ensure_keys_exist: Ensure that the streams exist before creating
             the consumer group. Streams that do not exist will be created.
+        :param mkstream: Use the "MKSTREAM" option to ensure stream exists (may
+            require unstable version of Redis).
         """
         if ensure_keys_exist:
             for key in self.keys:
@@ -1372,7 +1374,8 @@ class ConsumerGroup(object):
         # Mapping of key -> last-read message ID.
         for key, value in self.keys.items():
             try:
-                resp[key] = self.database.xgroup_create(key, self.name, value)
+                resp[key] = self.database.xgroup_create(key, self.name, value,
+                                                        mkstream)
             except ResponseError as exc:
                 if exception_message(exc).startswith('BUSYGROUP'):
                     resp[key] = False
