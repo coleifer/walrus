@@ -2,6 +2,22 @@
 
 This document describes changes to the APIs.
 
+### 0.7.0 (unreleased)
+
+[redis-py](https://github.com/andymccurdy/redis-py) added support for stream
+commands as well as zpop/bzpop. As a result, walrus no longer contains separate
+implementations for these commands. For the majority of cases the low-level
+method signatures and return values are unchanged, notably, the `XREADGROUP`
+return value is slightly different. The `timeout` parameter, where it was
+accepted, has been renamed to `block` for greater compatibility with redis-py.
+
+Prior to 0.7.0, you would read from a consumer-group (which might contain one
+or more streams) and receive a `dict` keyed by the stream, whose value was a
+list of `(message_id, data)` 2-tuples. Going forward, the return value will be
+a list of `[stream_name, [(message_id, data), ...]]`. To retain the
+functionality of walrus prior-to 0.7.0, just wrap the return value in a call to
+the `dict` constructor: `ret = dict(consumer_group.read(count=1))`.
+
 ### 0.6.0
 
 * Stream support added, including consumer groups.
