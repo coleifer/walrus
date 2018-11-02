@@ -32,7 +32,6 @@ from walrus.graph import Graph
 from walrus.lock import Lock
 from walrus.rate_limit import RateLimit
 from walrus.streams import TimeSeries
-from walrus.utils import basestring_type
 
 
 class TransactionLocal(threading.local):
@@ -54,35 +53,10 @@ class TransactionLocal(threading.local):
         pipe.reset()
 
 
-# XREVRANGE, XRANGE.
-def _stream_list(response):
-    if response is None: return
-    return [(ts_seq, pairs_to_dict(kv_list)) for ts_seq, kv_list in response]
-
-# XREAD.
-def _multi_stream_list(response):
-    if response is None: return
-    accum = {}
-    for (identifier, stream_response) in response:
-        accum[identifier.decode('utf-8')] = _stream_list(stream_response)
-    return accum
-
-
 class Database(Redis):
     """
     Redis-py client with some extras.
     """
-    RESPONSE_CALLBACKS = getattr(Redis, 'RESPONSE_CALLBACKS', {})
-    RESPONSE_CALLBACKS.update(
-        XCLAIM=_stream_list,
-        XDEL=int,
-        XLEN=int,
-        XRANGE=_stream_list,
-        XREVRANGE=_stream_list,
-        XREAD=_multi_stream_list,
-        XREADGROUP=_multi_stream_list,
-        XTRIM=int)
-
     def __init__(self, *args, **kwargs):
         """
         :param args: Arbitrary positional arguments to pass to the
@@ -103,336 +77,14 @@ class Database(Redis):
         self._transaction_lock = threading.RLock()
         self.init_scripts(script_dir=script_dir)
 
-        if not hasattr(self, 'zpopmin'):
-            self._add_zset_pop_methods()
-
-    def _add_zset_pop_methods(self):
-        def _zpopcmd(cmd):
-            def zpopcmd(key, count=1):
-                res = self.execute_command(cmd, key, count)
-                return zset_score_pairs(res, withscores=True)
-            return zpopcmd
-        self.zpopmin = _zpopcmd('zpopmin')
-        self.zpopmax = _zpopcmd('zpopmax')
-        def _bzpopcmd(cmd):
-            def bzpopcmd(keys, timeout=0):
-                a = [keys] if isinstance(keys, basestring_type) else list(keys)
-                a.append(timeout or 0)
-                res = self.execute_command(cmd, *a)
-                if res is not None:
-                    res[2] = float(res[2])
-                    return res
-            return bzpopcmd
-        self.bzpopmin = _bzpopcmd('bzpopmin')
-        self.bzpopmax = _bzpopcmd('bzpopmax')
-
-    def xadd(self, key, data, id='*', maxlen=None, approximate=True):
-        """
-        Add a new message to a stream.
-
-        :param key: stream identifier
-        :param dict data: data to add to stream
-        :param id: identifier for message ('*' to automatically append)
-        :param maxlen: maximum length for stream
-        :param approximate: allow stream max length to be approximate
-        :returns: the added message's id.
-        """
-        parts = []
-        if maxlen is not None:
-            if not isinstance(maxlen, int) or maxlen < 1:
-                raise ValueError('XADD maxlen must be a positive integer')
-            parts.append('MAXLEN')
-            if approximate:
-                parts.append('~')
-            parts.append(str(maxlen))
-        parts.append(id)
-        for k, v in data.items():
-            parts.append(k)
-            parts.append(v)
-        return self.execute_command('XADD', key, *parts)
-
-    def _xrange(self, cmd, key, start, stop, count):
-        parts = [start, stop]
-        if count is not None:
-            if not isinstance(count, int) or count < 1:
-                raise ValueError('%s count must be a positive integer' % cmd)
-            parts.append('COUNT')
-            parts.append(str(count))
-        return self.execute_command(cmd, key, *parts)
-
-    def xrange(self, key, start='-', stop='+', count=None):
-        """
-        Read a range of values from a stream.
-
-        :param key: stream identifier
-        :param start: starting id ('-' for oldest available)
-        :param stop: stop id ('+' for latest available)
-        :param count: limit number of messages returned
-        :returns: a list of (message id, data) 2-tuples.
-        """
-        return self._xrange('XRANGE', key, start, stop, count)
-
-    def xrevrange(self, key, start='+', stop='-', count=None):
-        """
-        Read a range of values from a stream in reverse order.
-
-        :param key: stream identifier
-        :param start: starting id ('+' for latest available)
-        :param stop: stop id ('-' for oldest available)
-        :param count: limit number of messages returned
-        :returns: a list of (message id, data) 2-tuples.
-        """
-        return self._xrange('XREVRANGE', key, start, stop, count)
-
-    def xsetid(self, key, id):
+    def xsetid(self, name, id):
         """
         Set the last ID of the given stream.
 
-        :param key: stream identifier
+        :param name: stream identifier
         :param id: new value for last ID
         """
-        return self.execute_command('XSETID', key, id) == b'OK'
-
-    def xlen(self, key):
-        """
-        Return the length of a stream.
-
-        :param key: stream identifier
-        :returns: length of the stream
-        """
-        return self.execute_command('XLEN', key)
-
-    def _normalize_stream_keys(self, keys, default_id='0-0'):
-        if isinstance(keys, basestring_type):
-            return {keys: default_id}
-        elif isinstance(keys, (list, tuple)):
-            return dict([(key, default_id) for key in keys])
-        elif isinstance(keys, dict):
-            return keys
-        else:
-            raise ValueError('keys must be either a stream key, a list of '
-                             'stream keys, or a dictionary mapping key to '
-                             'minimum message id.')
-
-    def xread(self, keys, count=None, timeout=None):
-        """
-        Monitor one or more streams for new data.
-
-        :param keys: stream identifier(s) to monitor. May be a single stream
-            key, a list of stream keys, or a key-to-minimum id mapping. The
-            minimum id for each stream should be considered an exclusive
-            lower-bound. The '$' value can also be used to only read values
-            added *after* our command started blocking.
-        :param int count: limit number of messages returned
-        :param int timeout: milliseconds to block, 0 for indefinitely.
-        :returns: a dict keyed by the stream key, whose value is a list of
-            (message id, data) 2-tuples. If no data is available or a timeout
-            occurs, ``None`` is returned.
-        """
-        key_to_id = self._normalize_stream_keys(keys)
-        parts = []
-        if timeout is not None:
-            if not isinstance(timeout, int) or timeout < 0:
-                raise ValueError('XREAD timeout must be >= 0')
-            parts.append('BLOCK')
-            parts.append(str(timeout))
-        if count is not None:
-            if not isinstance(count, int) or count < 1:
-                raise ValueError('XREAD count must be a positive integer')
-            parts.append('COUNT')
-            parts.append(str(count))
-        parts.append('STREAMS')
-        stream_ids = []
-        for key, stream_id in key_to_id.items():
-            parts.append(key)
-            stream_ids.append(str(stream_id))
-        parts.extend(stream_ids)
-        return self.execute_command('XREAD', *parts)
-
-    def xdel(self, key, *id_list):
-        """
-        Remove one or more messages from a stream.
-
-        :param key: stream identifier
-        :param id_list: one or more message ids to remove.
-        :returns: number of messages deleted.
-        """
-        return self.execute_command('XDEL', key, *id_list)
-
-    def xtrim(self, key, count, approximate=True):
-        """
-        Trim the stream to the given "count" of messages, discarding the oldest
-        messages first.
-
-        :param key: stream identifier
-        :param count: maximum size of stream
-        :param approximate: allow size to be approximate
-        :returns: number of messages discarded
-        """
-        parts = ['MAXLEN']
-        if approximate:
-            parts.append('~')
-        parts.append(str(count))
-        return self.execute_command('XTRIM', key, *parts)
-
-    def xinfo_stream(self, key):
-        """
-        Retrieve information about a stream.
-
-        :param key: stream key
-        :returns: a dictionary containing stream metadata
-        """
-        return pairs_to_dict(self.execute_command('XINFO', 'STREAM', key))
-
-    def xinfo_groups(self, key):
-        """
-        Retrieve information about consumer groups for the given stream.
-
-        :param key: stream key
-        :returns: a list of dictionaries containing consumer group metadata
-        """
-        resp = self.execute_command('XINFO', 'GROUPS', key)
-        return [pairs_to_dict(cg) for cg in resp]
-
-    def xinfo_consumers(self, key, group):
-        """
-        Retrieve information about consumers within the given consumer group
-        operating on the stream.
-
-        :param key: stream key
-        :param group: consumer group name
-        :returns: a list of dictionaries containing consumer metadata
-        """
-        resp = self.execute_command('XINFO', 'CONSUMERS', key, group)
-        return [pairs_to_dict(c) for c in resp]
-
-    def xgroup_create(self, key, group, id='$', mkstream=False):
-        """
-        Create a consumer group.
-
-        :param key: stream key -- must exist before creating a group if
-            mkstream is ``False`` (default).
-        :param group: consumer group name
-        :param id: set the id of the last-received-message
-        :param mkstream: create the stream automatically
-        """
-        cmd = ['XGROUP', 'CREATE', key, group, id]
-        if mkstream:
-            cmd.append('MKSTREAM')
-        return self.execute_command(*cmd) == b'OK'
-
-    def xgroup_setid(self, key, group, id='$'):
-        """
-        Set the id of the last-received-message for a stream
-
-        :param key: stream key
-        :param group: consumer group name
-        :param id: set the id of the last-received-message
-        """
-        return self.execute_command('XGROUP', 'SETID', key, group, id) == b'OK'
-
-    def xgroup_destroy(self, key, group):
-        """
-        Destroy a consumer group.
-
-        :param key: stream key
-        :param group: consumer group name
-        """
-        return self.execute_command('XGROUP', 'DESTROY', key, group)
-
-    def xgroup_delete_consumer(self, key, group, consumer):
-        """
-        Delete a consumer within a consumer group.
-
-        :param key: stream key
-        :param group: consumer group name
-        :param consumer: consumer name
-        """
-        return self.execute_command('XGROUP', 'DELCONSUMER', key, group,
-                                    consumer)
-
-    def xreadgroup(self, group, consumer, keys, count=None, timeout=None):
-        """
-        Monitor one or more streams for new data using a consumer group.
-
-        :param group: group name
-        :param consumer: consumer name
-        :param keys: stream identifier(s) to monitor. May be a single stream
-            key, a list of stream keys, or a key-to-minimum id mapping. The
-            minimum id for each stream should be considered an exclusive
-            lower-bound. The '>' value can also be used to only read values
-            that have never been delivered to a consumer.
-        :param int count: limit number of messages returned
-        :param int timeout: milliseconds to block, 0 for indefinitely.
-        :returns: a dict keyed by the stream key, whose value is a list of
-            (message id, data) 2-tuples. If no data is available or a timeout
-            occurs, ``None`` is returned.
-        """
-        key_to_id = self._normalize_stream_keys(keys, '>')
-        parts = ['XREADGROUP', 'GROUP', group, consumer]
-        if count is not None:
-            if not isinstance(count, int) or count < 1:
-                raise ValueError('XREADGROUP count must be a positive integer')
-            parts.append('COUNT')
-            parts.append(str(count))
-        if timeout is not None:
-            if not isinstance(timeout, int) or timeout < 0:
-                raise ValueError('XREADGROUP timeout must be >= 0')
-            parts.append('BLOCK')
-            parts.append(str(timeout))
-        parts.append('STREAMS')
-        stream_ids = []
-        for key, stream_id in key_to_id.items():
-            parts.append(key)
-            stream_ids.append(str(stream_id))
-        parts.extend(stream_ids)
-        return self.execute_command(*parts)
-
-    def xack(self, key, group, *id_list):
-        """
-        Acknowledge that a message has been processed by a consumer.
-
-        :param key: stream identifier
-        :param group: consumer group name
-        :param id_list: one or more message ids to acknowledge
-        :returns: number of messages marked acknowledged
-        """
-        return self.execute_command('XACK', key, group, *id_list)
-
-    def xclaim(self, key, group, consumer, min_idle_time, *id_list):
-        """
-        Claim pending - but unacknowledged - messages.
-
-        :param key: stream identifier
-        :param group: consumer group name
-        :param min_idle_time: minimum idle time in milliseconds
-        :param id_list: one or more message ids to acknowledge
-        :returns: list of (message id, data) 2-tuples of messages that were
-            successfully claimed
-        """
-        if not isinstance(min_idle_time, int) or min_idle_time < 0:
-            raise ValueError('min_idle_time must be a non-negative number')
-        return self.execute_command('XCLAIM', key, group, consumer,
-                                    str(min_idle_time), *id_list)
-
-    def xpending(self, key, group, start='-', stop='+', count=1000,
-                 consumer=None):
-        """
-        List pending messages.
-
-        :param key: stream identifier
-        :param group: consumer group name
-        :param start: start id (or '-' for oldest pending)
-        :param stop: stop id (or '+' for newest pending)
-        :param count: limit number of messages returned
-        :param consumer: restrict message list to the given consumer
-        :returns: A list containing status for each pending message. Each
-            pending message returns [id, consumer, idle time, deliveries].
-        """
-        parts = ['XPENDING', key, group, start, stop, str(count)]
-        if consumer is not None:
-            parts.append(consumer)
-        return self.execute_command(*parts)
+        return self.execute_command('XSETID', name, id) == b'OK'
 
     def xpending_summary(self, key, group):
         """
@@ -440,11 +92,9 @@ class Database(Redis):
 
         :param key: stream identifier
         :param group: consumer group name
-        :returns: (count, min id, max id, {consumer: count, ...})
+        :returns: dictionary of information about pending messages
         """
-        resp = self.execute_command('XPENDING', key, group)
-        count, min_id, max_id, consumer_counts = resp
-        return count, min_id, max_id, dict(consumer_counts)
+        return self.xpending(key, group)
 
     def get_transaction(self):
         with self._transaction_lock:

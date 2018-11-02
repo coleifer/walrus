@@ -60,7 +60,7 @@ def normalize_ids(id_list):
 def xread_to_messages(resp):
     if resp is None: return
     accum = []
-    for stream, messages in resp.items():
+    for stream, messages in resp:
         accum.extend(xrange_to_messages(stream, messages))
     # If multiple streams are present, sort them by timestamp.
     if len(resp) > 1:
@@ -132,13 +132,14 @@ class TimeSeriesStream(ConsumerGroupStream):
     def pending(self, start='-', stop='+', count=1000, consumer=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
-        resp = self.database.xpending(self.key, self.group, start, stop,
-                                      count, consumer)
-        return [(id_to_datetime(id), decode(c), idle, n)
-                for id, c, idle, n in resp]
+        resp = self.database.xpending_range(self.key, self.group, start, stop,
+                                            count, consumer)
+        return [(id_to_datetime(msg['message_id']), decode(msg['consumer']),
+                 msg['time_since_delivered'], msg['times_delivered'])
+                for msg in resp]
 
-    def read(self, count=None, timeout=None):
-        resp = super(TimeSeriesStream, self).read(count, timeout)
+    def read(self, count=None, block=None):
+        resp = super(TimeSeriesStream, self).read(count, block)
         if resp is not None:
             return xrange_to_messages(self.key, resp)
 
@@ -177,16 +178,16 @@ class TimeSeries(ConsumerGroup):
     """
     stream_key_class = TimeSeriesStream
 
-    def read(self, count=None, timeout=None):
+    def read(self, count=None, block=None):
         """
         Read unseen messages from all streams in the consumer group. Wrapper
         for :py:class:`Database.xreadgroup` method.
 
         :param int count: limit number of messages returned
-        :param int timeout: milliseconds to block, 0 for indefinitely.
+        :param int block: milliseconds to block, 0 for indefinitely.
         :returns: a list of :py:class:`Message` objects
         """
-        resp = super(TimeSeries, self).read(count, timeout)
+        resp = super(TimeSeries, self).read(count, block)
         return xread_to_messages(resp)
 
     def set_id(self, id='$'):

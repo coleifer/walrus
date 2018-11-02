@@ -66,7 +66,7 @@ class TestTimeSeries(WalrusTestCase):
         self.assertMessages(self.ts.read(count=1), [0, 1, 2])
         self.assertMessages(self.ts.read(count=1), [3, 4, 5])
         self.assertMessages(self.ts.read(count=2), [6, 7, 8, 9])
-        self.assertTrue(self.ts.read() is None)
+        self.assertEqual(self.ts.read(), [])
 
         # Trim the 0-th item off of sa and reset all streams.
         self.ts.sa.trim(3, False)
@@ -121,7 +121,7 @@ class TestTimeSeries(WalrusTestCase):
         self.assertMessages(self.ts.read(count=2), [1, 4, 5, 6, 8, 9])
         self.assertMessages(self.ts.read(count=1), [7])
         for s in (self.ts.sa, self.ts.sb, self.ts.sc):
-            self.assertTrue(s.read() is None)
+            self.assertEqual(s.read(), [])
 
         # Re-set the ID of stream b. Other streams are unaffected, so we just
         # re-read items from stream b.

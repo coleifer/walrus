@@ -132,7 +132,7 @@ class TaskWorker(object):
             if resp is not None:
                 # Resp is structured as:
                 # {stream_key: [(message id, data), ...]}
-                for stream_key, message_list in resp.items():
+                for stream_key, message_list in resp:
                     task_id, data = message_list[0]
                     self.execute(task_id.decode('utf-8'), data[b'task'])
 

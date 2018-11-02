@@ -6,6 +6,7 @@ except ImportError:
     ResponseError = Exception
     zset_score_pairs = None
 
+from walrus.utils import basestring_type
 from walrus.utils import decode as _decode
 from walrus.utils import decode_dict
 from walrus.utils import encode
@@ -1015,6 +1016,19 @@ class Array(Container):
         return arr
 
 
+def _normalize_stream_keys(keys, default_id='0-0'):
+    if isinstance(keys, basestring_type):
+        return {keys: default_id}
+    elif isinstance(keys, (list, tuple)):
+        return dict([(key, default_id) for key in keys])
+    elif isinstance(keys, dict):
+        return keys
+    else:
+        raise ValueError('keys must be either a stream key, a list of '
+                         'stream keys, or a dictionary mapping key to '
+                         'minimum message id.')
+
+
 class Stream(Container):
     """
     Redis stream container.
@@ -1061,11 +1075,21 @@ class Stream(Container):
         """
         Read a range of values from a stream.
 
-        :param start: start key of range (inclusive) or '-' for first message
-        :param stop: stop key of range (inclusive) or '+' for last message
+        :param start: start key of range (inclusive) or '-' for oldest message
+        :param stop: stop key of range (inclusive) or '+' for newest message
         :param count: limit number of messages returned
         """
         return self.database.xrange(self.key, start, stop, count)
+
+    def revrange(self, start='+', stop='-', count=None):
+        """
+        Read a range of values from a stream in reverse.
+
+        :param start: start key of range (inclusive) or '+' for newest message
+        :param stop: stop key of range (inclusive) or '-' for oldest message
+        :param count: limit number of messages returned
+        """
+        return self.database.xrevrange(self.key, start, stop, count)
 
     def __iter__(self):
         return iter(self[:])
@@ -1079,33 +1103,36 @@ class Stream(Container):
             item = (item,)
         self.delete(*item)
 
-    def __len__(self):
+    def delete(self, *id_list):
+        """
+        Delete one or more message by id. The index can be either a single
+        message id or a list/tuple of multiple ids.
+        """
+        return self.database.xdel(self.key, *id_list)
+
+    def length(self):
         """
         Return the length of a stream.
         """
         return self.database.xlen(self.key)
-    length = __len__
+    __len__ = length
 
-    def read(self, count=None, timeout=None, last_id=None):
+    def read(self, count=None, block=None, last_id=None):
         """
         Monitor stream for new data.
 
         :param int count: limit number of messages returned
-        :param int timeout: milliseconds to block, 0 for indefinitely
+        :param int block: milliseconds to block, 0 for indefinitely
         :param last_id: Last id read (an exclusive lower-bound). If the '$'
             value is given, we will only read values added *after* our command
             started blocking.
-        :returns: a list of (message id, data) 2-tuples. If no data is
-            available or a timeout occurs, ``None`` is returned.
+        :returns: a list of (message id, data) 2-tuples.
         """
-        kwargs = {'count': count, 'timeout': timeout}
-        if last_id is not None:
-            kwargs['keys'] = {self.key: _decode(last_id)}
-        else:
-            kwargs['keys'] = self.key
-        resp = self.database.xread(**kwargs)
-        if resp is not None:
-            return resp[self.key]
+        if last_id is None: last_id = '0-0'
+        resp = self.database.xread({self.key: _decode(last_id)}, count, block)
+
+            # resp is a 2-tuple of stream name -> message list.
+        return resp[0][1] if resp else []
 
     def info(self):
         """
@@ -1121,7 +1148,7 @@ class Stream(Container):
         Retrieve information about consumer groups for the stream. Wraps call
         to :py:meth:`~Database.xinfo_groups`.
 
-        :returns: a list of dictionaries containing consumer group metadata
+        :returns: a dictionary containing consumer group metadata
         """
         return self.database.xinfo_groups(self.key)
 
@@ -1131,16 +1158,9 @@ class Stream(Container):
         operating on the stream. Calls :py:meth:`~Database.xinfo_consumers`.
 
         :param group: consumer group name
-        :returns: a list of dictionaries containing consumer metadata
+        :returns: a dictionary containing consumer metadata
         """
         return self.database.xinfo_consumers(self.key, group)
-
-    def delete(self, *id_list):
-        """
-        Delete one or more message by id. The index can be either a single
-        message id or a list/tuple of multiple ids.
-        """
-        return self.database.xdel(self.key, *id_list)
 
     def set_id(self, id):
         """
@@ -1217,7 +1237,7 @@ class ConsumerGroupStream(Stream):
         min_idle_time = kwargs.pop('min_idle_time', None) or 0
         if kwargs: raise ValueError('incorrect arguments for claim()')
         return self.database.xclaim(self.key, self.group, self._consumer,
-                                    min_idle_time, *id_list)
+                                    min_idle_time, id_list)
 
     def pending(self, start='-', stop='+', count=1000, consumer=None):
         """
@@ -1230,23 +1250,24 @@ class ConsumerGroupStream(Stream):
         :returns: A list containing status for each pending message. Each
             pending message returns [id, consumer, idle time, deliveries].
         """
-        return self.database.xpending(self.key, self.group, start, stop,
-                                      count, consumer)
+        return self.database.xpending_range(self.key, self.group, start, stop,
+                                            count, consumer)
 
-    def read(self, count=None, timeout=None):
+    def read(self, count=None, block=None, last_id=None):
         """
         Monitor the stream for new messages within the context of the parent
         :py:class:`ConsumerGroup`.
 
         :param int count: limit number of messages returned
-        :param int timeout: milliseconds to block, 0 for indefinitely.
-        :returns: a list of (message id, data) 2-tuples. If no data is
-            available or a timeout occurs, ``None`` is returned.
+        :param int block: milliseconds to block, 0 for indefinitely.
+        :param str last_id: optional last ID, by default uses the special
+            token ">", which reads the oldest unread message.
+        :returns: a list of (message id, data) 2-tuples.
         """
-        resp = self.database.xreadgroup(self.group, self._consumer, self.key,
-                                        count, timeout)
-        if resp is not None:
-            return resp[self.key]
+        key = {self.key: '>' if last_id is None else last_id}
+        resp = self.database.xreadgroup(self.group, self._consumer, key, count,
+                                        block)
+        return resp[0][1] if resp else []
 
     def set_id(self, id='$'):
         """
@@ -1257,6 +1278,18 @@ class ConsumerGroupStream(Stream):
         :param id: id of last-read message (or "$").
         """
         return self.database.xgroup_setid(self.key, self.group, id)
+
+    def delete_consumer(self, consumer=None):
+        """
+        Remove a specific consumer from a consumer group.
+
+        :consumer: name of consumer to delete. If not provided, will be the
+            default consumer for this stream.
+        :returns: number of pending messages that the consumer had before
+            being deleted.
+        """
+        if consumer is None: consumer = self._consumer
+        return self.database.xgroup_delconsumer(self.key, self.group, consumer)
 
 
 class ConsumerGroup(object):
@@ -1298,7 +1331,8 @@ class ConsumerGroup(object):
     def __init__(self, database, name, keys, consumer=None):
         self.database = database
         self.name = name
-        self.keys = self.database._normalize_stream_keys(keys)
+        self.keys = _normalize_stream_keys(keys)
+        self._read_keys = _normalize_stream_keys(list(self.keys), '>')
         self._consumer = consumer or (self.name + '.c1')
 
         # Add attributes for each stream exposed as part of the group.
@@ -1334,6 +1368,8 @@ class ConsumerGroup(object):
                                      'this key will not be deleted.')
 
         resp = {}
+
+        # Mapping of key -> last-read message ID.
         for key, value in self.keys.items():
             try:
                 resp[key] = self.database.xgroup_create(key, self.name, value)
@@ -1360,21 +1396,20 @@ class ConsumerGroup(object):
             resp[key] = self.database.xgroup_destroy(key, self.name)
         return resp
 
-    def read(self, count=None, timeout=None, consumer=None):
+    def read(self, count=None, block=None, consumer=None):
         """
         Read unseen messages from all streams in the consumer group. Wrapper
         for :py:class:`Database.xreadgroup` method.
 
         :param int count: limit number of messages returned
-        :param int timeout: milliseconds to block, 0 for indefinitely.
+        :param int block: milliseconds to block, 0 for indefinitely.
         :param consumer: consumer name
-        :returns: a dict keyed by the stream key, whose value is a list of
-            (message id, data) 2-tuples. If no data is available or a timeout
-            occurs, ``None`` is returned.
+        :returns: a list of (stream key, messages) tuples, where messages is
+            a list of (message id, data) 2-tuples.
         """
         if consumer is None: consumer = self._consumer
-        return self.database.xreadgroup(self.name, consumer, list(self.keys),
-                                        count, timeout)
+        return self.database.xreadgroup(self.name, consumer, self._read_keys,
+                                        count, block)
 
     def set_id(self, id='$'):
         """
