@@ -1446,6 +1446,9 @@ class ConsumerGroup(object):
 
 
 class BitFieldOperation(object):
+    """
+    Command builder for BITFIELD commands.
+    """
     def __init__(self, database, key):
         self.database = database
         self.key = key
@@ -1453,6 +1456,18 @@ class BitFieldOperation(object):
         self._last_overflow = None  # Default is "WRAP".
 
     def incrby(self, fmt, offset, increment, overflow=None):
+        """
+        Increment a bitfield by a given amount.
+
+        :param fmt: format-string for the bitfield being updated, e.g. u8 for
+            an unsigned 8-bit integer.
+        :param int offset: offset (in number of bits).
+        :param int increment: value to increment the bitfield by.
+        :param str overflow: overflow algorithm. Defaults to WRAP, but other
+            acceptable values are SAT and FAIL. See the Redis docs for
+            descriptions of these algorithms.
+        :returns: a :py:class:`BitFieldOperation` instance.
+        """
         if overflow is not None and overflow != self._last_overflow:
             self._last_overflow = overflow
             self.operations.append(('OVERFLOW', overflow))
@@ -1461,10 +1476,27 @@ class BitFieldOperation(object):
         return self
 
     def get(self, fmt, offset):
+        """
+        Get the value of a given bitfield.
+
+        :param fmt: format-string for the bitfield being read, e.g. u8 for an
+            unsigned 8-bit integer.
+        :param int offset: offset (in number of bits).
+        :returns: a :py:class:`BitFieldOperation` instance.
+        """
         self.operations.append(('GET', fmt, offset))
         return self
 
     def set(self, fmt, offset, value):
+        """
+        Set the value of a given bitfield.
+
+        :param fmt: format-string for the bitfield being read, e.g. u8 for an
+            unsigned 8-bit integer.
+        :param int offset: offset (in number of bits).
+        :param int value: value to set at the given position.
+        :returns: a :py:class:`BitFieldOperation` instance.
+        """
         self.operations.append(('SET', fmt, offset, value))
         return self
 
@@ -1473,22 +1505,68 @@ class BitFieldOperation(object):
         return reduce(operator.add, self.operations, ('BITFIELD', self.key))
 
     def execute(self):
+        """
+        Execute the operation(s) in a single BITFIELD command. The return value
+        is a list of values corresponding to each operation.
+        """
         return self.database.execute_command(*self.command)
 
     def __iter__(self):
+        """
+        Implicit execution and iteration of the return values for a sequence of
+        operations.
+        """
         return iter(self.execute())
 
 
 class BitField(Container):
+    """
+    Wrapper that provides a convenient API for constructing and executing Redis
+    BITFIELD commands. The BITFIELD command can pack multiple operations into a
+    single logical command, so the :py:class:`BitField` supports a method-
+    chaining API that allows multiple operations to be performed atomically.
+
+    Rather than instantiating this class directly, you should use the
+    :py:meth:`Database.bit_field` method to obtain a :py:class:`BitField`.
+    """
     def incrby(self, fmt, offset, increment, overflow=None):
+        """
+        Increment a bitfield by a given amount.
+
+        :param fmt: format-string for the bitfield being updated, e.g. u8 for
+            an unsigned 8-bit integer.
+        :param int offset: offset (in number of bits).
+        :param int increment: value to increment the bitfield by.
+        :param str overflow: overflow algorithm. Defaults to WRAP, but other
+            acceptable values are SAT and FAIL. See the Redis docs for
+            descriptions of these algorithms.
+        :returns: a :py:class:`BitFieldOperation` instance.
+        """
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.incrby(fmt, offset, increment, overflow)
 
     def get(self, fmt, offset):
+        """
+        Get the value of a given bitfield.
+
+        :param fmt: format-string for the bitfield being read, e.g. u8 for an
+            unsigned 8-bit integer.
+        :param int offset: offset (in number of bits).
+        :returns: a :py:class:`BitFieldOperation` instance.
+        """
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.get(fmt, offset)
 
     def set(self, fmt, offset, value):
+        """
+        Set the value of a given bitfield.
+
+        :param fmt: format-string for the bitfield being read, e.g. u8 for an
+            unsigned 8-bit integer.
+        :param int offset: offset (in number of bits).
+        :param int value: value to set at the given position.
+        :returns: a :py:class:`BitFieldOperation` instance.
+        """
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.set(fmt, offset, value)
 
@@ -1503,10 +1581,21 @@ class BitField(Container):
         return start, item.stop
 
     def __getitem__(self, item):
+        """
+        Short-hand for getting a range of bits in a bitfield. Note that the
+        item **must** be a slice specifying the start and end of the range of
+        bits to read.
+        """
         start, stop = self._validate_slice(item)
         return self.get('u%s' % (stop - start), start).execute()[0]
 
     def __setitem__(self, item, value):
+        """
+        Short-hand for setting a range of bits in a bitfield. Note that the
+        item **must** be a slice specifying the start and end of the range of
+        bits to read. If the value representation exceeds the number of bits
+        implied by the slice range, a ``ValueError`` is raised.
+        """
         start, stop = self._validate_slice(item)
         nbits = stop - start
         if value >= (1 << nbits):
@@ -1514,11 +1603,23 @@ class BitField(Container):
         self.set('u%s' % nbits, start, value).execute()
 
     def __delitem__(self, item):
+        """
+        Clear a range of bits in a bitfield. Note that the item **must** be a
+        slice specifying the start and end of the range of bits to clear.
+        """
         start, stop = self._validate_slice(item)
         self.set('u%s' % (stop - start), start, 0).execute()
 
     def get_raw(self):
+        """
+        Return the raw bytestring that comprises the bitfield. Equivalent to a
+        normal GET command.
+        """
         return self.database.get(self.key)
 
     def set_raw(self, value):
+        """
+        Set the raw bytestring that comprises the bitfield. Equivalent to a
+        normal SET command.
+        """
         return self.database.set(self.key, value)

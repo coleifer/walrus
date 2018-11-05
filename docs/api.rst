@@ -28,6 +28,7 @@ API Documentation
       Stream,
       consumer_group,
       time_series,
+      bit_field,
       cas,
       xsetid,
       listener,
@@ -178,6 +179,25 @@ Container types
       pending,
       read,
       set_id
+
+.. autoclass:: BitField(Container)
+    :members:
+      incrby
+      get
+      set
+      __getitem__
+      __setitem__
+      __delitem__
+      get_raw
+      set_raw
+
+.. autoclass:: walrus.containers.BitFieldOperation
+    :members:
+      incrby
+      get
+      set
+      execute
+      __iter__
 
 High-level APIs
 ---------------
