@@ -883,3 +883,40 @@ class TestStream(WalrusTestCase):
 
         # Nonexistant values return None.
         self.assertTrue(stream.get('61-0') is None)
+
+
+class TestBitField(WalrusTestCase):
+    def setUp(self):
+        super(TestBitField, self).setUp()
+        self.bf = db.bit_field('bf')
+
+    def test_simple_operations(self):
+        resp = (self.bf
+                .set('u8', 8, 255)
+                .get('u8', 0)
+                .get('u4', 8)  # 1111
+                .get('u4', 12)  # 1111
+                .get('u4', 13)  # 1110
+                .execute())
+        self.assertEqual(resp, [0, 0, 15, 15, 14])
+
+        resp = (self.bf
+                .set('u8', 4, 1)  # 00ff -> 001f (returns old val, 0x0f)
+                .get('u16', 0)  # 001f (00011111)
+                .set('u16', 0, 0))  # 001f -> 0000
+        self.assertEqual(list(resp), [15, 31, 31])
+
+        resp = (self.bf
+                .incrby('u8', 8, 254)
+                .get('u16', 0))
+        self.assertEqual(list(resp), [254, 254])
+
+        # Verify overflow protection works:
+        resp = (self.bf
+                .incrby('u8', 8, 2, 'FAIL')
+                .incrby('u8', 8, 1)
+                .incrby('u8', 8, 1)  # Still "FAIL".
+                .get('u16', 0))
+        self.assertEqual(list(resp), [None, 255, None, 255])
+
+        self.assertEqual(self.bf.get_raw(), b'\x00\xff')

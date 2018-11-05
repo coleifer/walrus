@@ -19,6 +19,7 @@ except ImportError:
 from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
+from walrus.containers import BitField
 from walrus.containers import ConsumerGroup
 from walrus.containers import Hash
 from walrus.containers import HyperLogLog
@@ -333,6 +334,14 @@ class Database(Redis):
         :returns: a :py:class:`TimeSeries` instance
         """
         return TimeSeries(self, group, keys, consumer=consumer)
+
+    def bit_field(self, key):
+        """
+        Container for working with the Redis BITFIELD command.
+
+        :returns: a :py:class:`BitField` instance.
+        """
+        return BitField(self, key)
 
     def cas(self, key, value, new_value):
         """

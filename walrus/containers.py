@@ -1,3 +1,8 @@
+import operator
+try:
+    from functools import reduce
+except ImportError:
+    pass
 from functools import wraps
 try:
     from redis.client import zset_score_pairs
@@ -1438,3 +1443,57 @@ class ConsumerGroup(object):
         for key in self.keys:
             accum[key] = self.database.xinfo_stream(key)
         return accum
+
+
+class BitFieldOperation(object):
+    def __init__(self, database, key):
+        self.database = database
+        self.key = key
+        self.operations = []
+        self._last_overflow = None  # Default is "WRAP".
+
+    def incrby(self, fmt, offset, increment, overflow=None):
+        if overflow is not None and overflow != self._last_overflow:
+            self._last_overflow = overflow
+            self.operations.append(('OVERFLOW', overflow))
+
+        self.operations.append(('INCRBY', fmt, offset, increment))
+        return self
+
+    def get(self, fmt, offset):
+        self.operations.append(('GET', fmt, offset))
+        return self
+
+    def set(self, fmt, offset, value):
+        self.operations.append(('SET', fmt, offset, value))
+        return self
+
+    @property
+    def command(self):
+        return reduce(operator.add, self.operations, ('BITFIELD', self.key))
+
+    def execute(self):
+        return self.database.execute_command(*self.command)
+
+    def __iter__(self):
+        return iter(self.execute())
+
+
+class BitField(Container):
+    def incrby(self, fmt, offset, increment, overflow=None):
+        bfo = BitFieldOperation(self.database, self.key)
+        return bfo.incrby(fmt, offset, increment, overflow)
+
+    def get(self, fmt, offset):
+        bfo = BitFieldOperation(self.database, self.key)
+        return bfo.get(fmt, value)
+
+    def set(self, fmt, offset, value):
+        bfo = BitFieldOperation(self.database, self.key)
+        return bfo.set(fmt, offset, value)
+
+    def get_raw(self):
+        return self.database.get(self.key)
+
+    def set_raw(self, value):
+        return self.database.set(self.key, value)
