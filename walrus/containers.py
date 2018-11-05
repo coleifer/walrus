@@ -1500,6 +1500,17 @@ class BitField(Container):
         start = item.start or 0
         return self.get('u%s' % (item.stop - start), start).execute()[0]
 
+    def __setitem__(self, item, value):
+        if not isinstance(item, slice):
+            raise ValueError('Must use a slice.')
+        if item.stop is None or item.stop < 0:
+            raise ValueError('slice must have a non-negative upper-bound')
+        start = item.start or 0
+        nbits = item.stop - start
+        if value >= (1 << nbits):
+            raise ValueError('value exceeds width specified by slice')
+        self.set('u%s' % nbits, start, value).execute()
+
     def get_raw(self):
         return self.database.get(self.key)
 

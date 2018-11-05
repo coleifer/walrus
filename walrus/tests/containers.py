@@ -924,9 +924,20 @@ class TestBitField(WalrusTestCase):
     def test_slicing(self):
         resp = self.bf.set('u8', 0, 166).execute()  # 10100110
 
-        self.assertEqual(self.bf[0:8], 166)
-        self.assertEqual(self.bf[0:4], 10)  # 1010
+        self.assertEqual(self.bf[:8], 166)
+        self.assertEqual(self.bf[:4], 10)  # 1010
         self.assertEqual(self.bf[4:8], 6)   # 0110
         self.assertEqual(self.bf[2:6], 9) # 1001
         self.assertEqual(self.bf[6:10], 8) # 10?? -> 1000
         self.assertEqual(self.bf[8:16], 0)  # Undefined, defaults to zero.
+
+        self.assertRaises(ValueError, lambda: self.bf[1])
+        self.assertRaises(ValueError, lambda: self.bf[1:])
+
+        self.bf[:8] = 89  # 01011001
+        self.assertEqual(self.bf[:8], 89)
+        def overflow():
+            self.bf[:8] = 256
+        self.assertRaises(ValueError, overflow)
+        self.bf[:8] = 255
+        self.assertEqual(self.bf[:8], 255)
