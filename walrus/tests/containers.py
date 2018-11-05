@@ -933,6 +933,7 @@ class TestBitField(WalrusTestCase):
 
         self.assertRaises(ValueError, lambda: self.bf[1])
         self.assertRaises(ValueError, lambda: self.bf[1:])
+        self.assertRaises(ValueError, lambda: self.bf[4:1])
 
         self.bf[:8] = 89  # 01011001
         self.assertEqual(self.bf[:8], 89)
@@ -941,3 +942,6 @@ class TestBitField(WalrusTestCase):
         self.assertRaises(ValueError, overflow)
         self.bf[:8] = 255
         self.assertEqual(self.bf[:8], 255)
+
+        del self.bf[2:6]
+        self.assertEqual(self.bf[:8], 195)  # 11000011

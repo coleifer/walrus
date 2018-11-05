@@ -1492,24 +1492,30 @@ class BitField(Container):
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.set(fmt, offset, value)
 
-    def __getitem__(self, item):
+    def _validate_slice(self, item):
         if not isinstance(item, slice):
             raise ValueError('Must use a slice.')
         if item.stop is None or item.stop < 0:
             raise ValueError('slice must have a non-negative upper-bound')
         start = item.start or 0
-        return self.get('u%s' % (item.stop - start), start).execute()[0]
+        if start > item.stop:
+            raise ValueError('start of slice cannot exceed stop')
+        return start, item.stop
+
+    def __getitem__(self, item):
+        start, stop = self._validate_slice(item)
+        return self.get('u%s' % (stop - start), start).execute()[0]
 
     def __setitem__(self, item, value):
-        if not isinstance(item, slice):
-            raise ValueError('Must use a slice.')
-        if item.stop is None or item.stop < 0:
-            raise ValueError('slice must have a non-negative upper-bound')
-        start = item.start or 0
-        nbits = item.stop - start
+        start, stop = self._validate_slice(item)
+        nbits = stop - start
         if value >= (1 << nbits):
             raise ValueError('value exceeds width specified by slice')
         self.set('u%s' % nbits, start, value).execute()
+
+    def __delitem__(self, item):
+        start, stop = self._validate_slice(item)
+        self.set('u%s' % (stop - start), start, 0).execute()
 
     def get_raw(self):
         return self.database.get(self.key)
