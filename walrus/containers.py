@@ -1486,11 +1486,19 @@ class BitField(Container):
 
     def get(self, fmt, offset):
         bfo = BitFieldOperation(self.database, self.key)
-        return bfo.get(fmt, value)
+        return bfo.get(fmt, offset)
 
     def set(self, fmt, offset, value):
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.set(fmt, offset, value)
+
+    def __getitem__(self, item):
+        if not isinstance(item, slice):
+            raise ValueError('Must use a slice.')
+        if item.stop is None or item.stop < 0:
+            raise ValueError('slice must have a non-negative upper-bound')
+        start = item.start or 0
+        return self.get('u%s' % (item.stop - start), start).execute()[0]
 
     def get_raw(self):
         return self.database.get(self.key)

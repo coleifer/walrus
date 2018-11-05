@@ -920,3 +920,13 @@ class TestBitField(WalrusTestCase):
         self.assertEqual(list(resp), [None, 255, None, 255])
 
         self.assertEqual(self.bf.get_raw(), b'\x00\xff')
+
+    def test_slicing(self):
+        resp = self.bf.set('u8', 0, 166).execute()  # 10100110
+
+        self.assertEqual(self.bf[0:8], 166)
+        self.assertEqual(self.bf[0:4], 10)  # 1010
+        self.assertEqual(self.bf[4:8], 6)   # 0110
+        self.assertEqual(self.bf[2:6], 9) # 1001
+        self.assertEqual(self.bf[6:10], 8) # 10?? -> 1000
+        self.assertEqual(self.bf[8:16], 0)  # Undefined, defaults to zero.

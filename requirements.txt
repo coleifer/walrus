@@ -1,1 +1,1 @@
-redis
+-e git+https://github.com/andymccurdy/redis-py.git#egg=redis
