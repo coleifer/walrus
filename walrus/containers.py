@@ -1623,3 +1623,29 @@ class BitField(Container):
         normal SET command.
         """
         return self.database.set(self.key, value)
+
+    def bit_count(self, start=None, end=None):
+        """
+        Count the set bits in a string. Note that the `start` and `end`
+        parameters are offsets in **bytes**.
+        """
+        return self.database.bitcount(self.key, start, end)
+
+    def get_bit(self, offset):
+        """
+        Get the bit value at the given offset (in bits).
+
+        :param int offset: bit offset
+        :returns: value at bit offset, 1 or 0
+        """
+        return self.database.getbit(self.key, offset)
+
+    def set_bit(self, offset, value):
+        """
+        Set the bit value at the given offset (in bits).
+
+        :param int offset: bit offset
+        :param int value: new value for bit, 1 or 0
+        :returns: previous value at bit offset, 1 or 0
+        """
+        return self.database.setbit(self.key, offset, value)

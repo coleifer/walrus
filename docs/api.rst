@@ -190,6 +190,9 @@ Container types
       __delitem__
       get_raw
       set_raw
+      bit_count
+      get_bit
+      set_bit
 
 .. autoclass:: walrus.containers.BitFieldOperation
     :members:
