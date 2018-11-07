@@ -1669,6 +1669,7 @@ class BloomFilter(Container):
     def __init__(self, database, key, size=64 * 1024):
         super(BloomFilter, self).__init__(database, key)
         self.size = size
+        self.bits = self.size * 8
         self._bf = BitField(self.database, self.key)
 
     def _get_seeds(self, data):
@@ -1676,7 +1677,7 @@ class BloomFilter(Container):
         # (32-bit) unsigned integers. We use the modulo operator to normalize
         # these 32-bit ints to bit-indices.
         seeds = struct.unpack('>IIII', hashlib.md5(encode(data)).digest())
-        return [seed % (self.size * 8) for seed in seeds]
+        return [seed % self.bits for seed in seeds]
 
     def add(self, data):
         """
