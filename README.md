@@ -20,6 +20,8 @@ walrus consists of:
     * [Sorted Set](https://walrus.readthedocs.io/en/latest/containers.html#sorted-sets-zset)
     * [HyperLogLog](https://walrus.readthedocs.io/en/latest/containers.html#hyperloglog)
     * [Array](https://walrus.readthedocs.io/en/latest/containers.html#arrays) (custom type)
+    * [BitField](https://walrus.readthedocs.io/en/latest/containers.html#bitfield)
+    * [BloomFilter](https://walrus.readthedocs.io/en/latest/containers.html#bloomfilter)
     * [**Streams**](https://walrus.readthedocs.io/en/latest/streams.html)
 * [Autocomplete](https://walrus.readthedocs.io/en/latest/autocomplete.html)
 * [Cache](https://walrus.readthedocs.io/en/latest/cache.html) implementation that exposes several decorators for caching function and method calls.

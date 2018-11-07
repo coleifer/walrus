@@ -26,6 +26,7 @@ from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
 from walrus.containers import BitField
+from walrus.containers import BloomFilter
 from walrus.containers import ConsumerGroup
 from walrus.containers import Container
 from walrus.containers import Hash

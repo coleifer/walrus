@@ -24,6 +24,7 @@ walrus consists of:
 * pythonic container classes for the Redis data-types.
 * support for stream APIs, plus regular and blocking ``zpop`` variants.
 * autocomplete
+* bloom filter
 * cache
 * full-text search
 * graph store
