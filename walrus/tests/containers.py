@@ -945,3 +945,31 @@ class TestBitField(WalrusTestCase):
 
         del self.bf[2:6]
         self.assertEqual(self.bf[:8], 195)  # 11000011
+
+
+class TestBloomFilter(WalrusTestCase):
+    def setUp(self):
+        super(TestBloomFilter, self).setUp()
+        self.bf = db.bloom_filter('bf')
+
+    def test_bloom_filter(self):
+        data = ('foo', 'bar', 'baz', 'nugget', 'this is a test', 'testing',
+                'alpha', 'beta', 'delta', 'gamma')
+
+        # Verify that the bloom-filter does not contain any of our items.
+        for item in data:
+            self.assertFalse(item in self.bf)
+
+        # Add all the items to the bloom filter.
+        for item in data:
+            self.bf.add(item)
+
+        # Verify that all of our items are now present.
+        for item in data:
+            self.assertTrue(item in self.bf)
+
+        # Making some small modifications we can verify that all these other
+        # items are not present, however.
+        for item in data:
+            self.assertFalse(item.upper() in self.bf)
+            self.assertFalse(item.title() in self.bf)

@@ -1,4 +1,6 @@
+import hashlib
 import operator
+import struct
 try:
     from functools import reduce
 except ImportError:
@@ -1649,3 +1651,58 @@ class BitField(Container):
         :returns: previous value at bit offset, 1 or 0
         """
         return self.database.setbit(self.key, offset, value)
+
+
+class BloomFilter(Container):
+    """
+    Bloom-filters are probabilistic data-structures that are used to answer the
+    question: "is X a member of set S?" It is possible to receive a false
+    positive, but impossible to receive a false negative (in other words, if
+    the bloom filter contains a value, it will never erroneously report that it
+    does *not* contain such a value). The accuracy of the bloom-filter and the
+    likelihood of a false positive can be reduced by increasing the size of the
+    bloomfilter. The default size is 64KB (or 524,288 bits).
+
+    Rather than instantiate this class directly, use
+    :py:meth:`Database.bloom_filter`.
+    """
+    def __init__(self, database, key, size=64 * 1024):
+        super(BloomFilter, self).__init__(database, key)
+        self.size = size
+        self._bf = BitField(self.database, self.key)
+
+    def _get_seeds(self, data):
+        # Hash the data into a 16-byte digest, then break that up into 4 4-byte
+        # (32-bit) unsigned integers. We use the modulo operator to normalize
+        # these 32-bit ints to bit-indices.
+        seeds = struct.unpack('>IIII', hashlib.md5(encode(data)).digest())
+        return [seed % (self.size * 8) for seed in seeds]
+
+    def add(self, data):
+        """
+        Add an item to the bloomfilter.
+
+        :param bytes data: a bytestring representing the item to add.
+        """
+        bfo = BitFieldOperation(self.database, self.key)
+        for bit_index in self._get_seeds(data):
+            bfo.set('u1', bit_index, 1)
+        bfo.execute()
+
+    def contains(self, data):
+        """
+        Check if an item has been added to the bloomfilter.
+
+        :param bytes data: a bytestring representing the item to check.
+        :returns: a boolean indicating whether or not the item is present in
+            the bloomfilter. False-positives are possible, but a negative
+            return value is definitive.
+        """
+        bfo = BitFieldOperation(self.database, self.key)
+        for bit_index in self._get_seeds(data):
+            bfo.get('u1', bit_index)
+        return all(bfo.execute())
+    __contains__ = contains
+
+    def __len__(self):
+        return self.size

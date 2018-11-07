@@ -20,6 +20,7 @@ from walrus.autocomplete import Autocomplete
 from walrus.cache import Cache
 from walrus.containers import Array
 from walrus.containers import BitField
+from walrus.containers import BloomFilter
 from walrus.containers import ConsumerGroup
 from walrus.containers import Hash
 from walrus.containers import HyperLogLog
@@ -342,6 +343,21 @@ class Database(Redis):
         :returns: a :py:class:`BitField` instance.
         """
         return BitField(self, key)
+
+    def bloom_filter(self, key, size=64 * 1024):
+        """
+        Create a :py:class:`BloomFilter` container type.
+
+        Bloom-filters are probabilistic data-structures that are used to answer
+        the question: "is X a member of set S?" It is possible to receive a
+        false positive, but impossible to receive a false negative (in other
+        words, if the bloom filter contains a value, it will never erroneously
+        report that it does *not* contain such a value). The accuracy of the
+        bloom-filter and the likelihood of a false positive can be reduced by
+        increasing the size of the bloomfilter. The default size is 64KB (or
+        524,288 bits).
+        """
+        return BloomFilter(self, key, size)
 
     def cas(self, key, value, new_value):
         """

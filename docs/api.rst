@@ -29,6 +29,7 @@ API Documentation
       consumer_group,
       time_series,
       bit_field,
+      bloom_filter,
       cas,
       xsetid,
       listener,
@@ -201,6 +202,12 @@ Container types
       set
       execute
       __iter__
+
+.. autoclass:: BloomFilter(Container)
+    :members:
+      add
+      contains
+      __contains__
 
 High-level APIs
 ---------------
