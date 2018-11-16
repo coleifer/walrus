@@ -2,7 +2,17 @@
 
 This document describes changes to the APIs.
 
-### 0.7.0 (unreleased)
+### master
+
+No changes yet.
+
+### 0.7.0
+
+Depends on [redis-py](https://github.com/andymccurdy/redis-py) 3.0 or newer.
+There are a number of backwards-incompatible changes in redis-py. Because
+walrus provides high-level abstractions for the Redis data-types/commands, your
+walrus code should work with little or no modifications. Refer to the [list of changes](https://github.com/andymccurdy/redis-py#upgrading-from-redis-py-2x-to-30)
+for more information.
 
 [redis-py](https://github.com/andymccurdy/redis-py) added support for stream
 commands as well as zpop/bzpop. As a result, walrus no longer contains separate
@@ -17,6 +27,13 @@ list of `(message_id, data)` 2-tuples. Going forward, the return value will be
 a list of `[stream_name, [(message_id, data), ...]]`. To retain the
 functionality of walrus prior-to 0.7.0, just wrap the return value in a call to
 the `dict` constructor: `ret = dict(consumer_group.read(count=1))`.
+
+* Added [BloomFilter](https://walrus.readthedocs.io/en/latest/api.html#walrus.Database.bloom_filter)
+  container type, which supports `add()` and `contains()`.
+* Added a high-level [BitField](https://walrus.readthedocs.io/en/latest/api.html#walrus.BitField)
+  container type.
+
+[View all changes](https://github.com/coleifer/walrus/compare/0.6.4...0.7.0)
 
 ### 0.6.0
 
