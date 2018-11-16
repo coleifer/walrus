@@ -162,17 +162,17 @@ class TestZSet(WalrusTestCase):
         self.assertEqual(list(self.zs), expected)
 
     def test_basic_apis(self):
-        self.zs.add('i1', 1, 'i2', 2)
+        self.zs.add({'i1': 1, 'i2': 2})
         self.assertZSet([(b'i1', 1), (b'i2', 2)])
 
-        self.zs.add('i0', 0)
-        self.zs.add('i3', 3)
+        self.zs.add({'i0': 0})
+        self.zs.add({'i3': 3})
         self.assertZSet([(b'i0', 0), (b'i1', 1), (b'i2', 2), (b'i3', 3)])
 
         self.zs.remove('i1')
         self.zs.remove_by_score(3)
-        self.zs.add('i2', -2)
-        self.zs.add('i9', 9)
+        self.zs.add({'i2': -2})
+        self.zs.add({'i9': 9})
         self.assertZSet([(b'i2', -2.), (b'i0', 0.), (b'i9', 9.)])
 
         # __len__
@@ -209,7 +209,7 @@ class TestZSet(WalrusTestCase):
     @zpop_test
     def test_popmin_popmax(self):
         for i in range(10):
-            self.zs.add('i%s' % i, i)
+            self.zs.add({'i%s' % i: i})
 
         # a list of item/score tuples is returned.
         self.assertEqual(self.zs.popmin(2), [(b'i0', 0.), (b'i1', 1.)])
@@ -255,7 +255,7 @@ class TestZSet(WalrusTestCase):
         self.assertZSet([(b'i2', -2.), (b'i0', 0.), (b'i9', 9.)])
 
     def test_slicing(self):
-        self.zs.add('i1', 1, 'i2', 2, 'i3', 3, 'i0', 0)
+        self.zs.add({'i1': 1, 'i2': 2, 'i3': 3, 'i0': 0})
         self.assertEqual(self.zs[:1, True], [(b'i0', 0)])
         self.assertEqual(self.zs[1:3, False], [b'i1', b'i2'])
         self.assertEqual(self.zs[1:-1, True], [(b'i1', 1), (b'i2', 2)])
@@ -275,8 +275,8 @@ class TestZSet(WalrusTestCase):
 
     def test_combine_store(self):
         zs2 = db.ZSet('my-zset2')
-        self.zs.add(1, 1, 2, 2, 3, 3)
-        zs2.add(3, 3, 4, 4, 5, 5)
+        self.zs.add({1: 1, 2: 2, 3: 3})
+        zs2.add({3: 3, 4: 4, 5: 5})
 
         zs3 = self.zs.unionstore('my-zset3', zs2)
         self.assertEqual(
@@ -294,14 +294,14 @@ class TestZSet(WalrusTestCase):
         self.assertEqual(list(zs3), [(b'3', 9.)])
 
     def test_search(self):
-        self.zs.add('foo', 1, 'bar', 2, 'baz', 1, 'nug', 3)
+        self.zs.add({'foo': 1, 'bar': 2, 'baz': 1, 'nug': 3})
         self.assertEqual(
             list(self.zs.search('b*')),
             [(b'baz', 1.), (b'bar', 2.)])
 
     def test_sort(self):
         values = ['charlie', 3, 'zaizee', 2, 'mickey', 6, 'huey', 3]
-        self.zs.add(*values)
+        self.zs.add(dict(zip(values[::2], values[1::2])))
         self.assertEqual(
             self.zs.sort(),
             [b'charlie', b'huey', b'mickey', b'zaizee'])
@@ -311,7 +311,7 @@ class TestZSet(WalrusTestCase):
         self.assertEqual(list(res), [b'zaizee', b'mickey', b'huey'])
 
     def test_as_items(self):
-        self.zs.add('foo', 3, 'bar', 1, 'baz', 2)
+        self.zs.add({'foo': 3, 'bar': 1, 'baz': 2})
         self.assertEqual(self.zs.as_items(True),
                          [('bar', 1.), ('baz', 2.), ('foo', 3.)])
         self.assertEqual(db.ZSet('test').as_items(), [])
@@ -565,7 +565,7 @@ class TestStream(WalrusTestCase):
         db.hset('h1', 'key', 'data')
         db.sadd('s1', 'item-1')
         db.set('k1', 'v1')
-        db.zadd('z1', 'item-1', 1.0)
+        db.zadd('z1', {'item-1': 1.0})
         for key in ('l1', 'h1', 's1', 'k1', 'z1'):
             cg = db.consumer_group('cg-%s' % key, keys=[key])
             self.assertRaises(ValueError, cg.create)

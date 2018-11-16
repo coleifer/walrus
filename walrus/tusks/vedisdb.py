@@ -171,7 +171,7 @@ class TestWalrusVedis(unittest.TestCase):
             self.assertRaises(ValueError, method, *args)
 
         # Just check a handful of methods.
-        assertUnsupported('zadd', 'zs', 'foo', 1)
+        assertUnsupported('zadd', 'zs', {'foo': 1})
         assertUnsupported('ZSet', 'zs')
         assertUnsupported('rpush', 'l_obj', 'val')
         assertUnsupported('rpop', 'l_obj')

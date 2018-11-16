@@ -141,10 +141,8 @@ class Autocomplete(object):
             position_score = word_score + (self._offset * idx)
             key_score = position_score + title_score
             for substring in self.substrings(word):
-                self.database.zadd(
-                    self.word_key(substring),
-                    combined_id,
-                    key_score)
+                self.database.zadd(self.word_key(substring),
+                                   {combined_id: key_score})
 
         return True
 

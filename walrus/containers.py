@@ -273,7 +273,7 @@ class List(Sortable, Container):
             item = self[item]
             if item is None:
                 return
-        return self.database.lrem(self.key, item)
+        return self.database.lrem(self.key, 1, item)
 
     def __len__(self):
         """Return the length of the list."""
@@ -534,12 +534,17 @@ class ZSet(Sortable, Container):
             ', '.join(self[:n_items, False]),
             n_items < l and '...' or '')
 
-    def add(self, *args, **kwargs):
+    def add(self, _mapping=None, **kwargs):
         """
         Add the given item/score pairs to the ZSet. Arguments are
         specified as ``item1, score1, item2, score2...``.
         """
-        return self.database.zadd(self.key, *args, **kwargs)
+        if _mapping is not None:
+            _mapping.update(kwargs)
+            mapping = _mapping
+        else:
+            mapping = _mapping
+        return self.database.zadd(self.key, mapping)
 
     def _convert_slice(self, s):
         def _slice_to_indexes(s):
@@ -606,7 +611,7 @@ class ZSet(Sortable, Container):
 
     def __setitem__(self, item, score):
         """Add item to the set with the given score."""
-        return self.database.zadd(self.key, item, score)
+        return self.database.zadd(self.key, {item: score})
 
     def __delitem__(self, item):
         """
@@ -751,14 +756,14 @@ class ZSet(Sortable, Container):
     def remove_by_lex(self, low, high):
         return self.database.zremrangebylex(self.key, low, high)
 
-    def incr(self, key, incr_by=1):
+    def incr(self, key, incr_by=1.):
         """
         Increment the score of an item in the ZSet.
 
         :param key: Item to increment.
         :param incr_by: Amount to increment item's score.
         """
-        return self.database.zincrby(self.key, key, incr_by)
+        return self.database.zincrby(self.key, incr_by, key)
 
     def _first_or_any(self):
         item = self[0]
@@ -888,7 +893,7 @@ class ZSet(Sortable, Container):
         zset = cls(database, key)
         if clear:
             zset.clear()
-        zset.add(*[k_or_v for k in data for k_or_v in (k, data[k])])
+        zset.add(data)
         return zset
 
 
