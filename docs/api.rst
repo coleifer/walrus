@@ -183,30 +183,30 @@ Container types
 
 .. autoclass:: BitField(Container)
     :members:
-      incrby
-      get
-      set
-      __getitem__
-      __setitem__
-      __delitem__
-      get_raw
-      set_raw
-      bit_count
-      get_bit
+      incrby,
+      get,
+      set,
+      __getitem__,
+      __setitem__,
+      __delitem__,
+      get_raw,
+      set_raw,
+      bit_count,
+      get_bit,
       set_bit
 
 .. autoclass:: walrus.containers.BitFieldOperation
     :members:
-      incrby
-      get
-      set
-      execute
+      incrby,
+      get,
+      set,
+      execute,
       __iter__
 
 .. autoclass:: BloomFilter(Container)
     :members:
-      add
-      contains
+      add,
+      contains,
       __contains__
 
 High-level APIs
