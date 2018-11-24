@@ -4,7 +4,7 @@ Lightweight Python utilities for working with Redis.
 
 __author__ = 'Charles Leifer'
 __license__ = 'MIT'
-__version__ = '0.7.0'
+__version__ = '0.7.1'
 
 #               ___
 #            .-9 9 `\
