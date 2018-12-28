@@ -174,6 +174,9 @@ class Database(Redis):
         """
         return iter(self.scan_iter())
 
+    def __len__(self):
+        return self.dbsize()
+
     def search(self, pattern):
         """
         Search the keyspace of the selected database using the
