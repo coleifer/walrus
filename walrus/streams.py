@@ -31,7 +31,7 @@ class Message(object):
     __slots__ = ('stream', 'timestamp', 'sequence', 'data', 'message_id')
 
     def __init__(self, stream, message_id, data):
-        self.stream = stream
+        self.stream = decode(stream)
         self.message_id = decode(message_id)
         self.data = decode_dict(data)
         self.timestamp, self.sequence = id_to_datetime(message_id)
