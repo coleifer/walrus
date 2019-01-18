@@ -19,6 +19,7 @@ from walrus.utils import decode_dict
 from walrus.utils import encode
 from walrus.utils import exception_message
 from walrus.utils import make_python_attr
+from walrus.utils import safe_decode_list
 
 
 def chainable_method(fn):
@@ -228,9 +229,10 @@ class List(Sortable, Container):
     def __repr__(self):
         l = len(self)
         n_items = min(l, 10)
+        items = safe_decode_list(self[:n_items])
         return '<List "%s": %s%s>' % (
             self.key,
-            ', '.join(self[:n_items]),
+            ', '.join(items),
             n_items < l and '...' or '')
 
     def __getitem__(self, item):
@@ -529,9 +531,10 @@ class ZSet(Sortable, Container):
     def __repr__(self):
         l = len(self)
         n_items = min(l, 5)
+        items = safe_decode_list(self[:n_items, False])
         return '<ZSet "%s": %s%s>' % (
             self.key,
-            ', '.join(self[:n_items, False]),
+            ', '.join(items),
             n_items < l and '...' or '')
 
     def add(self, _mapping=None, **kwargs):

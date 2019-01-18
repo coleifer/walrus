@@ -32,6 +32,10 @@ def decode_dict(d):
     return accum
 
 
+def safe_decode_list(l):
+    return [i.decode('raw_unicode_escape') for i in l]
+
+
 def decode_dict_keys(d):
     accum = {}
     for key in d:
