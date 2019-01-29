@@ -104,13 +104,12 @@ class Graph(object):
                 del self._z[key]
 
     def keys_for_values(self, s, p, o):
-        zipped = zip('spo', (s, p, o))
-        for ((p1, v1), (p2, v2), (p3, v3)) in itertools.permutations(zipped):
-            yield '::'.join((
-                ''.join((p1, p2, p3)),
-                v1,
-                v2,
-                v3))
+        parts = [
+            ('spo', s, p, o),
+            ('pos', p, o, s),
+            ('osp', o, s, p)]
+        for part in parts:
+            yield '::'.join(part)
 
     def keys_for_query(self, s=None, p=None, o=None):
         parts = []
@@ -122,13 +121,13 @@ class Graph(object):
         elif s and p:
             parts.extend(('spo', s, p))
         elif s and o:
-            parts.extend(('sop', s, o))
+            parts.extend(('osp', s, o))
         elif p and o:
             parts.extend(('pos', p, o))
         elif s:
             parts.extend(('spo', s))
         elif p:
-            parts.extend(('pso', p))
+            parts.extend(('pos', p))
         elif o:
             parts.extend(('osp', o))
         return key(parts + ['']), key(parts + ['\xff'])
