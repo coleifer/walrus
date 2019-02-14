@@ -1,3 +1,4 @@
+#coding:utf-8
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 
@@ -149,3 +150,11 @@ class TestSearchIndex(WalrusTestCase):
 
         results = [doc['content'] for doc in index.search('')]
         self.assertEqual(sorted(results), sorted(messages))
+
+    def test_unicode_handling(self):
+        index = db.Index('testing', stemmer=False)
+        index.add('1', u'сколько лет этому безумному моржу', val='age')
+        index.add('2', u'во сколько морж ложится спать', val='sleep')
+        index.add('3', u'Вы знаете какие-нибудь хорошие истории с моржами',
+                  val='stories')
+        self.assertEqual([r['val'] for r in index.search(u'морж')], ['sleep'])

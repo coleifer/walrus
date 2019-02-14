@@ -42,13 +42,13 @@ class Lexer(object):
             (r"'[^\n'\\]*(?:\\.[^\n'\\]*)*'", yield_string),
             (r'\bAND\b', yield_symbol('AND')),
             (r'\bOR\b', yield_symbol('OR')),
-            (r'[a-zA-Z0-9@_\-]+', yield_simple_string),
+            (r'[@_\-\w]+', yield_simple_string),
             (r'&', yield_symbol('AND')),
             (r'\|', yield_symbol('OR')),
             (r'\(', yield_symbol('LPAREN')),
             (r'\)', yield_symbol('RPAREN')),
             (r'\s+', None),
-        ])
+        ], re.U)
 
     def lex(self):
         symbols, _ = self.scanner.scan(self.query)
