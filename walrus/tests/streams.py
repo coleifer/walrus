@@ -180,7 +180,7 @@ class TestTimeSeries(WalrusTestCase):
 
         # Pending is now marked for ts2, ack'd, and removed.
         assertPending(ts1.sa.pending(), [
-            (datetime.datetime(2018, 1, 1), 'ts2', 1)])
+            (datetime.datetime(2018, 1, 1), 'ts2', 2)])
         self.assertEqual(ts2.sa.ack(datetime.datetime(2018, 1, 1)), 1)
         assertPending(ts2.sa.pending(), [])
 
