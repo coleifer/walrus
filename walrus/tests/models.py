@@ -55,6 +55,18 @@ class TestModels(WalrusTestCase):
                     text='n%s-%s' % (i + 1, j + 1),
                     tags=['t%s' % (k + 1) for k in range(j)])
 
+    def test_textfield_whitespace(self):
+        h = User.create(username='huey cat')
+        z = User.create(username='zaizee cat')
+        h_db = User.load('huey cat')
+        self.assertEqual(h_db.username, 'huey cat')
+        z_db = User.load('zaizee cat')
+        self.assertEqual(z_db.username, 'zaizee cat')
+
+        query = User.query(User.username == 'huey cat')
+        self.assertEqual([u.username for u in query], ['huey cat'])
+        self.assertRaises(KeyError, User.load, 'mickey dog')
+
     def test_store_none(self):
         class Simple(BaseModel):
             text = TextField()
