@@ -128,7 +128,7 @@ The :py:class:`ZSet` acts a bit like a sorted dictionary, where the values are t
 .. code-block:: pycon
 
     >>> z1 = db.ZSet('z1')
-    >>> z1.add('charlie', 31, 'huey', 3, 'mickey', 6, 'zaizee', 2.5)
+    >>> z1.add({'charlie': 31, 'huey': 3, 'mickey': 6, 'zaizee': 2.5})
     4
     >>> z1['huey'] = 3.5
 

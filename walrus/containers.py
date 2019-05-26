@@ -540,7 +540,7 @@ class ZSet(Sortable, Container):
     def add(self, _mapping=None, **kwargs):
         """
         Add the given item/score pairs to the ZSet. Arguments are
-        specified as ``item1, score1, item2, score2...``.
+        specified as a dictionary of item: score, or as keyword arguments.
         """
         if _mapping is not None:
             _mapping.update(kwargs)
