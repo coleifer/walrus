@@ -39,16 +39,16 @@ Let's go through this simple example to illustrate how the :py:class:`Graph` cla
     graph.store('charlie', 'friends', 'huey')
 
     # Can also store multiple relationships at once.
-    graph.store_many(
+    graph.store_many((
         ('charlie', 'friends', 'zaizee'),
-        ('charlie', 'friends', 'nuggie'))
+        ('charlie', 'friends', 'nuggie')))
 
     # Store where people live.
-    graph.store_many(
+    graph.store_many((
         ('huey', 'lives', 'Kansas'),
         ('zaizee', 'lives', 'Missouri'),
         ('nuggie', 'lives', 'Kansas'),
-        ('mickey', 'lives', 'Kansas'))
+        ('mickey', 'lives', 'Kansas')))
 
     # We are now ready to search. We'll use a variable (X) to indicate
     # the value we're interested in.
@@ -61,7 +61,7 @@ Let's go through this simple example to illustrate how the :py:class:`Graph` cla
         {'s': 'charlie', 'p': 'friends', 'o': X},
         {'s': X, 'p': 'lives', 'o': 'Kansas'})
 
-    print results
+    print(results)
 
     # Prints: {'X': {'huey', 'nuggie'}}
 
@@ -78,4 +78,4 @@ So to find Charlie's friends, we would write:
 
     query = graph.query(s='charlie', p='friends')
     for result in query:
-        print result['o']  # Print the object for the corresponding S/P.
+        print(result['o'])  # Print the object for the corresponding S/P.
