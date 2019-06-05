@@ -162,14 +162,14 @@ operations, this id is considered the "last-read message" and acts as an
     stream.read(last_id=msgid3)
 
 We can make :py:meth:`~Stream.read` blocking by specifying a special id,
-``"$"``, and a ``timeout`` in milliseconds. To block forever, you can use
-``timeout=0``.
+``"$"``, and a ``block`` in milliseconds. To block forever, you can use
+``block=0``.
 
 .. code-block:: python
 
     # This will block for 2 seconds, after which an empty list is returned
     # (provided no messages are added while waiting).
-    stream.read(timeout=2000, last_id='$')
+    stream.read(block=2000, last_id='$')
 
 While its possible to build consumers using these APIs, the client is still
 responsible for keeping track of the last-read message ID and coming up with
@@ -379,9 +379,9 @@ useful APIs:
   list of unacknowledged messages in the stream. The ``start`` and ``stop``
   parameters can be message ids, while the ``count`` parameter can be used to
   limit the number of results returned.
-* ``consumer_group.stream.read(count=None, timeout=None)`` - monitor the
+* ``consumer_group.stream.read(count=None, block=None)`` - monitor the
   stream for new messages within the context of the consumer group. This
-  method can be made to block by specifying a ``timeout`` (or ``0`` to block
+  method can be made to block by specifying a ``block`` (or ``0`` to block
   forever).
 * ``consumer_group.stream.set_id(id='$')`` - set the id of the last-read
   message for the consumer group. Use the special id ``"$"`` to indicate all
