@@ -645,7 +645,7 @@ class TestStream(WalrusTestCase):
             b'sa': [(ra1, {b'k': b'a1'})],
             b'sb': [(rb1, {b'k': b'b1'})]})
 
-        self.assertEqual(dict(cg12.read(count=1)), {
+        self.assertEqual(dict(cg12.read(count=1, block=1)), {
             b'sa': [(ra2, {b'k': b'a2'})],
             b'sb': [(rb2, {b'k': b'b2'})]})
 
