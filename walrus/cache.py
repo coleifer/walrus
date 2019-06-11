@@ -10,6 +10,7 @@ except ImportError:
     from queue import Queue  # Python 3
 
 from walrus.utils import decode
+from walrus.utils import encode
 from walrus.utils import PY3
 
 if PY3:
@@ -34,12 +35,16 @@ class Cache(object):
         """
         self.database = database
         self.name = name
+        self.prefix_len = len(self.name) + 1
         self.default_timeout = default_timeout
         self.debug = debug
         self.metrics = {'hits': 0, 'misses': 0, 'writes': 0}
 
     def make_key(self, s):
         return ':'.join((self.name, s))
+
+    def unmake_key(self, k):
+        return k[self.prefix_len:]
 
     def get(self, key, default=None):
         """
@@ -81,8 +86,64 @@ class Cache(object):
 
     def delete(self, key):
         """Remove the given key from the cache."""
-        if not self.debug:
-            self.database.delete(self.make_key(key))
+        if self.debug: return 0
+        return self.database.delete(self.make_key(key))
+
+    def get_many(self, keys):
+        """
+        Retrieve multiple values from the cache. Missing keys are not included
+        in the result dictionary.
+
+        :param list keys: list of keys to fetch.
+        :returns: dictionary mapping keys to cached values.
+        """
+        accum = {}
+        if self.debug: return accum
+
+        prefixed = [self.make_key(key) for key in keys]
+        for key, value in zip(keys, self.database.mget(prefixed)):
+            if value is not None:
+                accum[key] = pickle.loads(value)
+        return accum
+
+    def set_many(self, __data=None, timeout=None, **kwargs):
+        """
+        Set multiple key/value pairs in one operation.
+
+        :param dict __data: provide data as dictionary of key/value pairs.
+        :param timeout: optional timeout for data.
+        :param kwargs: alternatively, provide data as keyword arguments.
+        :returns: True on success.
+        """
+        if self.debug:
+            return True
+
+        timeout = timeout if timeout is not None else self.default_timeout
+        if __data is not None:
+            kwargs.update(__data)
+
+        accum = {}
+        for key, value in kwargs.items():
+            accum[self.make_key(key)] = pickle.dumps(value)
+
+        pipeline = self.database.pipeline()
+        pipeline.mset(accum)
+        if timeout:
+            for key in accum:
+                pipeline.expire(key, timeout)
+
+        return pipeline.execute()[0]
+
+    def delete_many(self, keys):
+        """
+        Delete multiple keys from the cache in one operation.
+
+        :param list keys: keys to delete.
+        :returns: number of keys removed.
+        """
+        if self.debug: return
+        prefixed = [self.make_key(key) for key in keys]
+        return self.database.delete(*prefixed)
 
     def keys(self):
         """

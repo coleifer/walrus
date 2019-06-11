@@ -24,11 +24,22 @@ class TestCache(WalrusTestCase):
         self.assertTrue(cache.get('foo') is None)
 
         # Set key, value and expiration in seconds.
-        cache.set('foo', 'bar', 60)
+        self.assertEqual(cache.set('foo', 'bar', 60), True)
         self.assertEqual(cache.get('foo'), 'bar')
 
-        cache.delete('foo')
+        self.assertEqual(cache.delete('foo'), 1)
         self.assertTrue(cache.get('foo') is None)
+        self.assertEqual(cache.delete('foo'), 0)
+
+    def test_cache_bulk_apis(self):
+        self.assertEqual(cache.get_many(['k1', 'k2']), {})
+
+        data = {'k1': 'v1', 'k2': 'v2'}
+        self.assertEqual(cache.set_many(data, 60), True)
+        self.assertEqual(cache.get_many(['k1', 'kx', 'k2']), data)
+        self.assertEqual(cache.delete_many(['k1', 'kx', 'k2']), 2)
+        self.assertEqual(cache.get_many(['k1', 'k2']), {})
+        self.assertEqual(cache.delete_many(['k1', 'kx', 'k2']), 0)
 
     def test_cache_decorator(self):
         n0 = now()  # Each should have its own cache-key.

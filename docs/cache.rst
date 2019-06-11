@@ -26,6 +26,13 @@ You can :py:meth:`~Cache.get`, :py:meth:`~Cache.set` and :py:meth:`~Cache.delete
     >>> cache.get('foo') is None
     True
 
+    >>> cache.set_many({'k1': 'v1', 'k2': 'v2'}, 300)
+    True
+    >>> cache.get_many(['k1', 'kx', 'k2'])
+    {'k1': 'v1', 'k2': 'v2'}
+    >>> cache.delete_many(['k1', 'kx', 'k2'])
+    2
+
 Simple Decorator
 ----------------
 
