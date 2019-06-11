@@ -104,6 +104,9 @@ class Cache(object):
         for key, value in zip(keys, self.database.mget(prefixed)):
             if value is not None:
                 accum[key] = pickle.loads(value)
+                self.metrics['hits'] += 1
+            else:
+                self.metrics['misses'] += 1
         return accum
 
     def set_many(self, __data=None, timeout=None, **kwargs):
@@ -132,6 +135,7 @@ class Cache(object):
             for key in accum:
                 pipeline.expire(key, timeout)
 
+        self.metrics['writes'] += len(accum)
         return pipeline.execute()[0]
 
     def delete_many(self, keys):
