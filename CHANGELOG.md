@@ -6,6 +6,16 @@ This document describes changes to the APIs.
 
 No changes yet.
 
+### 0.8.0
+
+* Adds efficient bulk get, set and delete methods to the `Cache` class.
+* Fixes `repr` issues with some of the container types.
+* Fixed an inefficiency in the implementation of the `Graph` storage that
+  cuts the amount of memory needed in half.
+* Fixed issues with unicode handling in the full-text search implementation.
+
+[View all changes](https://github.com/coleifer/walrus/compare/0.7.0...0.8.0)
+
 ### 0.7.0
 
 Depends on [redis-py](https://github.com/andymccurdy/redis-py) 3.0 or newer.
