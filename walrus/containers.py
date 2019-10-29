@@ -1382,7 +1382,7 @@ class ConsumerGroup(object):
                 elif self.database.type(key) != b'stream':
                     raise ValueError('Consumer group key "%s" exists and is '
                                      'not a stream. To prevent data-loss '
-                                     'this key will not be deleted.')
+                                     'this key will not be deleted.' % key)
 
         resp = {}
 
