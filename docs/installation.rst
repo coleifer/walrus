@@ -33,4 +33,4 @@ You can test your installation by running the test suite. Requires a running Red
 
 .. code-block:: console
 
-    python tests.py
+    python runtests.py
