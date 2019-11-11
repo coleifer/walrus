@@ -674,7 +674,7 @@ class Model(_with_metaclass(BaseModel)):
             user = User.create(first_name='Charlie', last_name='Leifer')
         """
         instance = cls(**kwargs)
-        instance.save()
+        instance.save(_is_create=True)
         return instance
 
     @classmethod
@@ -845,7 +845,7 @@ class Model(_with_metaclass(BaseModel)):
         # Remove the object itself.
         self.__database__.delete(hash_key)
 
-    def save(self):
+    def save(self, _is_create=False):
         """
         Save the given model instance. If the model does not have
         a primary key value, Walrus will call the primary key field's
@@ -857,7 +857,7 @@ class Model(_with_metaclass(BaseModel)):
             setattr(self, self._primary_key, pk_field._generate_key())
             require_delete = False
         else:
-            require_delete = True
+            require_delete = not _is_create
 
         if require_delete:
             self.delete(for_update=True)
