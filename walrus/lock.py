@@ -21,7 +21,7 @@ class Lock(object):
     exceeds its TTL, and threads that are blocked waiting for the
     lock could potentially re-acquire it.
 
-    .. note:: TTL is specified in **seconds**.
+    .. note:: TTL is specified in **milliseconds**.
 
     Locks can be used as context managers or as decorators:
 
@@ -42,7 +42,7 @@ class Lock(object):
         """
         :param database: A walrus ``Database`` instance.
         :param str name: The name for the lock.
-        :param int ttl: The time-to-live for the lock in seconds.
+        :param int ttl: The time-to-live for the lock in milliseconds.
         :param str lock_id: Unique identifier for the lock instance.
         """
         self.database = database
@@ -63,7 +63,7 @@ class Lock(object):
         Acquire the lock. The lock will be held until it is released
         by calling :py:meth:`Lock.release`. If the lock was
         initialized with a ``ttl``, then the lock will be released
-        automatically after the given number of seconds.
+        automatically after the given number of milliseconds.
 
         By default this method will block until the lock becomes
         free (either by being released or expiring). The blocking is
