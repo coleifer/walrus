@@ -77,6 +77,8 @@ class Lock(object):
             the lock.
         :returns: Returns ``True`` if the lock was acquired.
         """
+        event_wait = self.ttl // 1000 if self.ttl else 1
+
         while True:
             acquired = self.database.run_script(
                 'lock_acquire',
@@ -88,7 +90,7 @@ class Lock(object):
             # Perform a blocking pop on the event key. When a lock
             # is released, a value is pushed into the list, which
             # signals listeners that the lock is available.
-            self.database.blpop(self.event, self.ttl)
+            self.database.blpop(self.event, event_wait)
 
     def release(self):
         """
