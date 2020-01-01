@@ -679,9 +679,9 @@ class TestModels(WalrusTestCase):
             BT.create(key='k%s' % i, flag=True if i % 2 else False)
 
         query = BT.query(BT.flag == True)
-        self.assertEqual([bt.key for bt in query], ['k1', 'k3'])
+        self.assertEqual(sorted([bt.key for bt in query]), ['k1', 'k3'])
         query = BT.query(BT.flag == False)
-        self.assertEqual([bt.key for bt in query], ['k0', 'k2'])
+        self.assertEqual(sorted([bt.key for bt in query]), ['k0', 'k2'])
 
     def test_uuid(self):
         class Beacon(BaseModel):
