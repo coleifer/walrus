@@ -670,6 +670,19 @@ class TestModels(WalrusTestCase):
         self.assertTrue(huey_db2.active)
         self.assertTrue(huey_db2.admin)
 
+    def test_query_boolean(self):
+        class BT(BaseModel):
+            key = TextField(primary_key=True)
+            flag = BooleanField(default=False, index=True)
+
+        for i in range(4):
+            BT.create(key='k%s' % i, flag=True if i % 2 else False)
+
+        query = BT.query(BT.flag == True)
+        self.assertEqual([bt.key for bt in query], ['k1', 'k3'])
+        query = BT.query(BT.flag == False)
+        self.assertEqual([bt.key for bt in query], ['k0', 'k2'])
+
     def test_uuid(self):
         class Beacon(BaseModel):
             name = TextField(primary_key=True)
