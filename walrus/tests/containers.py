@@ -67,6 +67,11 @@ class TestHash(WalrusTestCase):
         hsh = Hash.from_dict(db, 'test', data)
         self.assertEqual(hsh.as_dict(True), data)
 
+    def test_setnx(self):
+        key, value = "key_setnx", "value_setnx"
+        self.assertTrue(self.hsh.setnx(key, value))
+        self.assertFalse(self.hsh.setnx(key, value))
+
 
 class TestSet(WalrusTestCase):
     def setUp(self):
