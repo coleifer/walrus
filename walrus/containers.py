@@ -182,6 +182,14 @@ class Hash(Container):
         else:
             return list(self)
 
+    def setnx(self, key, value):
+        """
+        Set ``key`` to ``value`` if ``key`` does not exist.
+
+        :returns: True if successfully set or False if the key already existed.
+        """
+        return bool(self.database.hsetnx(self.key, key, value))
+
     @chainable_method
     def update(self, *args, **kwargs):
         """
