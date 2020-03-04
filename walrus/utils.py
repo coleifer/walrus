@@ -33,7 +33,8 @@ def decode_dict(d):
 
 
 def safe_decode_list(l):
-    return [i.decode('raw_unicode_escape') for i in l]
+    return [i.decode('raw_unicode_escape') if isinstance(i, bytes) else i
+            for i in l]
 
 
 def decode_dict_keys(d):
