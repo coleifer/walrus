@@ -4,7 +4,19 @@ This document describes changes to the APIs.
 
 ### master
 
-No changes yet.
+[View changes](https://github.com/coleifer/walrus/compare/0.8.1...HEAD)
+
+### 0.8.1
+
+* Fix missing parameter in error message, #105.
+* Remove redundant call to `delete()` when using Model `create()` API.
+* Fix TTL units and lock event wait timeout handling.
+* Adds `Hash.setnx()` method to the hash container.
+* Do not double-decode strings when user has enabled decode_responses, #121.
+* Fix mapping of types in `get_key()` method to return the proper container
+  type, #120.
+
+[View all changes](https://github.com/coleifer/walrus/compare/0.8.0...0.8.1)
 
 ### 0.8.0
 
