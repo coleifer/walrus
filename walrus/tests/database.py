@@ -1,8 +1,38 @@
+from walrus.containers import *
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 
 
 class TestWalrus(WalrusTestCase):
+    def test_get_key(self):
+        h = db.Hash('h1')
+        h['hk1'] = 'v1'
+
+        l = db.List('l1')
+        l.append('i1')
+
+        s = db.Set('s1')
+        s.add('k1')
+
+        zs = db.ZSet('z1')
+        zs.add({'i1': 1., 'i2': 2.})
+
+        h_db = db.get_key('h1')
+        self.assertTrue(isinstance(h_db, Hash))
+        self.assertEqual(h_db['hk1'], b'v1')
+
+        l_db = db.get_key('l1')
+        self.assertTrue(isinstance(l_db, List))
+        self.assertEqual(l_db[0], b'i1')
+
+        s_db = db.get_key('s1')
+        self.assertTrue(isinstance(s_db, Set))
+        self.assertEqual(s_db.members(), set((b'k1',)))
+
+        z_db = db.get_key('z1')
+        self.assertTrue(isinstance(z_db, ZSet))
+        self.assertEqual(z_db.score('i1'), 1.)
+
     def test_atomic(self):
         def assertDepth(depth):
             self.assertEqual(len(db._transaction_local.pipes), depth)

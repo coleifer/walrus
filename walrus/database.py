@@ -71,10 +71,10 @@ class Database(Redis):
         script_dir = kwargs.pop('script_dir', None)
         super(Database, self).__init__(*args, **kwargs)
         self.__mapping = {
-            'list': self.List,
-            'set': self.Set,
-            'zset': self.ZSet,
-            'hash': self.Hash}
+            b'list': self.List,
+            b'set': self.Set,
+            b'zset': self.ZSet,
+            b'hash': self.Hash}
         self._transaction_local = TransactionLocal()
         self._transaction_lock = threading.RLock()
         self.init_scripts(script_dir=script_dir)
@@ -192,6 +192,8 @@ class Database(Redis):
         Return a rich object for the given key. For instance, if
         a hash key is requested, then a :py:class:`Hash` will be
         returned.
+
+        Note: only works for Hash, List, Set and ZSet.
 
         :param str key: Key to retrieve.
         :returns: A hash, set, list, zset or array.
