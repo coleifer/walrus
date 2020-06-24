@@ -191,14 +191,13 @@ class Hash(Container):
         return bool(self.database.hsetnx(self.key, key, value))
 
     @chainable_method
-    def update(self, *args, **kwargs):
+    def update(self, __data=None, **kwargs):
         """
         Update the hash using the given dictionary or key/value pairs.
         """
-        if args:
-            self.database.hmset(self.key, *args)
-        else:
-            self.database.hmset(self.key, kwargs)
+        if __data is not None:
+            kwargs.update(__data)
+        return self.database.hset(self.key, mapping=kwargs)
 
     def incr(self, key, incr_by=1):
         """Increment the key by the given amount."""
