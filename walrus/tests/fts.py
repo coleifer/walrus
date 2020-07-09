@@ -60,8 +60,8 @@ class TestSearchIndex(WalrusTestCase):
 
         self.assertRaises(KeyError, idx.remove, '3')
 
-        idx.update('1', 'zaizee cat', **{'type': 'kitten'})
-        idx.replace('0', 'huey baby cat', **{'type': 'kitten'})
+        idx.update('1', 'zaizee cat', {'type': 'kitten'})
+        idx.replace('0', 'huey baby cat', {'type': 'kitten'})
 
         zaizee, huey = idx.search('cat')
         self.assertEqual(zaizee['content'], 'zaizee cat')
@@ -71,6 +71,12 @@ class TestSearchIndex(WalrusTestCase):
         self.assertEqual(huey['content'], 'huey baby cat')
         self.assertEqual(huey['type'], 'kitten')
         self.assertTrue('color' not in huey)
+
+        zaizee, huey = idx.search_items('cat')
+        self.assertEqual(zaizee[0], '1')
+        self.assertEqual(zaizee[1]['content'], 'zaizee cat')
+        self.assertEqual(huey[0], '0')
+        self.assertEqual(huey[1]['content'], 'huey baby cat')
 
     def test_search_phonetic(self):
         data = (
@@ -153,7 +159,7 @@ class TestSearchIndex(WalrusTestCase):
 
     def test_unicode_handling(self):
         index = db.Index('testing', stemmer=False)
-        index.add('1', u'сколько лет этому безумному моржу', val='age')
+        index.add('1', u'сколько лет этому безумному моржу', {'val': 'age'})
         index.add('2', u'во сколько морж ложится спать', val='sleep')
         index.add('3', u'Вы знаете какие-нибудь хорошие истории с моржами',
                   val='stories')

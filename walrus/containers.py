@@ -195,9 +195,11 @@ class Hash(Container):
         """
         Update the hash using the given dictionary or key/value pairs.
         """
-        if __data is not None:
-            kwargs.update(__data)
-        return self.database.hset(self.key, mapping=kwargs)
+        if __data is None:
+            __data = kwargs
+        else:
+            __data.update(kwargs)
+        return self.database.hset(self.key, mapping=__data)
 
     def incr(self, key, incr_by=1):
         """Increment the key by the given amount."""

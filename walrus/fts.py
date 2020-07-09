@@ -46,7 +46,7 @@ class Index(object):
         key = 'doc.%s.%s' % (self.name, decode(document_id))
         return decode_dict(self.db.hgetall(key))
 
-    def add(self, key, content, **metadata):
+    def add(self, key, content, __metadata=None, **metadata):
         """
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
@@ -54,9 +54,17 @@ class Index(object):
 
         Add a document to the search index.
         """
+        if __metadata is None:
+            __metadata = metadata
+        elif metadata:
+            __metadata.update(metadata)
+
+        if not isinstance(key, str):
+            key = str(key)
+
         self.members.add(key)
         document_hash = self._get_hash(key)
-        document_hash.update(content=content, **metadata)
+        document_hash.update(__metadata, content=content)
 
         for word, score in self.tokenizer.tokenize(content).items():
             word_key = self.get_key(word)
@@ -68,6 +76,9 @@ class Index(object):
 
         Remove the document from the search index.
         """
+        if not isinstance(key, str):
+            key = str(key)
+
         if self.members.remove(key) != 1:
             raise KeyError('Document with key "%s" not found.' % key)
         document_hash = self._get_hash(key)
@@ -81,7 +92,7 @@ class Index(object):
             if len(word_key) == 0:
                 word_key.clear()
 
-    def update(self, key, content, **metadata):
+    def update(self, key, content, __metadata=None, **metadata):
         """
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
@@ -91,9 +102,9 @@ class Index(object):
         optionally, updated with the provided metadata.
         """
         self.remove(key, preserve_data=True)
-        self.add(key, content, **metadata)
+        self.add(key, content, __metadata, **metadata)
 
-    def replace(self, key, content, **metadata):
+    def replace(self, key, content, __metadata=None, **metadata):
         """
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
@@ -103,7 +114,7 @@ class Index(object):
         replaced with the provided metadata.
         """
         self.remove(key)
-        self.add(key, content, **metadata)
+        self.add(key, content, __metadata, **metadata)
 
     def get_index(self, op):
         assert op == OP_MATCH
@@ -132,3 +143,18 @@ class Index(object):
         additional metadata that was specified.
         """
         return [self.get_document(key) for key, _ in self._search(query)]
+
+    def search_items(self, query):
+        """
+        :param str query: Search query. May contain boolean/set operations
+            and parentheses.
+        :returns: a list of (key, document hashes) tuples corresponding to
+            matching documents.
+
+        Search the index. The return value is a list of (key, document dict)
+        corresponding to the documents that matched. These dictionaries contain
+        a ``content`` key with the original indexed content, along with any
+        additional metadata that was specified.
+        """
+        return [(decode(key), self.get_document(key))
+                for key, _ in self._search(query)]

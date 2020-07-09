@@ -255,7 +255,8 @@ High-level APIs
       remove,
       update,
       replace,
-      search
+      search,
+      search_items
 
 .. autoclass:: Graph
     :members:
