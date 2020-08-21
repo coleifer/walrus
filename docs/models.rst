@@ -5,6 +5,14 @@
 Models
 ======
 
+.. warning::
+    Walrus models should **not** be considered production-grade code and I
+    strongly advise against anyone actually using it for anything other than
+    experimenting or for inspiration/learning.
+
+    My advice: just use hashes for your structured data. If you need ad-hoc
+    queries, then use a relational database.
+
 Walrus provides a lightweight :py:class:`Model` class for storing structured data and executing queries using secondary indexes.
 
 .. code-block:: pycon

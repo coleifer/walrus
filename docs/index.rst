@@ -29,8 +29,8 @@ walrus consists of:
 * full-text search
 * graph store
 * rate limiting
-* active-record models (secondary indexes, full-text search, composable query filters, etc)
 * locks
+* **experimental** active-record models (secondary indexes, full-text search, composable query filters, etc)
 * more? more!
 
 My hope is that walrus saves you time developing your application by providing
