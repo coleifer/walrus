@@ -44,4 +44,4 @@ Please open a [github issue](https://github.com/coleifer/walrus/issues/new) and 
 
 ### Alternative Backends
 
-Walrus also can integrate with the Redis-like databases [rlite](https://github.com/seppo0010/rlite), [ledis](http://ledisdb.com/), and [vedis](http://vedis.symisc.net). Check the [documentation](https://walrus.readthedocs.io/en/latest/alt-backends.html) for more details.
+Walrus also can integrate with the Redis-like databases [rlite](https://github.com/seppo0010/rlite) and [vedis](http://vedis.symisc.net). Check the [documentation](https://walrus.readthedocs.io/en/latest/alt-backends.html) for more details.
