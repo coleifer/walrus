@@ -346,7 +346,7 @@ class List(Sortable, Container):
         Remove the last item from the list, blocking until an item becomes
         available or timeout is reached (0 for no timeout, default).
         """
-        ret = self.database.blpop(self.key, timeout)
+        ret = self.database.brpop(self.key, timeout)
         if ret is not None:
             return ret[1]
 
