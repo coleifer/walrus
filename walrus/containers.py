@@ -353,6 +353,9 @@ class List(Sortable, Container):
     def move_tail(self, key):
         return self.database.rpoplpush(self.key, key)
 
+    def bmove_tail(self, key):
+        return self.database.brpoplpush(self.key, key)
+
     def as_list(self, decode=False):
         """
         Return a list containing all the items in the list.
