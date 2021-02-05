@@ -353,8 +353,8 @@ class List(Sortable, Container):
     def move_tail(self, key):
         return self.database.rpoplpush(self.key, key)
 
-    def bmove_tail(self, key):
-        return self.database.brpoplpush(self.key, key)
+    def bmove_tail(self, key, timeout=0):
+        return self.database.brpoplpush(self.key, key, timeout)
 
     def as_list(self, decode=False):
         """
