@@ -66,7 +66,7 @@ class Database(Redis):
         :param kwargs: Arbitrary keyword arguments to pass to the
             base ``Redis`` instance.
         :param str script_dir: Path to directory containing walrus
-            scripts.
+            scripts. Use "script_dir=False" to disable loading any scripts.
         """
         script_dir = kwargs.pop('script_dir', None)
         super(Database, self).__init__(*args, **kwargs)
@@ -77,7 +77,8 @@ class Database(Redis):
             b'hash': self.Hash}
         self._transaction_local = TransactionLocal()
         self._transaction_lock = threading.RLock()
-        self.init_scripts(script_dir=script_dir)
+        if script_dir is not False:
+            self.init_scripts(script_dir=script_dir)
 
     def xsetid(self, name, id):
         """
