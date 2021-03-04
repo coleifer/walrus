@@ -4,7 +4,18 @@ This document describes changes to the APIs.
 
 ### master
 
-[View changes](https://github.com/coleifer/walrus/compare/0.8.1...HEAD)
+[View changes](https://github.com/coleifer/walrus/compare/0.8.2...HEAD)
+
+### 0.8.2
+
+* Use `HSET` instead of `HMSET`.
+* Add a `search_items()` method to the full-text index which returns a 2-tuple
+  of `(key, doc)`.
+* Add a timeout parameter to `bmove_tail` and `brpoplpush` wrappers.
+* Allow disabling lua script-loading for faster initialization (for
+  applications that do not intend to utilize these features).
+
+[View changes](https://github.com/coleifer/walrus/compare/0.8.1...0.8.2)
 
 ### 0.8.1
 
