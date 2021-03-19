@@ -266,6 +266,11 @@ class Autocomplete(object):
             matching the search phrase.
         """
         cleaned = self.tokenize_title(phrase, stopwords=False)
+
+        # Remove stopwords longer than 2 characters when searching.
+        cleaned = [c for c in cleaned
+                   if (c not in self._stopwords) or (len(c) < 3)]
+
         if not cleaned:
             return
 

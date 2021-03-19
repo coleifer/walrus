@@ -281,7 +281,7 @@ class TestAutocomplete(WalrusTestCase):
         self.ac.store('p2', 'beta delta zeta')
         self.ac.store('p3', 'gamma zeta iota')
 
-        self.assertList(self.ac.search('ga de'), ['alpha beta gamma delta'])
+        self.assertList(self.ac.search('ga del'), ['alpha beta gamma delta'])
         self.assertList(self.ac.search('be de'), [
             'beta delta zeta',
             'alpha beta gamma delta'])
