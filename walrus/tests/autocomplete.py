@@ -275,3 +275,22 @@ class TestAutocomplete(WalrusTestCase):
 
         self.assertList(sorted(self.ac.list_data()), list(phrases))
         self.assertEqual(sorted(self.ac.list_titles()), list(phrases))
+
+    def test_multiword_phrases(self):
+        self.ac.store('p1', 'alpha beta gamma delta')
+        self.ac.store('p2', 'beta delta zeta')
+        self.ac.store('p3', 'gamma zeta iota')
+
+        self.assertList(self.ac.search('ga de'), ['alpha beta gamma delta'])
+        self.assertList(self.ac.search('be de'), [
+            'beta delta zeta',
+            'alpha beta gamma delta'])
+        self.assertList(self.ac.search('bet delt'), [
+            'beta delta zeta',
+            'alpha beta gamma delta'])
+        self.assertList(self.ac.search('delt bet'), [
+            'beta delta zeta',
+            'alpha beta gamma delta'])
+
+        self.assertList(self.ac.search('delt bet alpha'),
+                        ['alpha beta gamma delta'])
