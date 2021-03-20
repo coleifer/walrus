@@ -29,7 +29,7 @@ class Autocomplete(object):
             cached. Specify the amount of time these results are
             cached for.
         :param stopwords_file: Filename containing newline-separated
-            stopwords.
+            stopwords. Set to `None` to disable stopwords filtering.
         :param bool use_json: Whether object data should be
             serialized as JSON.
         """
@@ -58,7 +58,7 @@ class Autocomplete(object):
         if isinstance(phrase, bytes):
             phrase = decode(phrase)
         phrase = re.sub('[^a-z0-9_\-\s]', '', phrase.lower())
-        if stopwords:
+        if stopwords and self._stopwords:
             return [w for w in phrase.split() if w not in self._stopwords]
         else:
             return phrase.split()
@@ -267,9 +267,11 @@ class Autocomplete(object):
         """
         cleaned = self.tokenize_title(phrase, stopwords=False)
 
-        # Remove stopwords longer than 2 characters when searching.
-        cleaned = [c for c in cleaned
-                   if (c not in self._stopwords) or (len(c) < 3)]
+        # Remove stopwords except for the last token, which may be a partially
+        # typed string that just happens to match a stopword.
+        last_token = len(cleaned) - 1
+        cleaned = [c for i, c in enumerate(cleaned)
+                   if (c not in self._stopwords) or (i == last_token)]
 
         if not cleaned:
             return

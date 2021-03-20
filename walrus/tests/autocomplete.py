@@ -285,6 +285,9 @@ class TestAutocomplete(WalrusTestCase):
         self.assertList(self.ac.search('be de'), [
             'beta delta zeta',
             'alpha beta gamma delta'])
+        self.assertList(self.ac.search('de be'), [
+            'beta delta zeta',
+            'alpha beta gamma delta'])
         self.assertList(self.ac.search('bet delt'), [
             'beta delta zeta',
             'alpha beta gamma delta'])
@@ -294,3 +297,26 @@ class TestAutocomplete(WalrusTestCase):
 
         self.assertList(self.ac.search('delt bet alpha'),
                         ['alpha beta gamma delta'])
+
+    def test_multiword_stopword_handling(self):
+        self.ac.store('p1', 'alpha beta delta')
+        self.ac.store('p2', 'alpha delta gamma')
+        self.ac.store('p3', 'beta gamma')
+
+        self.assertList(self.ac.search('a'), [
+            'alpha beta delta',
+            'alpha delta gamma'])
+        self.assertList(self.ac.search('be'), [
+            'beta gamma',
+            'alpha beta delta'])
+        # Here since "a" is a stopword and is not the last token, we strip it.
+        self.assertList(self.ac.search('a be'), [
+            'beta gamma',
+            'alpha beta delta'])
+        # a & be are stripped, since they are stopwords and not last token.
+        self.assertList(self.ac.search('a be de'), [
+            'alpha delta gamma',
+            'alpha beta delta'])
+
+        self.assertList(self.ac.search('al bet de'), [
+            'alpha beta delta'])
