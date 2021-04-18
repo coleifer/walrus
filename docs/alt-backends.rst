@@ -7,7 +7,7 @@ In addition to `Redis <http://redis.io>`_, I've been experimenting with adding s
 
 * `RLite <https://github.com/seppo0010/rlite>`_, a self-contained and serverless Redis-compatible database engine. Use ``rlite`` if you want all the features of Redis, without the separate server process..
 * `Vedis <http://vedis.symisc.net/index.html>`_, an embeddable data-store written in C with over 70 commands similar in concept to Redis. Vedis is built on a fast key/value store and supports writing custom commands in Python. Use ``vedis`` if you are OK working with a smaller subset of commands out-of-the-box or are interested in writing your own commands.
-* `ledisdb <http://ledisdb.com/>`_, Redis-like database written in Golang. Supports almost all the Redis commands. Requires `ledis-py <https://github.com/holys/ledis-py>`_.
+* `ledisdb <https://ledisdb.io/>`_, Redis-like database written in Golang. Supports almost all the Redis commands. Requires `ledis-py <https://github.com/holys/ledis-py>`_.
 
 rlite
 -----
@@ -168,7 +168,7 @@ We can use these commands like so:
 Ledis
 -----
 
-`ledis <http://ledisdb.com/>`_ is a Redis-like database written in Golang.
+`ledis <https://ledisdb.io/>`_ is a Redis-like database written in Golang.
 
 The project's features are:
 
