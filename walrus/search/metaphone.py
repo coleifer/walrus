@@ -42,7 +42,7 @@ def dm(st) :
                         st.find('CZ') > -1 or st.find('WITZ') > -1)
     length = len(st)
     first = 2
-    # so we can index beyond the begining and end of the input string
+    # so we can index beyond the beginning and end of the input string
     st = ('-') * first + st + (' ' * 5)
     last = first + length -1
     pos = first # pos is short for position

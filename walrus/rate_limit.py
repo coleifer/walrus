@@ -31,7 +31,7 @@ class RateLimit(object):
     def limit(self, key):
         """
         Function to log an event with the given key. If the ``key`` has not
-        exceeded their alotted events, then the function returns ``False`` to
+        exceeded their allotted events, then the function returns ``False`` to
         indicate that no limit is being imposed.
 
         If the ``key`` has exceeded the number of events, then the function
@@ -65,11 +65,11 @@ class RateLimit(object):
         function when the number of events has been exceeded for the given
         time period.
 
-        It is probably important that you take care to choose an appropiate
+        It is probably important that you take care to choose an appropriate
         key function. For instance, if rate-limiting a web-page you might use
         the requesting user's IP as the key.
 
-        If the number of allowed events has been exceedd, a
+        If the number of allowed events has been exceeded, a
         ``RateLimitException`` will be raised.
 
         :param key_function: Function that accepts the params of the decorated
