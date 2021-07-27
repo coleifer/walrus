@@ -58,6 +58,7 @@ class TestTimeSeries(WalrusTestCase):
         self.assertEqual(self.ts.sa.trim(2, False), 2)
         self.assertMessages(self.ts.sa.range(), [6, 9])
         self.assertMessages(self.ts.sa.range(count=1), [6])
+        self.assertMessages(self.ts.streams['sa'].range(count=1), [6])
 
     @stream_test
     def test_timeseries_read(self):

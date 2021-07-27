@@ -1343,6 +1343,8 @@ class ConsumerGroup(object):
         cg.create()  # Create consumer group.
         cg.stream_1  # ConsumerGroupStream for "stream-1"
         cg.stream_2  # ConsumerGroupStream for "stream-2"
+        # or, alternatively:
+        cg.streams['stream-1']
 
     :param Database database: Redis client
     :param name: consumer group name
@@ -1361,12 +1363,14 @@ class ConsumerGroup(object):
         self.keys = _normalize_stream_keys(keys)
         self._read_keys = _normalize_stream_keys(list(self.keys), '>')
         self._consumer = consumer or (self.name + '.c1')
+        self.streams = {}  # Dict of key->ConsumerGroupStream.
 
         # Add attributes for each stream exposed as part of the group.
         for key in self.keys:
             attr = make_python_attr(key)
             stream = self.stream_key_class(database, name, key, self._consumer)
             setattr(self, attr, stream)
+            self.streams[key] = stream
 
     def consumer(self, name):
         """
