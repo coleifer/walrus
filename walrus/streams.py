@@ -132,8 +132,8 @@ class TimeSeriesStream(ConsumerGroupStream):
     def pending(self, start='-', stop='+', count=1000, consumer=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
-        resp = self.database.xpending_range(self.key, self.group, start, stop,
-                                            count, consumer)
+        resp = self.database.xpending_range(self.key, self.group, None, start,
+                                            stop, count, consumer)
         return [(id_to_datetime(msg['message_id']), decode(msg['consumer']),
                  msg['time_since_delivered'], msg['times_delivered'])
                 for msg in resp]

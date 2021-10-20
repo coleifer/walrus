@@ -1277,8 +1277,8 @@ class ConsumerGroupStream(Stream):
         :returns: A list containing status for each pending message. Each
             pending message returns [id, consumer, idle time, deliveries].
         """
-        return self.database.xpending_range(self.key, self.group, start, stop,
-                                            count, consumer)
+        return self.database.xpending_range(self.key, self.group, None, start,
+                                            stop, count, consumer)
 
     def read(self, count=None, block=None, last_id=None):
         """
