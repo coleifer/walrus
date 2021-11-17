@@ -1280,6 +1280,22 @@ class ConsumerGroupStream(Stream):
         return self.database.xpending_range(self.key, self.group, None, start,
                                             stop, count, consumer)
 
+    def autoclaim(self, consumer, min_idle_time, start_id=0, count=None, justid=False):
+        """
+        Transfer ownership of pending stream entries that match the specified
+        criteria. Similar to calling XPENDING and XCLAIM, but provides a more
+        straightforward way to deal with message delivery failures.
+
+        :param consumer: name of consumer that claims the message.
+        :param min_idle_time: in milliseconds
+        :param start_id: start id
+        :param count: optional, upper limit of entries to claim. Default 100.
+        :param justid: return just IDs of messages claimed.
+        :returns: [next start id, [messages that were claimed]
+        """
+        return self.database.xautoclaim(self.key, self.group, consumer,
+                                        min_idle_time, start_id, count, justid)
+
     def read(self, count=None, block=None, last_id=None):
         """
         Monitor the stream for new messages within the context of the parent

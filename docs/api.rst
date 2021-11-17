@@ -178,6 +178,7 @@ Container types
       ack,
       claim,
       pending,
+      autoclaim,
       read,
       set_id
 
