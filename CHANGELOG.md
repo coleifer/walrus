@@ -4,7 +4,16 @@ This document describes changes to the APIs.
 
 ### master
 
-[View changes](https://github.com/coleifer/walrus/compare/0.8.2...HEAD)
+[View changes](https://github.com/coleifer/walrus/compare/0.9.0...HEAD)
+
+### 0.9.0
+
+* **Backwards incompatible change:** redis-py changed the signature of the
+  `xpending_range` function. This is resolved in walrus 0.9.0.
+* Add support for `autoclaim()` to the `ConsumerGroupStream` class.
+* Minor changes to the stop-word handling in `autocomplete` module.
+
+[View changes](https://github.com/coleifer/walrus/compare/0.8.2...0.9.0)
 
 ### 0.8.2
 
