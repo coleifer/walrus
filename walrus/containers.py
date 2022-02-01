@@ -1197,15 +1197,19 @@ class Stream(Container):
         """
         return self.database.xsetid(self.key, id)
 
-    def trim(self, count, approximate=True):
+    def trim(self, count=None, approximate=True, minid=None, limit=None):
         """
         Trim the stream to the given "count" of messages, discarding the oldest
         messages first.
 
-        :param count: maximum size of stream
+        :param count: maximum size of stream (maxlen)
         :param approximate: allow size to be approximate
+        :param minid: evicts entries with IDs lower than the given min id.
+        :param limit: maximum number of entries to evict.
         """
-        return self.database.xtrim(self.key, count, approximate)
+        return self.database.xtrim(self.key, maxlen=count,
+                                   approximate=approximate, minid=minid,
+                                   limit=limit)
 
 
 class ConsumerGroupStream(Stream):
