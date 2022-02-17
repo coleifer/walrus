@@ -216,8 +216,8 @@ class Cache(object):
                 start = time.time()
                 is_cache_hit = True
                 key = make_key(args, kwargs)
-                res = self.get(key)
-                if res is None:
+                res = self.get(key, sentinel)
+                if res is sentinel:
                     res = fn(*args, **kwargs)
                     self.set(key, res, timeout)
                     is_cache_hit = False

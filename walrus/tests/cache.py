@@ -66,6 +66,20 @@ class TestCache(WalrusTestCase):
         self.assertTrue(n1 != n3)
         self.assertEqual(c.now, n3)
 
+    def test_cached_return_none(self):
+        S = {'count': 0}
+        @cache.cached()
+        def returns_none(arg):
+            S['count'] += 1
+
+        def assertMisses(arg, n):
+            returns_none(arg)
+            self.assertEqual(S['count'], n)
+        for i in range(3):
+            assertMisses('foo', 1)
+        assertMisses('bar', 2)
+        assertMisses('foo', 2)
+
     def test_cached_async(self):
         @cache.cache_async()
         def double_value(value):
