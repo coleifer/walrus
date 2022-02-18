@@ -4,7 +4,14 @@ This document describes changes to the APIs.
 
 ### master
 
-[View changes](https://github.com/coleifer/walrus/compare/0.9.0...HEAD)
+[View changes](https://github.com/coleifer/walrus/compare/0.9.1...HEAD)
+
+### 0.9.1
+
+* Add support for `minid` and `limit` parameters on `Stream.trim()`, #169
+* Cache decorators now cache calls that return `None`, #171
+
+[View changes](https://github.com/coleifer/walrus/compare/0.9.0...0.9.1)
 
 ### 0.9.0
 
