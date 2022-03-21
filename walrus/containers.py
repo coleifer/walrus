@@ -1270,7 +1270,8 @@ class ConsumerGroupStream(Stream):
         return self.database.xclaim(self.key, self.group, self._consumer,
                                     min_idle_time, id_list)
 
-    def pending(self, start='-', stop='+', count=1000, consumer=None):
+    def pending(self, start='-', stop='+', count=1000, consumer=None,
+                idle=None):
         """
         List pending messages within the consumer group for this stream.
 
@@ -1278,11 +1279,13 @@ class ConsumerGroupStream(Stream):
         :param stop: stop id (or '+' for newest pending)
         :param count: limit number of messages returned
         :param consumer: restrict message list to the given consumer
+        :param int idle: filter by idle-time in milliseconds (6.2)
         :returns: A list containing status for each pending message. Each
             pending message returns [id, consumer, idle time, deliveries].
         """
-        return self.database.xpending_range(self.key, self.group, None, start,
-                                            stop, count, consumer)
+        return self.database.xpending_range(self.key, self.group, min=start,
+                                            max=stop, count=count,
+                                            consumername=consumer, idle=idle)
 
     def autoclaim(self, consumer, min_idle_time, start_id=0, count=None, justid=False):
         """

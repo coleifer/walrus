@@ -129,11 +129,13 @@ class TimeSeriesStream(ConsumerGroupStream):
             count)
         return xrange_to_messages(self.key, resp)
 
-    def pending(self, start='-', stop='+', count=1000, consumer=None):
+    def pending(self, start='-', stop='+', count=1000, consumer=None,
+                idle=None):
         start = normalize_id(start)
         stop = normalize_id(stop)
-        resp = self.database.xpending_range(self.key, self.group, None, start,
-                                            stop, count, consumer)
+        resp = self.database.xpending_range(self.key, self.group, min=start,
+                                            max=stop, count=count,
+                                            consumername=consumer, idle=idle)
         return [(id_to_datetime(msg['message_id']), decode(msg['consumer']),
                  msg['time_since_delivered'], msg['times_delivered'])
                 for msg in resp]
