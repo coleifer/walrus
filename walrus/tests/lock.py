@@ -68,3 +68,11 @@ class TestLock(WalrusTestCase):
 
         # In the event of an exception, the lock will still be released.
         self.assertTrue(lock.acquire(block=False))
+
+    def test_lock_cleanup(self):
+        self.assertEqual(len(db), 0)
+        lock = db.lock('lock-a')
+        self.assertTrue(lock.acquire())
+        self.assertTrue(lock.release())
+        self.assertEqual(len(db), 1)  # We have the lock event key.
+        self.assertEqual(db.lpop(lock.event), b'1')
