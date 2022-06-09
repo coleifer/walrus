@@ -101,7 +101,7 @@ approximate by default.
 .. code-block:: python
 
     # Adding and deleting a message:
-    msgid4 = stream.xadd({'message': 'delete me'})
+    msgid4 = stream.add({'message': 'delete me'})
     del stream[msgid4]
 
     # How many items are in the stream?
@@ -200,7 +200,7 @@ RDB and replicated.
     # created, so we have to add an empty message.
     stream_keys = ['stream-a', 'stream-b', 'stream-c']
     for stream in stream_keys:
-        db.xadd(stream, {'data': ''})
+        db.add(stream, {'data': ''})
 
     # Create a consumer-group for streams a, b, and c. We will mark all
     # messages as having been processed, so only messages added after the
