@@ -200,7 +200,7 @@ RDB and replicated.
     # created, so we have to add an empty message.
     stream_keys = ['stream-a', 'stream-b', 'stream-c']
     for stream in stream_keys:
-        db.add(stream, {'data': ''})
+        db.xadd(stream, {'data': ''})
 
     # Create a consumer-group for streams a, b, and c. We will mark all
     # messages as having been processed, so only messages added after the
