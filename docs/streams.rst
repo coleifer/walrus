@@ -197,10 +197,10 @@ RDB and replicated.
 .. code-block:: python
 
     # Consumer groups require that a stream exist before the group can be
-    # created, so we have to add an empty message.
+    # created, so we have to crete them.
     stream_keys = ['stream-a', 'stream-b', 'stream-c']
     for stream in stream_keys:
-        db.add(stream, {'data': ''})
+        db.Stream(stream)
 
     # Create a consumer-group for streams a, b, and c. We will mark all
     # messages as having been processed, so only messages added after the
