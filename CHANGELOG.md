@@ -4,7 +4,13 @@ This document describes changes to the APIs.
 
 ### master
 
-[View changes](https://github.com/coleifer/walrus/compare/0.9.1...HEAD)
+[View changes](https://github.com/coleifer/walrus/compare/0.9.2...HEAD)
+
+### 0.9.2
+
+* Upstream decided to play around with XPENDING again.
+
+[View changes](https://github.com/coleifer/walrus/compare/0.9.1...0.9.2)
 
 ### 0.9.1
 
