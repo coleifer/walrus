@@ -80,6 +80,9 @@ class Database(Redis):
         if script_dir is not False:
             self.init_scripts(script_dir=script_dir)
 
+    def __bool__(self):
+        return True  # Avoid falling back to __len__().
+
     def xsetid(self, name, id):
         """
         Set the last ID of the given stream.
