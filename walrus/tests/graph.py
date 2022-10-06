@@ -85,6 +85,22 @@ class TestGraph(WalrusTestCase):
 
     def test_query(self):
         self.create_graph_data()
+        res = self.g.query()
+        self.assertTriples(res, (
+            ('charlie', 'is', 'human'),
+            ('charlie', 'likes', 'huey'),
+            ('charlie', 'likes', 'mickey'),
+            ('charlie', 'likes', 'zaizee'),
+            ('connor', 'likes', 'huey'),
+            ('connor', 'likes', 'mickey'),
+            ('huey', 'eats', 'catfood'),
+            ('huey', 'is', 'cat'),
+            ('mickey', 'eats', 'anything'),
+            ('mickey', 'is', 'dog'),
+            ('zaizee', 'eats', 'catfood'),
+            ('zaizee', 'is', 'cat'),
+        ))
+
         res = self.g.query('charlie', 'likes')
         self.assertTriples(res, (
             ('charlie', 'likes', 'huey'),

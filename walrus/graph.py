@@ -130,6 +130,8 @@ class Graph(object):
             parts.extend(('pos', p))
         elif o:
             parts.extend(('osp', o))
+        else:
+            parts.extend(('spo',))
         return key(parts + ['']), key(parts + ['\xff'])
 
     def query(self, s=None, p=None, o=None):
