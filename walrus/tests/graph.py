@@ -126,6 +126,12 @@ class TestGraph(WalrusTestCase):
             ('connor', 'likes', 'huey'),
         ))
 
+        res = self.g.query(s='does-not-exist')
+        self.assertTriples(res, [])
+
+        res = self.g.query(s='huey', p='is', o='x')
+        self.assertTriples(res, [])
+
     def test_search(self):
         self.create_graph_data()
         X = self.g.v('x')

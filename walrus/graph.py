@@ -149,8 +149,6 @@ class Graph(object):
         if end is None:
             if start in self._z:
                 yield {'s': s, 'p': p, 'o': o}
-            else:
-                raise StopIteration
         else:
             for key in self._z.range_by_lex('[' + start, '[' + end):
                 keys, p1, p2, p3 = decode(key).split('::')
