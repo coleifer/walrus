@@ -13,6 +13,13 @@ class Lock(object):
     a value is pushed into this list, signalling that the lock is
     available.
 
+    .. warning::
+        The event list for each lock persists
+        indefinitely unless removed using :py:meth:`Lock.clear` or
+        otherwise manually in the Redis database. For this reason,
+        be cautious when creating locks dynamically, or your
+        keyspace might grow in an unbounded way.
+
     The lock uses Lua scripts to ensure the atomicity of its
     operations.
 
