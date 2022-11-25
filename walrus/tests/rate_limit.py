@@ -9,7 +9,10 @@ class TestRateLimit(WalrusTestCase):
     def setUp(self):
         super(TestRateLimit, self).setUp()
         # Limit to 5 events per second.
-        self.rl = db.rate_limit('test-rl', 5, 1)
+        self.rl = self.get_rate_limit('test-rl', 5, 1)
+
+    def get_rate_limit(self, key, limit, per):
+        return db.rate_limit(key, limit, per)
 
     def test_rate_limit(self):
         for i in range(5):
@@ -21,7 +24,7 @@ class TestRateLimit(WalrusTestCase):
         self.assertFalse(self.rl.limit('k2'))
 
     def test_rate_limit_rollover(self):
-        rl = db.rate_limit('test-rl2', 3, 100)
+        rl = self.get_rate_limit('test-rl2', 3, 100)
         container = db.List('test-rl2:k1')
 
         now = time.time()
@@ -66,7 +69,7 @@ class TestRateLimit(WalrusTestCase):
         self.assertTrue(rl.limit('k1'))
 
     def test_decorator(self):
-        rl = db.rate_limit('test-rl2', 3, 100)
+        rl = self.get_rate_limit('test-rl2', 3, 100)
         container = db.List('test-rl2:fake-key')
 
         def key_fn(*args, **kwargs):
@@ -88,3 +91,8 @@ class TestRateLimit(WalrusTestCase):
         self.assertEqual(do_test(), 'OK')
         self.assertEqual(do_test(), 'OK')
         self.assertRaises(RateLimitException, do_test)
+
+
+class TestRateLimitLua(TestRateLimit):
+    def get_rate_limit(self, key, limit, per):
+        return db.rate_limit_lua(key, limit, per)
