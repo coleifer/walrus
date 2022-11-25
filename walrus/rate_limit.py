@@ -95,3 +95,19 @@ class RateLimit(object):
                 return fn(*args, **kwargs)
             return inner
         return decorator
+
+
+class RateLimitLua(RateLimit):
+    """
+    Rate limit implementation. Allows up to "limit" number of events every per
+    the given number of seconds. Uses a Lua script to ensure atomicity.
+    """
+    def limit(self, key):
+        if self._debug:
+            return False
+
+        key = self.name + ':' + key
+        return bool(self.database.run_script(
+            'rate_limit',
+            keys=[key],
+            args=[self._limit, self._per, time.time()]))

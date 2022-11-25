@@ -33,6 +33,7 @@ from walrus.fts import Index
 from walrus.graph import Graph
 from walrus.lock import Lock
 from walrus.rate_limit import RateLimit
+from walrus.rate_limit import RateLimitLua
 from walrus.streams import TimeSeries
 
 
@@ -261,6 +262,15 @@ class Database(Redis):
         See :ref:`rate-limit` for more information.
         """
         return RateLimit(self, name, limit, per, debug)
+
+    def rate_limit_lua(self, name, limit=5, per=60, debug=False):
+        """
+        Rate limit implementation. Allows up to `limit` of events every `per`
+        seconds. Uses a Lua script for atomicity.
+
+        See :ref:`rate-limit` for more information.
+        """
+        return RateLimitLua(self, name, limit, per, debug)
 
     def Index(self, name, **options):
         """

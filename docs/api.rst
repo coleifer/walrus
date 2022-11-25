@@ -18,6 +18,7 @@ API Documentation
       graph,
       lock,
       rate_limit,
+      rate_limit_lua,
       Index,
       List,
       Hash,
@@ -299,6 +300,10 @@ High-level APIs
       __init__,
       limit,
       rate_limited
+
+.. autoclass:: RateLimitLua(RateLimit)
+    :members:
+      limit
 
 .. autoclass:: TimeSeries(ConsumerGroup)
     :members:
