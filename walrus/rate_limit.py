@@ -50,8 +50,8 @@ class RateLimit(object):
         if n < self._limit:
             counter.prepend(str(time.time()))
         else:
-            oldest = float(counter[-1])
-            if time.time() - oldest < self._per:
+            oldest = counter[-1]
+            if (oldest is not None) and (time.time() - float(oldest) < self._per):
                 is_limited = True
             else:
                 counter.prepend(str(time.time()))
