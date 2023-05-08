@@ -391,7 +391,7 @@ class BaseIndex(object):
     def field_value(self, instance):
         return self.field.db_value(getattr(instance, self.field.name))
 
-    def get_key(self, instance, value):
+    def get_key(self, value):
         raise NotImplementedError
 
     def store_instance(self, key, instance, value):
