@@ -7,13 +7,10 @@ import uuid
 
 try:
     from redis import Redis
-    from redis.client import pairs_to_dict
-    from redis.client import zset_score_pairs
     from redis.exceptions import ConnectionError
     from redis.exceptions import TimeoutError
 except ImportError:
     Redis = object
-    zset_score_pairs = None
     ConnectionError = TimeoutError = Exception
 
 from walrus.autocomplete import Autocomplete

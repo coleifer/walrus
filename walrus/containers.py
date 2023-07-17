@@ -7,11 +7,9 @@ except ImportError:
     pass
 from functools import wraps
 try:
-    from redis.client import zset_score_pairs
     from redis.exceptions import ResponseError
 except ImportError:
     ResponseError = Exception
-    zset_score_pairs = None
 
 from walrus.utils import basestring_type
 from walrus.utils import decode as _decode
