@@ -44,14 +44,14 @@ The :py:meth:`Cache.cached` decorator will *memoize* the return values from the 
     ... def get_time():
     ...     return datetime.datetime.now()
 
-    >>> print get_time()  # First call, return value cached.
+    >>> print(get_time())  # First call, return value cached.
     2015-01-07 18:26:42.730638
 
-    >>> print get_time()  # Hits the cache.
+    >>> print(get_time())  # Hits the cache.
     2015-01-07 18:26:42.730638
 
     >>> time.sleep(10)  # Wait for cache to expire then call again.
-    >>> print get_time()
+    >>> print(get_time())
     2015-01-07 18:26:53.529011
 
 If a decorated function accepts arguments, then values will be cached based on the arguments specified. In the example below we'll pass a garbage argument to the ``get_time`` function to show how the cache varies for different arguments:
@@ -62,22 +62,22 @@ If a decorated function accepts arguments, then values will be cached based on t
     ... def get_time(seed=None):
     ...     return datetime.datetime.now()
 
-    >>> print get_time()
+    >>> print(get_time())
     2015-01-07 18:30:53.831977
 
-    >>> print get_time()
+    >>> print(get_time())
     2015-01-07 18:30:53.831977
 
-    >>> print get_time('foo')
+    >>> print(get_time('foo'))
     2015-01-07 18:30:56.614064
 
-    >>> print get_time('foo')
+    >>> print(get_time('foo'))
     2015-01-07 18:30:56.614064
 
-    >>> print get_time('bar')
+    >>> print(get_time('bar'))
     2015-01-07 18:31:01.497050
 
-    >>> print get_time('foo')
+    >>> print(get_time('foo'))
     2015-01-07 18:30:56.614064
 
 To clear the cache, you can call the special ``bust()`` method on the decorated function:
@@ -85,7 +85,7 @@ To clear the cache, you can call the special ``bust()`` method on the decorated 
 .. code-block:: pycon
 
     >>> get_time.bust('foo')
-    >>> print get_time('foo')
+    >>> print(get_time('foo'))
     2015-01-07 18:31:15.326435
 
 Cached Property
@@ -100,10 +100,10 @@ Python supports dynamic instance attributes through the ``property`` decorator. 
     ...     def now(self):
     ...         return datetime.datetime.now()
 
-    >>> print clock.now
+    >>> print(clock.now)
     2015-01-12 21:10:34.335755
 
-    >>> print clock.now
+    >>> print(clock.now)
     2015-01-12 21:10:34.335755
 
 .. _cache-async:
@@ -122,7 +122,7 @@ Let's see how this works. We'll add a call to ``time.sleep`` in the decorated fu
     >>> import time
     >>> @cache.cache_async()
     ... def get_now(seed=None):
-    ...     print 'About to sleep for 5 seconds.'
+    ...     print('About to sleep for 5 seconds.')
     ...     time.sleep(5)
     ...     return datetime.datetime.now()
 
@@ -150,7 +150,7 @@ We can force our code to block until the result is ready, though:
 
 .. code-block:: pycon
 
-    >>> print result(block=True)
+    >>> print(result(block=True))
     2015-01-12 21:28:25.266448
 
 Now that the result has been calculated and cached, a subsequent call to ``get_now()`` will not execute the function body. We can tell because the function does not print *About to sleep for 5 seconds*.
@@ -158,21 +158,21 @@ Now that the result has been calculated and cached, a subsequent call to ``get_n
 .. code-block:: pycon
 
     >>> result = get_now()
-    >>> print result()
+    >>> print(result())
     2015-01-12 21:28:25.266448
 
 The result function can be called any number of times. It will always return the same value:
 
 .. code-block:: pycon
 
-    >>> print result()
+    >>> print(result())
     2015-01-12 21:28:25.266448
 
 Another trick is passing a timeout to the result function. Let's see what happens when we call ``get_now()`` using a different seed, then specify a timeout to block for the return value. Since we hard-coded a delay of 5 seconds, let's see what happens when we specify a timeout of 4 seconds:
 
 .. code-block:: pycon
 
-    >>> print get_now('foo')(timeout=4)
+    >>> print(get_now('foo')(timeout=4))
     About to sleep for 5 seconds.
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
@@ -186,7 +186,7 @@ Now let's try with a timeout of 6 seconds (being sure to use a different seed so
 
 .. code-block:: pycon
 
-    >>> print get_now('bar')(timeout=6)
+    >>> print(get_now('bar')(timeout=6))
     About to sleep for 5 seconds.
     2015-01-12 21:46:49.060883
 

@@ -10,7 +10,7 @@ At the most basic level, Redis acts like an in-memory Python dictionary:
 .. code-block:: pycon
 
     >>> db['walrus'] = 'tusk'
-    >>> print db['walrus']
+    >>> print(db['walrus'])
     tusk
 
     >>> db['not-here']
@@ -53,17 +53,17 @@ We can use common Python interfaces like iteration, len, contains, etc.
 
 .. code-block:: pycon
 
-    >>> print h['name']
+    >>> print(h['name'])
     Charlie
 
     >>> for key, value in h:
-    ...     print key, '=>', value
+    ...     print(key, '=>', value)
     name => Charlie
     favorite_cat => Huey
 
     >>> del h['favorite_cat']
     >>> h['age'] = 31
-    >>> print h
+    >>> print(h)
     <Hash "charlie": {'age': '31', 'name': 'Charlie'}>
 
     >>> 'name' in h
@@ -81,9 +81,9 @@ The :py:class:`List` acts like a Python ``list``.
     >>> l = db.List('names')
     >>> l.extend(['charlie', 'huey', 'mickey', 'zaizee'])
     4L
-    >>> print l[:2]
+    >>> print(l[:2])
     ['charlie', 'huey']
-    >>> print l[-2:]
+    >>> print(l[-2:])
     ['mickey', 'zaizee']
     >>> l.pop()
     'zaizee'

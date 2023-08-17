@@ -76,7 +76,7 @@ We can retrieve all objects in the collection by calling :py:meth:`Model.all`, w
 .. code-block:: pycon
 
     >>> for user in User.all():
-    ...     print user.name
+    ...     print(user.name)
     Huey
     Zaizee
     Charlie
@@ -92,14 +92,14 @@ To get the objects in order, we can use :py:meth:`Model.query`:
 .. code-block:: pycon
 
     >>> for user in User.query(order_by=User.name):
-    ...     print user.name
+    ...     print(user.name)
     Charlie
     Huey
     Mickey
     Zaizee
 
     >>> for user in User.query(order_by=User.dob.desc()):
-    ...     print user.dob
+    ...     print(user.dob)
     2012-04-01
     2011-06-01
     2007-08-01
@@ -117,7 +117,7 @@ Let's see how this works by filtering on name and dob. The :py:meth:`~Model.quer
 .. code-block:: pycon
 
     >>> for user in User.query(User.dob <= datetime.date(2009, 1, 1)):
-    ...     print user.dob
+    ...     print(user.dob)
     2007-08-01
     1983-01-01
 
@@ -140,14 +140,14 @@ We can combine multiple filters using bitwise *and* and *or*:
     ...     (User.dob <= high))
 
     >>> for user in query:
-    ...     print user.dob
+    ...     print(user.dob)
 
     2011-06-01
     2007-08-01
 
     >>> query = User.query(User.dob.between(low, high))  # Equivalent to above.
     >>> for user in query:
-    ...     print user.dob
+    ...     print(user.dob)
 
     2011-06-01
     2007-08-01
@@ -157,7 +157,7 @@ We can combine multiple filters using bitwise *and* and *or*:
     ...     (User.dob >= high))
 
     >>> for user in query:
-    ...     print user.dob
+    ...     print(user.dob)
     2012-04-01
     1983-01-01
 
@@ -167,12 +167,12 @@ You can combine filters with ordering:
 
     >>> expr = (User.name == 'Charlie') | (User.name == 'Zaizee')
     >>> for user in User.query(expr, order_by=User.name):
-    ...     print user.name
+    ...     print(user.name)
     Charlie
     Zaizee
 
     >>> for user in User.query(User.name != 'Charlie', order_by=User.name.desc()):
-    ...     print user.name
+    ...     print(user.name)
     Zaizee
     Mickey
     Huey
@@ -241,17 +241,17 @@ Use :py:meth:`TextField.search` to create a search expression, which is then pas
 .. code-block:: pycon
 
     >>> for note in Note.query(Note.content.search('walrus')):
-    ...     print note.content
+    ...     print(note.content)
     do not forget to take the walrus for a walk.
     this is a test of walrus FTS.
     favorite food is walrus-mix.
 
     >>> for note in Note.query(Note.content.search('walk walrus')):
-    ...     print note.content
+    ...     print(note.content)
     do not forget to take the walrus for a walk.
 
     >>> for note in Note.query(Note.content.search('walrus mix')):
-    ...     print note.content
+    ...     print(note.content)
     favorite food is walrus-mix.
 
 We can also specify complex queries using ``AND`` and ``OR`` conjunctions:
@@ -259,13 +259,13 @@ We can also specify complex queries using ``AND`` and ``OR`` conjunctions:
 .. code-block:: pycon
 
     >>> for note in Note.query(Note.content.search('walrus AND (mix OR fts)')):
-    ...     print note.content
+    ...     print(note.content)
     this is a test of walrus FTS.
     favorite food is walrus-mix.
 
     >>> query = '(test OR food OR walk) AND walrus AND (favorite OR forget)'
     >>> for note in Note.query(Note.content.search(query)):
-    ...     print note.content
+    ...     print(note.content)
     do not forget to take the walrus for a walk.
     favorite food is walrus-mix.
 

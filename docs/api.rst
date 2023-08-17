@@ -343,7 +343,7 @@ Field types
             expression = Message.content.search('python AND (redis OR walrus)')
             messages = Message.query(expression)
             for message in messages:
-                print message.content
+                print(message.content)
 
 .. autoclass:: IntegerField
     :members:

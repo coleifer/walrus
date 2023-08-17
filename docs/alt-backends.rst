@@ -162,7 +162,7 @@ We can use these commands like so:
     >>> db['user.1.username'] = 'charles'
     >>> db.KTITLE('user.1.username', 'user.1.display_name')
     1
-    >>> print db['user.1.display_name']
+    >>> print(db['user.1.display_name'])
     Charles
 
 Ledis
