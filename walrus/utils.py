@@ -47,7 +47,7 @@ def decode_dict_keys(d):
 def make_python_attr(s):
     if isinstance(s, bytes):
         s = decode(s)
-    s = re.sub('[^\w]+', '_', s)
+    s = re.sub(r'[^\w]+', '_', s)
     if not s:
         raise ValueError('cannot construct python identifer from "%s"' % s)
     if s[0].isdigit():
