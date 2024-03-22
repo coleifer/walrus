@@ -3,7 +3,10 @@ import unittest
 try:
     from packaging.version import Version
 except ImportError:
-    from distutils.version import StrictVersion as Version
+    try:
+        from distutils.version import StrictVersion as Version
+    except ImportError:
+        from setuptools._distutils.version import StrictVersion as Version
 
 from walrus import Database
 
