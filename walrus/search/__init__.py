@@ -13,7 +13,7 @@ class Tokenizer(object):
         self._use_metaphone = metaphone
         self._min_word_length = min_word_length
         self._symbols_re = re.compile(
-            '[\.,;:"\'\\/!@#\$%\?\*\(\)\-=+\[\]\{\}_]')
+            r'[\.,;:"\'\\/!@#\$%\?\*\(\)\-=+\[\]\{\}_]')
 
         self._stopwords = self._load_stopwords(stopwords_file)
 
