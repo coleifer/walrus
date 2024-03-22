@@ -57,7 +57,7 @@ class Autocomplete(object):
     def tokenize_title(self, phrase, stopwords=True):
         if isinstance(phrase, bytes):
             phrase = decode(phrase)
-        phrase = re.sub('[^a-z0-9_\-\s]', '', phrase.lower())
+        phrase = re.sub(r'[^a-z0-9_\-\s]', '', phrase.lower())
         if stopwords and self._stopwords:
             return [w for w in phrase.split() if w not in self._stopwords]
         else:
