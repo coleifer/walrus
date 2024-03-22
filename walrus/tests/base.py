@@ -1,6 +1,9 @@
 import os
 import unittest
-from distutils.version import StrictVersion
+try:
+    from packaging.version import Version
+except ImportError:
+    from distutils.version import StrictVersion as Version
 
 from walrus import Database
 
@@ -19,7 +22,7 @@ def requires_version(min_version):
         global REDIS_VERSION
         if REDIS_VERSION is None:
             REDIS_VERSION = db.info()['redis_version']
-        too_old = StrictVersion(REDIS_VERSION) < StrictVersion(min_version)
+        too_old = Version(REDIS_VERSION) < Version(min_version)
         return unittest.skipIf(too_old,
                                'redis too old, requires %s' % min_version)(fn)
     return decorator
