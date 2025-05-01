@@ -5,7 +5,7 @@
 Cache
 =====
 
-Walrus provides a simple :py:class:`Cache` implementation that makes use of Redis' key expiration feature. The cache can be used to set or retrieve values, and also provides a decorator (:py:meth:`Cache.cached`) for wrapping function or methods.
+Walrus provides a simple :py:class:`Cache` implementation that makes use of Redis' key expiration feature. The cache can be used to set or retrieve values, and also provides a decorator (:py:meth:`Cache.cached`) for wrapping function.
 
 Basic usage
 -----------
