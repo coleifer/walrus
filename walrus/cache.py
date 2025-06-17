@@ -257,11 +257,15 @@ class Cache(object):
             clock = Clock()
             print clock.now
         """
+        def key_wrapper(a, k):
+            instance = a[0]
+            return key_fn((id(instance), a), k)
+
         this = self
 
         class _cached_property(object):
             def __init__(self, fn):
-                self._fn = this.cached(key_fn, timeout)(fn)
+                self._fn = this.cached(key_wrapper, timeout)(fn)
 
             def __get__(self, instance, instance_type=None):
                 if instance is None:
