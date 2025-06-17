@@ -66,6 +66,17 @@ class TestCache(WalrusTestCase):
         self.assertTrue(n1 != n3)
         self.assertEqual(c.now, n3)
 
+        ca, cb = Clock(), Clock()
+        n1 = ca.now
+        self.assertEqual(ca.now, n1)
+        n2 = cb.now
+        self.assertEqual(cb.now, n2)
+        self.assertTrue(n1 != n2)
+
+        del ca.now
+        self.assertTrue(ca.now != n1)
+        self.assertTrue(ca.now != cb.now)
+
     def test_cached_return_none(self):
         S = {'count': 0}
         @cache.cached()
@@ -95,5 +106,7 @@ class TestCache(WalrusTestCase):
     def test_flush_empty_cache(self):
         cache.set('foo', 'bar', 10)
         self.assertList(cache.keys(), ['test.cache:foo'])
+        self.assertList(cache.keys(True), ['foo'])
+
         cache.flush()
         self.assertList(cache.keys(), [])
