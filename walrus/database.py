@@ -208,7 +208,7 @@ class Database(Redis):
     def autocomplete(self, namespace='autocomplete', **kwargs):
         return Autocomplete(self, namespace, **kwargs)
 
-    def cache(self, name='cache', default_timeout=3600):
+    def cache(self, name='cache', default_timeout=None):
         """
         Create a :py:class:`Cache` instance.
 
