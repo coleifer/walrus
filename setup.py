@@ -46,6 +46,11 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
+    project_urls={
+        'Documentation': 'https://walrus.readthedocs.io/',
+        'Source': 'https://github.com/coleifer/walrus'},
     test_suite='walrus.tests',
 )
