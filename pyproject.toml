@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=60", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "walrus"
+dynamic = ["version"]
+description = "a set of utilities for working with redis"
+dependencies = ["redis"]
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Charles Leifer", email = "coleifer@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 2",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Repository = "https://github.com/coleifer/walrus"
+Documentation = "https://walrus.readthedocs.io/"
+Changelog = "https://github.com/coleifer/walrus/blob/master/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "walrus.__version__" }

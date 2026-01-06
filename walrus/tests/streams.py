@@ -4,7 +4,6 @@ import unittest
 from walrus.streams import TimeSeries
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
-from walrus.tests.base import stream_test
 
 
 class TestTimeSeries(WalrusTestCase):
@@ -33,7 +32,6 @@ class TestTimeSeries(WalrusTestCase):
                  {'k': '%s-%s' % (streams[i % 3], i)}) for i in expected_ids]
         self.assertEqual(rdata, edata)
 
-    @stream_test
     def test_timeseries_ranges(self):
         docids = self._create_test_data()
 
@@ -60,7 +58,6 @@ class TestTimeSeries(WalrusTestCase):
         self.assertMessages(self.ts.sa.range(count=1), [6])
         self.assertMessages(self.ts.streams['sa'].range(count=1), [6])
 
-    @stream_test
     def test_timeseries_read(self):
         self._create_test_data()
         self.ts.create()
@@ -81,7 +78,6 @@ class TestTimeSeries(WalrusTestCase):
         self.ts.set_id(datetime.datetime(2018, 1, 4))
         self.assertMessages(self.ts.read(), [4, 6, 8, 9])
 
-    @stream_test
     def test_adding(self):
         self._create_test_data()
         self.ts.create()
@@ -110,7 +106,6 @@ class TestTimeSeries(WalrusTestCase):
         self.assertEqual(r11.stream, 'sb')
         self.assertEqual(r11.data, {'k': 'sb-11'})
 
-    @stream_test
     def test_timeseries_stream_read(self):
         self._create_test_data()
         self.ts.create()
@@ -134,7 +129,6 @@ class TestTimeSeries(WalrusTestCase):
         self.ts.sa.trim(2, False)
         self.assertMessages(self.ts.read(), [6, 9])
 
-    @stream_test
     def test_ack_claim_pending(self):
         self._create_test_data()
         self.ts.create()

@@ -4,7 +4,11 @@ This document describes changes to the APIs.
 
 ### master
 
-[View changes](https://github.com/coleifer/walrus/compare/0.9.2...HEAD)
+[View changes](https://github.com/coleifer/walrus/compare/0.9.3...HEAD)
+
+### 0.9.3
+
+Update build system to use pyproject.toml and github actions.
 
 ### 0.9.2
 

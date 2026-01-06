@@ -4,8 +4,6 @@ from walrus.containers import *
 from walrus.containers import _normalize_stream_keys
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
-from walrus.tests.base import stream_test
-from walrus.tests.base import zpop_test
 from walrus.utils import decode
 from walrus.utils import decode_dict
 from walrus.utils import encode
@@ -211,7 +209,6 @@ class TestZSet(WalrusTestCase):
         self.assertEqual(self.zs.popmax_compat(), [])
         self.assertEqual(len(self.zs), 0)
 
-    @zpop_test
     def test_popmin_popmax(self):
         for i in range(10):
             self.zs.add({'i%s' % i: i})
@@ -470,7 +467,6 @@ class TestStream(WalrusTestCase):
                 db.xadd('sb', {'k': 'b2'}, b'4'),
                 db.xadd('sb', {'k': 'b3'}, b'5'))
 
-    @stream_test
     def test_stream_group_info(self):
         sa = db.Stream('sa')
         ra1 = sa.add({'k': 'a1'})
@@ -522,7 +518,6 @@ class TestStream(WalrusTestCase):
         self.assertEqual(len(sa.groups_info()), 1)
         self.assertEqual(len(sb.groups_info()), 0)
 
-    @stream_test
     def test_consumer_group_create(self):
         cg = db.consumer_group('cg', ['sa'])
         self.assertEqual(cg.create(), {'sa': True})
@@ -535,7 +530,6 @@ class TestStream(WalrusTestCase):
         cg = db.consumer_group('cg', ['sa', 'sb'])
         self.assertEqual(cg.create(), {'sa': False, 'sb': True})
 
-    @stream_test
     def test_consumer_group_stream_creation(self):
         cg = db.consumer_group('cg1', ['stream-a', 'stream-b'])
         self.assertFalse(db.exists('stream-a'))
@@ -575,7 +569,6 @@ class TestStream(WalrusTestCase):
             cg = db.consumer_group('cg-%s' % key, keys=[key])
             self.assertRaises(ValueError, cg.create)
 
-    @stream_test
     def test_consumer_group_streams(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
         cg = db.consumer_group('g1', ['sa', 'sb'])
@@ -611,7 +604,6 @@ class TestStream(WalrusTestCase):
         assertMessages(list(cg.sa), [ra2])
         assertMessages(list(cg.sb), [rb2])
 
-    @stream_test
     def test_consumer_group_container(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
         cg1 = db.consumer_group('g1', {'sa': '1', 'sb': '0'})
@@ -639,7 +631,6 @@ class TestStream(WalrusTestCase):
         self.assertEqual(cg1.destroy(), {'sa': 1, 'sb': 1})
         self.assertEqual(cg2.destroy(), {'sb': 1})
 
-    @stream_test
     def test_consumer_group_consumers(self):
         ra1, rb1, ra2, rb2, rb3 = self._create_test_data()
         cg11 = db.consumer_group('g1', {'sa': '0', 'sb': '0'}, consumer='cg11')
@@ -666,7 +657,6 @@ class TestStream(WalrusTestCase):
         self.assertEqual(pb2['message_id'], rb2)
         self.assertEqual(pb2['consumer'], b'cg12')
 
-    @stream_test
     def test_read_api(self):
         sa = db.Stream('a')
         sb = db.Stream('b')
@@ -754,7 +744,6 @@ class TestStream(WalrusTestCase):
                        count=1, block=1)
         self.assertEqual(res, [])
 
-    @stream_test
     def test_set_id_stream(self):
         stream = db.Stream('my-stream')
         stream.add({'k': 'v1'}, id='3')
@@ -765,7 +754,6 @@ class TestStream(WalrusTestCase):
             (b'3-0', {b'k': b'v1'}),
             (b'6-0', {b'k': b'v3'})])
 
-    @stream_test
     def test_basic_apis(self):
         stream = db.Stream('my-stream')
 
