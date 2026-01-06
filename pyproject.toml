@@ -8,7 +8,6 @@ dynamic = ["version"]
 description = "a set of utilities for working with redis"
 dependencies = ["redis"]
 readme = "README.md"
-license = { file = "LICENSE" }
 authors = [
     { name = "Charles Leifer", email = "coleifer@gmail.com" }
 ]
