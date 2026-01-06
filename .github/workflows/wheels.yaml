@@ -27,7 +27,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: package
-          path: dist/huey*
+          path: dist/walrus*
 
   publish:
     needs: [build]

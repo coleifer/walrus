@@ -4,7 +4,11 @@ This document describes changes to the APIs.
 
 ### master
 
-[View changes](https://github.com/coleifer/walrus/compare/0.9.3...HEAD)
+[View changes](https://github.com/coleifer/walrus/compare/0.9.6...HEAD)
+
+### 0.9.6
+
+Update the build system yet again.
 
 ### 0.9.3
 
