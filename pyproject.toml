@@ -26,4 +26,4 @@ Changelog = "https://github.com/coleifer/walrus/blob/master/CHANGELOG.md"
 version = { attr = "walrus.__version__" }
 
 [tool.setuptools.packages.find]
-exclude = ["examples*", "docs*"]
+include= ["walrus*"]
