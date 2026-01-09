@@ -6,6 +6,10 @@ This document describes changes to the APIs.
 
 [View changes](https://github.com/coleifer/walrus/compare/0.9.6...HEAD)
 
+### 0.9.7
+
+Fix building on Python 2.7.
+
 ### 0.9.6
 
 Update the build system yet again.
