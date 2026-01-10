@@ -13,19 +13,6 @@ from walrus.tests.models import *
 from walrus.tests.rate_limit import *
 from walrus.tests.streams import *
 
-try:
-    from walrus.tusks.ledisdb import TestWalrusLedis
-except ImportError:
-    pass
-try:
-    from walrus.tusks.rlite import TestWalrusLite
-except ImportError:
-    pass
-try:
-    from walrus.tusks.vedisdb import TestWalrusVedis
-except ImportError:
-    pass
-
 
 if __name__ == '__main__':
     unittest.main(argv=sys.argv)

@@ -57,7 +57,6 @@ Contents:
    streams
    models
    api
-   alt-backends
    contributing
 
 
