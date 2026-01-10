@@ -9,6 +9,8 @@
     <a href="{{ url_for('join') }}">join</a>
   {% else %}
     <a href="{{ url_for('public_timeline') }}">public timeline</a>
+    <a href="{{ url_for('following') }}">following</a>
+    <a href="{{ url_for('followers') }}">followers</a>
     <a href="{{ url_for('create') }}">create</a>
     <a href="{{ url_for('logout') }}">log out</a>
   {% endif %}

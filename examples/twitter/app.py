@@ -1,5 +1,6 @@
 import datetime
 import operator
+from functools import reduce
 
 from flask import abort
 from flask import flash
@@ -45,12 +46,14 @@ class User(BaseModel):
     def get_followers(self):
         # Because all users are added to the `followers` sorted-set with the
         # same score, when retrieved they will be sorted by key (username).
-        return [User.load(username) for username in self.followers]
+        return [User.load(username.decode('utf8'))
+                for username, _ in self.followers]
 
     def get_following(self):
         # Because all users are added to the `following` sorted-set with the
         # same score, when retrieved they will be sorted by key (username).
-        return [User.load(username) for username in self.following]
+        return [User.load(username.decode('utf8'))
+                for username, _ in self.following]
 
     def is_following(self, user):
         # We can use Pythonic operators when working with Walrus containers.
@@ -156,7 +159,7 @@ def join():
         except KeyError:
             user = User.create(
                 username=username,
-                password=md5(request.form['password']).hexdigest(),
+                password=md5(request.form['password'].encode('utf8')).hexdigest(),
                 email=request.form['email'])
             auth_user(user)
             return redirect(url_for('homepage'))
@@ -171,7 +174,7 @@ def login():
         try:
             user = User.get(
                 (User.username == request.form['username']) &
-                (User.password == md5(request.form['password']).hexdigest()))
+                (User.password == md5(request.form['password'].encode('utf8')).hexdigest()))
         except ValueError:
             flash('The password entered is incorrect')
         else:
@@ -191,14 +194,14 @@ def logout():
 def following():
     # Get the list of user objects the current user is following.
     user = get_current_user()
-    return render_template('user_following', user_list=user.get_following())
+    return render_template('user_following.html', user_list=user.get_following())
 
 @app.route('/followers/')
 @login_required
 def followers():
     # Get the list of user objects the current user is followed by.
     user = get_current_user()
-    return render_template('user_following', user_list=user.get_followers())
+    return render_template('user_followers.html', user_list=user.get_followers())
 
 @app.route('/users/')
 def user_list():
@@ -226,8 +229,8 @@ def user_detail(username):
 def user_follow(username):
     current_user = get_current_user()
     user = get_object_or_404(User, username)
-    current_user.following.add(user.username, 0)
-    user.followers.add(current_user.username, 0)
+    current_user.following.add({user.username: 0})
+    user.followers.add({current_user.username: 0})
 
     flash('You are following %s' % user.username)
     return redirect(url_for('user_detail', username=user.username))
