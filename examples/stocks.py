@@ -1,4 +1,4 @@
-import urllib2
+from urllib.request import urlopen
 from walrus import Database
 
 db = Database()
@@ -6,7 +6,7 @@ autocomplete = db.autocomplete(namespace='stocks')
 
 def load_data():
     url = 'http://media.charlesleifer.com/blog/downloads/misc/NYSE.txt'
-    contents = urllib2.urlopen(url).read()
+    contents = urlopen(url).read().decode('utf8')
     for row in contents.splitlines()[1:]:
         ticker, company = row.split('\t')
         autocomplete.store(
@@ -19,18 +19,18 @@ def search(p, **kwargs):
 
 if __name__ == '__main__':
     autocomplete.flush()
-    print 'Loading data (may take a few seconds...)'
+    print('Loading data (may take a few seconds...)')
     load_data()
 
-    print 'Search stock data by typing a partial phrase.'
-    print 'Examples: "uni sta", "micro", "food", "auto"'
-    print 'Type "q" at any time to quit'
+    print('Search stock data by typing a partial phrase.')
+    print('Examples: "uni sta", "micro", "food", "auto"')
+    print('Type "q" at any time to quit')
 
     while 1:
-        cmd = raw_input('? ')
+        cmd = input('? ')
         if cmd == 'q':
             break
-        results = search(cmd)
-        print 'Found %s matches' % len(results)
+        results = list(search(cmd))
+        print('Found %s matches' % len(results))
         for result in results:
-            print '%s: %s' % (result['ticker'], result['company'])
+            print('%s: %s' % (result['ticker'], result['company']))
