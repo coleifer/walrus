@@ -184,6 +184,8 @@ class TaskResultWrapper(object):
 
 
 if __name__ == '__main__':
+    import sys; sys.set_int_max_str_digits(100000)
+
     db = Walrus()  # roughly equivalent to db = Redis().
     queue = TaskQueue(db)
 
