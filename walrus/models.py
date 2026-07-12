@@ -142,7 +142,14 @@ class IntegerField(_ScalarField):
     _coerce = int
 
     def db_value(self, value):
-        return 0 if value is None else int(value)
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError, OverflowError) as exc:
+            raise TypeError(
+                'IntegerField value cannot be converted to int: %r' % value
+            ) from exc
 
 
 class AutoIncrementField(IntegerField):
