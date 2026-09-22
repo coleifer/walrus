@@ -228,7 +228,7 @@ I've added a really (really) simple full-text search index type. Here is how to 
     ...     __database__ = db
     ...     content = TextField(fts=True)  # Note the "fts=True".
 
-When a field contains an full-text index, then the index will be populated when new objects are added to the database:
+When a field contains a full-text index, then the index will be populated when new objects are added to the database:
 
 .. code-block:: pycon
 
