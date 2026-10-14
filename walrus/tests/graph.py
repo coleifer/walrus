@@ -3,6 +3,26 @@ from walrus.tests.base import db
 
 
 class TestGraph(WalrusTestCase):
+    def test_query_edges(self):
+        self.g.store('huey', 'likes', 'charlie')
+        self.g.store('charlie', 'likes', '寿司')
+        self.g.store('a', 'p', '')
+        self.g.store('a', 'p', 'z')
+        self.assertEqual(list(self.g.query(s='charlie', o='huey')), [])
+        self.assertEqual([t['o'] for t in self.g.query(s='charlie')], ['寿司'])
+        self.assertEqual(len(list(self.g.query(s='a', p='p', o=''))), 1)
+        self.assertRaises(ValueError, self.g.store, 'a:', 'p', 'o')
+
+    def test_search_join(self):
+        X, Y = self.g.v.X, self.g.v.Y
+        self.g.store_many([('charlie', 'friends', 'huey'),
+                           ('mickey', 'friends', 'zaizee'),
+                           ('huey', 'lives', 'Kansas'),
+                           ('zaizee', 'likes', 'zaizee')])
+        res = self.g.search((X, 'friends', Y), (Y, 'lives', 'Kansas'))
+        self.assertEqual(res, {'X': {'charlie'}, 'Y': {'huey'}})
+        self.assertEqual(self.g.search((X, 'likes', X)), {'X': {'zaizee'}})
+
     def setUp(self):
         super(TestGraph, self).setUp()
         # Limit to 5 events per second.

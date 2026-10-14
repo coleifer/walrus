@@ -7,6 +7,9 @@ Graph
 
 The walrus ``graph`` module provides a lightweight `hexastore <http://redis.io/topics/indexes#representing-and-querying-graphs-using-an-hexastore>`_ implementation. The :py:class:`Graph` class uses Redis :py:class:`ZSet` objects to store collections of ``subject - predicate - object`` triples. These relationships can then be queried in a very flexible manner.
 
+Values cannot contain ``::`` or start or end with ``:``, since ``::`` separates
+the parts of each stored key.
+
 For example, we might store things like:
 
 * charlie -- friends -- huey

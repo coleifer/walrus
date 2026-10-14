@@ -3,6 +3,19 @@ import itertools
 import json
 
 from walrus.utils import decode
+from walrus.utils import encode
+
+
+def _indexes(s, p, o):
+    return (('spo', (s, p, o)), ('pos', (p, o, s)), ('osp', (o, s, p)))
+
+
+def _check_values(*values):
+    for value in values:
+        if value is not None and ('::' in value or value.startswith(':') or
+                                  value.endswith(':')):
+            raise ValueError('Graph values cannot contain "::" or start or '
+                             'end with ":": %r' % value)
 
 
 class _VariableGenerator(object):
@@ -45,17 +58,17 @@ class Graph(object):
         graph = db.graph('people')
 
         # Store my friends.
-        graph.store_many(
+        graph.store_many([
             ('charlie', 'friends', 'huey'),
             ('charlie', 'friends', 'zaizee'),
-            ('charlie', 'friends', 'nuggie'))
+            ('charlie', 'friends', 'nuggie')])
 
         # Store where people live.
-        graph.store_many(
+        graph.store_many([
             ('huey', 'lives', 'Kansas'),
             ('zaizee', 'lives', 'Missouri'),
             ('nuggie', 'lives', 'Kansas'),
-            ('mickey', 'lives', 'Kansas'))
+            ('mickey', 'lives', 'Kansas')])
 
         # Perform our search. We will use a variable (X) to indicate the
         # value we're interested in.
@@ -100,35 +113,25 @@ class Graph(object):
         self._z.remove(*self.keys_for_values(s, p, o))
 
     def keys_for_values(self, s, p, o):
-        parts = [
-            ('spo', s, p, o),
-            ('pos', p, o, s),
-            ('osp', o, s, p)]
-        for part in parts:
-            yield '::'.join(part)
+        _check_values(s, p, o)
+        for index, values in _indexes(s, p, o):
+            yield '::'.join((index,) + values)
 
     def keys_for_query(self, s=None, p=None, o=None):
-        parts = []
-        key = lambda parts: '::'.join(parts)
+        _check_values(s, p, o)
+        # Use the index whose leading parts are exactly the ones given.
+        for index, values in _indexes(s, p, o):
+            known = list(itertools.takewhile(lambda v: v is not None, values))
+            if all(v is None for v in values[len(known):]):
+                break
 
-        if s and p and o:
-            parts.extend(('spo', s, p, o))
-            return key(parts), None
-        elif s and p:
-            parts.extend(('spo', s, p))
-        elif s and o:
-            parts.extend(('osp', s, o))
-        elif p and o:
-            parts.extend(('pos', p, o))
-        elif s:
-            parts.extend(('spo', s))
-        elif p:
-            parts.extend(('pos', p))
-        elif o:
-            parts.extend(('osp', o))
-        else:
-            parts.extend(('spo',))
-        return key(parts + ['']), key(parts + ['\xff'])
+        key = '::'.join([index] + known)
+        if len(known) == 3:
+            return key, None
+        # The byte 0xff never occurs in UTF-8, so it sorts after every key
+        # with this prefix.
+        start = key + '::'
+        return start, encode(start) + b'\xff'
 
     def query(self, s=None, p=None, o=None):
         """
@@ -146,7 +149,7 @@ class Graph(object):
             if start in self._z:
                 yield {'s': s, 'p': p, 'o': o}
         else:
-            for key in self._z.range_by_lex('[' + start, '[' + end):
+            for key in self._z.range_by_lex('[' + start, b'[' + end):
                 keys, p1, p2, p3 = decode(key).split('::')
                 yield dict(zip(keys, (p1, p2, p3)))
 
@@ -190,43 +193,42 @@ class Graph(object):
             # ('huey', 'lives', 'Kansas')
             # ('nuggie', 'lives', 'Kansas')
         """
-        results = {}
+        conditions = [dict(zip('spo', c)) if isinstance(c, tuple) else c
+                      for c in conditions]
+        names = set(v.name for c in conditions for v in c.values()
+                    if isinstance(v, Variable))
 
+        # Each row binds variable names to values. A condition extends every
+        # row with the triples that match the values the row already binds.
+        rows = [{}]
         for condition in conditions:
-            if isinstance(condition, tuple):
-                query = dict(zip('spo', condition))
-            else:
-                query = condition.copy()
-            materialized = {}
-            targets = []
+            next_rows = []
+            for row in rows:
+                query, free = {}, []
+                for part, value in condition.items():
+                    if not isinstance(value, Variable):
+                        query[part] = value
+                    elif value.name in row:
+                        query[part] = row[value.name]
+                    else:
+                        free.append((part, value.name))
 
-            for part in ('s', 'p', 'o'):
-                if isinstance(query[part], Variable):
-                    variable = query.pop(part)
-                    materialized[part] = set()
-                    targets.append((variable, part))
+                for triple in self.query(**query):
+                    bound = dict(row)
+                    # A variable used twice in one condition must match itself.
+                    for part, name in free:
+                        value = bound.setdefault(name, triple[part])
+                        if value != triple[part]:
+                            break
+                    else:
+                        next_rows.append(bound)
+            rows = next_rows
 
-            # Potentially rather than popping all the variables, we could use
-            # the result values from a previous condition and do O(results)
-            # loops looking for a single variable.
-            for result in self.query(**query):
-                ok = True
-                for var, part in targets:
-                    if var in results and result[part] not in results[var]:
-                        ok = False
-                        break
-
-                if ok:
-                    for var, part in targets:
-                        materialized[part].add(result[part])
-
-            for var, part in targets:
-                if var in results:
-                    results[var] &= materialized[part]
-                else:
-                    results[var] = materialized[part]
-
-        return dict((var.name, vals) for (var, vals) in results.items())
+        results = dict((name, set()) for name in names)
+        for row in rows:
+            for name, value in row.items():
+                results[name].add(value)
+        return results
 
 
 class Variable(object):

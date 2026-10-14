@@ -1,6 +1,5 @@
 import datetime
 import operator
-import time
 
 from walrus.containers import ConsumerGroup
 from walrus.containers import ConsumerGroupStream
@@ -9,13 +8,20 @@ from walrus.utils import decode_dict
 from walrus.utils import make_python_attr
 
 
+EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+
+
 def id_to_datetime(ts):
-    tsm, seq = ts.split(b'-', 1)
+    tsm, seq = decode(ts).split('-', 1)
     return datetime.datetime.fromtimestamp(int(tsm) / 1000.), int(seq)
 
 def datetime_to_id(dt, seq=0):
-    tsm = time.mktime(dt.timetuple()) * 1000
-    return '%s-%s' % (int(tsm + (dt.microsecond / 1000)), seq)
+    # A naive datetime is local time, as with fromtimestamp() above.
+    if dt.tzinfo is None:
+        dt = dt.astimezone()
+    tsm = (dt - EPOCH) // datetime.timedelta(milliseconds=1)
+    # With no sequence, Redis reads the id as the whole millisecond.
+    return str(tsm) if seq is None else '%s-%s' % (tsm, seq)
 
 
 class Message(object):
@@ -40,11 +46,11 @@ class Message(object):
                                         self.data)
 
 
-def normalize_id(message_id):
+def normalize_id(message_id, seq=0):
     if isinstance(message_id, (str, bytes)):
         return message_id
     elif isinstance(message_id, datetime.datetime):
-        return datetime_to_id(message_id)
+        return datetime_to_id(message_id, seq)
     elif isinstance(message_id, tuple):
         return datetime_to_id(*message_id)
     elif isinstance(message_id, Message):
@@ -63,7 +69,7 @@ def xread_to_messages(resp):
         accum.extend(xrange_to_messages(stream, messages))
     # If multiple streams are present, sort them by timestamp.
     if len(resp) > 1:
-        accum.sort(key=operator.attrgetter('message_id'))
+        accum.sort(key=operator.attrgetter('timestamp', 'sequence'))
     return accum
 
 
@@ -102,6 +108,11 @@ class TimeSeriesStream(ConsumerGroupStream):
     def ack(self, *id_list):
         return super(TimeSeriesStream, self).ack(*normalize_ids(id_list))
 
+    def autoclaim(self, consumer, min_idle_time, start_id=0, count=None,
+                  justid=False):
+        return super(TimeSeriesStream, self).autoclaim(
+            consumer, min_idle_time, normalize_id(start_id), count, justid)
+
     def add(self, data, id='*', maxlen=None, approximate=True):
         db_id = super(TimeSeriesStream, self).add(data, normalize_id(id),
                                                   maxlen, approximate)
@@ -122,9 +133,17 @@ class TimeSeriesStream(ConsumerGroupStream):
             return messages[0]
 
     def range(self, start='-', stop='+', count=None):
+        # Datetime bounds cover every message in their millisecond.
         resp = super(TimeSeriesStream, self).range(
-            normalize_id(start),
-            normalize_id(stop),
+            normalize_id(start, None),
+            normalize_id(stop, None),
+            count)
+        return xrange_to_messages(self.key, resp)
+
+    def revrange(self, start='+', stop='-', count=None):
+        resp = super(TimeSeriesStream, self).revrange(
+            normalize_id(start, None),
+            normalize_id(stop, None),
             count)
         return xrange_to_messages(self.key, resp)
 
@@ -139,13 +158,18 @@ class TimeSeriesStream(ConsumerGroupStream):
                  msg['time_since_delivered'], msg['times_delivered'])
                 for msg in resp]
 
-    def read(self, count=None, block=None):
-        resp = super(TimeSeriesStream, self).read(count, block)
+    def read(self, count=None, block=None, last_id=None):
+        resp = super(TimeSeriesStream, self).read(count, block,
+                                                  normalize_id(last_id))
         if resp is not None:
             return xrange_to_messages(self.key, resp)
 
     def set_id(self, id='$'):
         return super(TimeSeriesStream, self).set_id(normalize_id(id))
+
+    def trim(self, count=None, approximate=True, minid=None, limit=None):
+        return super(TimeSeriesStream, self).trim(
+            count, approximate, normalize_id(minid), limit)
 
 
 class TimeSeries(ConsumerGroup):

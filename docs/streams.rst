@@ -158,7 +158,7 @@ operations, this id is considered the "last-read message" and acts as an
     # Returns:
     [(b'1539008918230-0', {b'message': b'message 3'})]
 
-    # This returns None since there are no messages newer than msgid3.
+    # This returns an empty list since there are no messages newer than msgid3.
     stream.read(last_id=msgid3)
 
 We can make :py:meth:`~Stream.read` blocking by specifying a special id,
@@ -182,7 +182,7 @@ Consumer groups
 In consumer-group mode, streams retain the behaviors of standalone mode, adding
 functionality which makes them *stateful*. What state is tracked?
 
-* Read any unseen messages (``XREAD``) - :py:meth:`ConsumerGroupStream.read`
+* Read any unseen messages (``XREADGROUP``) - :py:meth:`ConsumerGroupStream.read`
 * List messages that were read, but not acknowledged (``XPENDING``) - :py:meth:`ConsumerGroupStream.pending`
 * Acknowledge one or more pending messages (``XACK``) - :py:meth:`ConsumerGroupStream.ack`
 * Claim one or more pending messages for re-processing (``XCLAIM``) - :py:meth:`ConsumerGroupStream.claim`
@@ -210,7 +210,7 @@ RDB and replicated.
     cg.set_id('$')
 
 To read from all the streams in a consumer group, we can use the
-:py:meth:`ConsumerGroupStream.read` method. Since we marked all messages as
+:py:meth:`ConsumerGroup.read` method. Since we marked all messages as
 read and have not added anything new since creating the consumer group, the
 return value is an empty list:
 
@@ -241,9 +241,9 @@ that we read no more than one message from each stream in the group:
     cg.read(count=1)
 
     # Returns:
-    [('stream-a', [(b'1539023088125-0', {b'message': b'new a'})]),
-     ('stream-b', [(b'1539023088125-0', {b'message': b'new for b'})]),
-     ('stream-c', [(b'1539023088126-0', {b'message': b'c-0'})])]
+    [[b'stream-a', [(b'1539023088125-0', {b'message': b'new a'})]],
+     [b'stream-b', [(b'1539023088125-0', {b'message': b'new for b'})]],
+     [b'stream-c', [(b'1539023088126-0', {b'message': b'c-0'})]]]
 
 We've now read all the unread messages from streams *a* and *b*, but stream *c*
 still has messages. Calling ``read()`` again will give us the next unread
@@ -257,7 +257,7 @@ message from stream *c*:
     cg.read(count=1)
 
     # Returns:
-    [('stream-c', [(b'1539023088126-1', {b'message': b'c-1'})])]
+    [[b'stream-c', [(b'1539023088126-1', {b'message': b'c-1'})]]]
 
 When using consumer groups, messages that are read need to be **acknowledged**.
 Let's look at the **pending** (read but unacknowledged) messages from
@@ -269,9 +269,9 @@ returns a list of metadata about each unacknowledged message:
     # We read one message from stream a, so we should see one pending message.
     cg.stream_a.pending()
 
-    # Returns a list of:
-    # [message id, consumer name, message age, delivery count]
-    [[b'1539023088125-0', b'cg-abc.c1', 22238, 1]]
+    # Returns a list of dicts:
+    [{'message_id': b'1539023088125-0', 'consumer': b'cg-abc.c1',
+      'time_since_delivered': 22238, 'times_delivered': 1}]
 
 To acknowledge receipt of a message and remove it from the pending list, use
 the :py:meth:`~ConsumerGroupStream.ack` method on the consumer group stream:
@@ -293,7 +293,7 @@ workers in a process pool, for example. Note that the
 :py:meth:`~ConsumerGroupStream.pending` method returned the consumer name as
 ``"cg-abc.c1"``. Walrus uses the consumer group name + ``".c1"`` as the name
 for the default consumer name. To create another consumer within a given group,
-we can use the :py:meth:`~ConsumerGroupStream.consumer` method:
+we can use the :py:meth:`~ConsumerGroup.consumer` method:
 
 .. code-block:: python
 
@@ -301,7 +301,7 @@ we can use the :py:meth:`~ConsumerGroupStream.consumer` method:
     cg2 = cg.consumer('cg-abc.c2')
 
 Creating a new consumer within a consumer group does not affect the state of
-the group itself. Calling :py:meth:`~ConsumerGroupStream.read` using our new
+the group itself. Calling :py:meth:`~ConsumerGroup.read` using our new
 consumer will pick up from the last-read message, as you would expect:
 
 .. code-block:: python
@@ -312,7 +312,7 @@ consumer will pick up from the last-read message, as you would expect:
     cg2.read(count=1)
 
     # Returns:
-    [('stream-c', [(b'1539023088126-2', {b'message': b'c-2'})])]
+    [[b'stream-c', [(b'1539023088126-2', {b'message': b'c-2'})]]]
 
 If we look at the pending message status for stream *c*, we will see that the
 first and second messages were read by the consumer *"cg-abc.c1"* and the third
@@ -323,9 +323,9 @@ message was read by our new consumer, *"cg-abc.c2"*:
     # What messages have been read, but were not acknowledged, from stream c?
     cg.stream_c.pending()
 
-    # Returns list of [message id, consumer, message age, delivery count]:
+    # Returns:
     [{'message_id': b'1539023088126-0', 'consumer': b'cg-abc.c1',
-      'time_since_delivered': 51329, 'times_delivered': 1}],
+      'time_since_delivered': 51329, 'times_delivered': 1},
      {'message_id': b'1539023088126-1', 'consumer': b'cg-abc.c1',
       'time_since_delivered': 43772, 'times_delivered': 1},
      {'message_id': b'1539023088126-2', 'consumer': b'cg-abc.c2',
@@ -463,9 +463,9 @@ Let's add some messages to stream "s2" as well:
         date += timedelta(days=1)
 
 One difference between :py:class:`TimeSeries` and :py:class:`ConsumerGroup` is
-what happens when reading from multiple streams. ConsumerGroup returns a
-dictionary keyed by stream, along with a corresponding list of messages read
-from each stream.  TimeSeries, however, returns a flat list of Message objects:
+what happens when reading from multiple streams. ConsumerGroup returns a list
+of ``[stream, messages]`` pairs, one for each stream that had messages.
+TimeSeries, however, returns a flat list of Message objects:
 
 .. code-block:: python
 
@@ -486,8 +486,8 @@ ids are unpacked into (datetime, seq) 2-tuples:
     ts.s1.pending()
 
     # Returns:
-    [((datetime.datetime(2018, 1, 1, 0, 0), 0), 'events-ts.c', 1578, 1),
-     ((datetime.datetime(2018, 1, 2, 0, 0), 0), 'events-ts.c', 1578, 1)]
+    [((datetime.datetime(2018, 1, 1, 0, 0), 0), 'demo-ts.c1', 1578, 1),
+     ((datetime.datetime(2018, 1, 2, 0, 0), 0), 'demo-ts.c1', 1578, 1)]
 
     # Acknowledge the pending messages:
     for msgts_seq, _, _, _ in ts.s1.pending():

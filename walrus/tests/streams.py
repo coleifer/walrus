@@ -2,6 +2,7 @@ import datetime
 import unittest
 
 from walrus.streams import TimeSeries
+from walrus.streams import datetime_to_id
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 
@@ -14,6 +15,23 @@ class TestTimeSeries(WalrusTestCase):
 
         self.ts = TimeSeries(db, 'cgabc', {'sa': '0', 'sb': '0', 'sc': '0'},
                              consumer='ts1')
+
+    def test_datetime_ids(self):
+        self.ts.create()
+        d = datetime.datetime(2026, 1, 1)
+        utc = d.replace(tzinfo=datetime.timezone.utc)
+        self.assertEqual(datetime_to_id(utc), '1767225600000-0')
+
+        # A datetime stop covers its whole millisecond, and messages from
+        # several streams are ordered by sequence.
+        self.ts.sa.add({'k': 'v'}, id=(d, 9))
+        self.ts.sb.add({'k': 'v'}, id=(d, 10))
+        self.ts.sa.add({'k': 'v'}, id=(d, 11))
+        self.assertEqual([m.sequence for m in self.ts.sa[:d]], [9, 11])
+        self.assertEqual([m.sequence for m in self.ts.read()], [9, 10, 11])
+        self.assertEqual(len(self.ts.sa.revrange(d)), 2)
+        self.ts.sa.trim(minid=(d, 11), approximate=False)
+        self.assertEqual(len(self.ts.sa[:]), 1)
 
     def _create_test_data(self):
         start = datetime.datetime(2018, 1, 1)
