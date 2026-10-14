@@ -270,6 +270,22 @@ return values are always unsigned integers:
     >>> bf[:8]  # 1100 0011
     195
 
+Bitmaps can be combined with :py:meth:`~BitField.bitop`, which stores the
+result in a new key, or in place with ``&=``, ``|=`` and ``^=``:
+
+.. code-block:: pycon
+
+    >>> a = db.bit_field('a')
+    >>> b = db.bit_field('b')
+    >>> a[:8] = 0b1100
+    >>> b[:8] = 0b1010
+    >>> both = a.bitop('and', 'both', b)
+    >>> both[:8]  # 0000 1000
+    8
+    >>> a ^= b
+    >>> a[:8]  # 0000 0110
+    6
+
 BloomFilter
 -----------
 

@@ -222,7 +222,8 @@ Container types
       set_raw,
       bit_count,
       get_bit,
-      set_bit
+      set_bit,
+      bitop
 
 .. autoclass:: walrus.containers.BitFieldOperation
     :members:

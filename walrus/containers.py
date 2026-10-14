@@ -1796,6 +1796,35 @@ class BitField(Container):
         """
         return self.database.setbit(self.key, offset, value)
 
+    @chainable_method
+    def __iand__(self, other):
+        self.bitop('and', self.key, other)
+
+    @chainable_method
+    def __ior__(self, other):
+        self.bitop('or', self.key, other)
+
+    @chainable_method
+    def __ixor__(self, other):
+        self.bitop('xor', self.key, other)
+
+    def bitop(self, op, dest, *others):
+        """
+        Store the result of a bitwise operation on the current bitfield and
+        zero or more others in a new key. To store the result in the current
+        bitfield instead, use ``&=``, ``|=`` or ``^=``.
+
+        :param str op: the operation, e.g. ``'and'``, ``'or'``, ``'xor'``,
+            or ``'not'``, which takes no others.
+        :param dest: the name of the key to store the result
+        :param others: zero or more :py:class:`BitField` instances
+        :returns: A :py:class:`BitField` referencing ``dest``.
+        """
+        keys = [self.key]
+        keys.extend([other.key for other in others])
+        self.database.bitop(op, dest, *keys)
+        return self.database.bit_field(dest)
+
 
 class BloomFilter(Container):
     """

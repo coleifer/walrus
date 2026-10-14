@@ -1010,6 +1010,20 @@ class TestBitField(WalrusTestCase):
         del self.bf[2:6]
         self.assertEqual(self.bf[:8], 195)  # 11000011
 
+    def test_bitop(self):
+        other = db.bit_field('other')
+        self.bf[:8] = 0b1100
+        other[:8] = 0b1010
+        self.assertEqual(self.bf.bitop('and', 'dest', other)[:8], 0b1000)
+        self.assertEqual(self.bf.bitop('not', 'dest')[:8], 0b11110011)
+
+        self.bf |= other
+        self.assertEqual(self.bf[:8], 0b1110)
+        self.bf ^= other
+        self.assertEqual(self.bf[:8], 0b0100)
+        self.bf &= other
+        self.assertEqual(self.bf[:8], 0)
+
 
 class TestBloomFilter(WalrusTestCase):
     def setUp(self):
