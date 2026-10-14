@@ -23,6 +23,7 @@ API Documentation
       counter,
       graph,
       lock,
+      semaphore,
       rate_limit,
       rate_limit_lua,
       Index,
@@ -305,6 +306,10 @@ High-level APIs
       acquire,
       release,
       clear
+
+.. autoclass:: Semaphore
+    :members:
+      __init__
 
 .. autoclass:: RateLimit
     :members:

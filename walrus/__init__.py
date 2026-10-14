@@ -9,8 +9,8 @@ __all__ = [
     'Array', 'Autocomplete', 'BitField', 'BloomFilter', 'Cache',
     'ConsumerGroup', 'Container', 'Counter', 'Database', 'Graph', 'Hash',
     'HyperLogLog', 'Index', 'List', 'Lock', 'Message', 'RateLimit',
-    'RateLimitException', 'RateLimitLua', 'Set', 'Stream', 'TimeSeries',
-    'Walrus', 'ZSet']
+    'RateLimitException', 'RateLimitLua', 'Semaphore', 'Set', 'Stream',
+    'TimeSeries', 'Walrus', 'ZSet']
 
 #               ___
 #            .-9 9 `\
@@ -46,6 +46,7 @@ from walrus.database import Database
 from walrus.fts import Index
 from walrus.graph import Graph
 from walrus.lock import Lock
+from walrus.lock import Semaphore
 from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitException
 from walrus.rate_limit import RateLimitLua

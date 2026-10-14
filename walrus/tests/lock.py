@@ -89,6 +89,24 @@ class TestLock(WalrusTestCase):
         # In the event of an exception, the lock will still be released.
         self.assertTrue(lock.acquire(block=False))
 
+    def test_semaphore(self):
+        sem = db.semaphore('sem', 2)
+        self.assertTrue(sem.acquire())
+        self.assertTrue(sem.acquire())  # One thread may hold several slots.
+        self.assertFalse(db.semaphore('sem', 2).acquire(block=False))
+
+        # A blocked waiter takes the slot that is released.
+        t = threading.Thread(target=sem.acquire)
+        t.start()
+        self.assertTrue(sem.release())
+        t.join()
+        self.assertFalse(sem.acquire(block=False))
+
+        # The slot of an expired holder frees itself.
+        db.semaphore('short', 1, ttl=100).acquire()
+        time.sleep(0.2)
+        self.assertTrue(db.semaphore('short', 1).acquire(block=False))
+
     def test_lock_cleanup(self):
         self.assertEqual(len(db), 0)
         lock = db.lock('lock-a')

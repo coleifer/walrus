@@ -28,6 +28,7 @@ from walrus.counter import Counter
 from walrus.fts import Index
 from walrus.graph import Graph
 from walrus.lock import Lock
+from walrus.lock import Semaphore
 from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitLua
 from walrus.streams import TimeSeries
@@ -292,6 +293,18 @@ class Database(Redis):
             default each acquire uses a new random token.
         """
         return Lock(self, name, ttl, lock_id)
+
+    def semaphore(self, name, value=1, ttl=None):
+        """
+        Create a named :py:class:`Semaphore`, a lock that up to ``value``
+        holders can hold at once.
+
+        :param str name: The name of the semaphore.
+        :param int value: Number of holders allowed at once.
+        :param int ttl: The time-to-live for each holder in milliseconds
+            (optional). If the ttl is ``None`` then holders do not expire.
+        """
+        return Semaphore(self, name, value, ttl)
 
     def rate_limit(self, name, limit=5, per=60, debug=False):
         """

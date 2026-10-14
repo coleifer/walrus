@@ -52,6 +52,7 @@ Contents:
    cache
    full-text-search
    graph
+   locks
    rate-limit
    streams
    api
