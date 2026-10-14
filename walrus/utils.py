@@ -24,13 +24,6 @@ def safe_decode_list(l):
             else i for i in l]
 
 
-def decode_dict_keys(d):
-    accum = {}
-    for key in d:
-        accum[decode(key)] = d[key]
-    return accum
-
-
 def _sort_set(value):
     # Set iteration order varies between processes, so sort the members.
     if isinstance(value, (set, frozenset)):

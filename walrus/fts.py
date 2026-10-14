@@ -1,9 +1,36 @@
-from walrus.query import Executor
-from walrus.query import OP_MATCH
-from walrus.query import parse
+import re
+
 from walrus.utils import decode
-from walrus.utils import decode_dict
 from walrus.search import Tokenizer
+
+
+# Quoted phrases, operators, words and parentheses. Anything else, such as
+# punctuation, is skipped.
+_scanner = re.Scanner([
+    (r'"[^\n"\\]*(?:\\.[^\n"\\]*)*"', lambda s, t: ('WORDS', t[1:-1])),
+    (r"'[^\n'\\]*(?:\\.[^\n'\\]*)*'", lambda s, t: ('WORDS', t[1:-1])),
+    (r'\bAND\b|&', lambda s, t: ('AND', t)),
+    (r'\bOR\b|\|', lambda s, t: ('OR', t)),
+    (r'[@_\-\w]+', lambda s, t: ('WORDS', t)),
+    (r'\(', lambda s, t: ('(', t)),
+    (r'\)', lambda s, t: (')', t)),
+    (r'\s+|.', None),
+], re.U)
+
+
+def _lex(query):
+    tokens, last = [], None
+    for kind, value in _scanner.scan(query)[0]:
+        # Adjacent words and groups are joined by an implied AND.
+        if kind in ('WORDS', '(') and last in ('WORDS', ')'):
+            tokens.append(('AND', None))
+        tokens.append((kind, value))
+        last = kind
+    return tokens
+
+
+def _doc_id(key):
+    return decode(key) if isinstance(key, bytes) else str(key)
 
 
 class Index(object):
@@ -35,7 +62,7 @@ class Index(object):
         return self.db.ZSet('fts.%s.%s' % (self.name, word))
 
     def _get_hash(self, document_id):
-        return self.db.Hash('doc.%s.%s' % (self.name, decode(document_id)))
+        return self.db.Hash('doc.%s.%s' % (self.name, _doc_id(document_id)))
 
     def get_document(self, document_id):
         """
@@ -43,8 +70,7 @@ class Index(object):
         :returns: a dictionary containing the document content and
                   any associated metadata.
         """
-        key = 'doc.%s.%s' % (self.name, decode(document_id))
-        return decode_dict(self.db.hgetall(key))
+        return self._get_hash(document_id).as_dict(True)
 
     def add(self, key, content, __metadata=None, **metadata):
         """
@@ -52,19 +78,16 @@ class Index(object):
         :param str content: Content to store and index for search.
         :param metadata: Arbitrary key/value pairs to store for document.
 
-        Add a document to the search index.
+        Add a document to the search index. Adding an existing key replaces
+        its content and merges in the new metadata.
         """
-        if __metadata is None:
-            __metadata = metadata
-        elif metadata:
-            __metadata.update(metadata)
-
-        if not isinstance(key, str):
-            key = str(key)
+        key = _doc_id(key)
+        if key in self.members:
+            self.remove(key, preserve_data=True)
 
         self.members.add(key)
-        document_hash = self._get_hash(key)
-        document_hash.update(__metadata, content=content)
+        self._get_hash(key).update(dict(__metadata or {}, **metadata),
+                                   content=content)
 
         for word, score in self.tokenizer.tokenize(content).items():
             word_key = self.get_key(word)
@@ -76,9 +99,7 @@ class Index(object):
 
         Remove the document from the search index.
         """
-        if not isinstance(key, str):
-            key = str(key)
-
+        key = _doc_id(key)
         if self.members.remove(key) != 1:
             raise KeyError('Document with key "%s" not found.' % key)
         document_hash = self._get_hash(key)
@@ -116,19 +137,62 @@ class Index(object):
         self.remove(key)
         self.add(key, content, __metadata, **metadata)
 
-    def get_index(self, op):
-        assert op == OP_MATCH
-        return self
+    # Each part of a query becomes a temporary sorted set of matching document
+    # keys, scored so that better matches sort first, or None when the part
+    # has no searchable words.
+    def _store(self, command, keys):
+        result_key = self.db.get_temp_key()
+        getattr(self.db, command)(result_key, keys)
+        self.db.expire(result_key, 15)
+        return result_key
 
-    def db_value(self, value):
-        return value
+    def _match(self, words):
+        keys = [self.get_key(word).key
+                for word in self.tokenizer.tokenize(words)]
+        # Stopwords and short words are not indexed, so they are left out.
+        return self._store('zinterstore', keys) if keys else None
+
+    def _combine(self, command, lhs, rhs):
+        if lhs is None or rhs is None:
+            return rhs if lhs is None else lhs
+        return self._store(command, [lhs, rhs])
 
     def _search(self, query):
-        expression = parse(query, self)
-        if expression is None:
+        tokens = _lex(query)
+        if not tokens:
             return [(member, 0) for member in self.members]
-        executor = Executor(self.db)
-        return executor.execute(expression)
+
+        def accept(kind):
+            if tokens and tokens[0][0] == kind:
+                return tokens.pop(0)
+
+        def expression():
+            # OR binds less tightly than AND.
+            result = term()
+            while accept('OR'):
+                result = self._combine('zunionstore', result, term())
+            return result
+
+        def term():
+            result = factor()
+            while accept('AND'):
+                result = self._combine('zinterstore', result, factor())
+            return result
+
+        def factor():
+            words = accept('WORDS')
+            if words:
+                return self._match(words[1])
+            elif accept('('):
+                result = expression()
+                accept(')')  # Tolerate a missing close at the end.
+                return result
+            raise ValueError('Malformed query: %s' % query)
+
+        result_key = expression()
+        if tokens:
+            raise ValueError('Malformed query: %s' % query)
+        return self.db.ZSet(result_key) if result_key else []
 
     def search(self, query):
         """

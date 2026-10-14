@@ -3,6 +3,20 @@ from walrus.tests.base import db
 
 
 class TestSearchIndex(WalrusTestCase):
+    def test_search_edges(self):
+        idx = db.Index('e')
+        idx.add('1', 'the walrus and the “carpenter”')
+        idx.add('2', 'huey')
+        self.assertEqual(len(idx.search('the walrus')), 1)
+        self.assertEqual(len(idx.search('walrus (huey OR carpenter)')), 1)
+
+        # Adding an existing key replaces its words and copies the metadata.
+        meta = {'k': 'v'}
+        idx.add(b'2', 'mickey', meta, x='y')
+        self.assertEqual(idx.search('huey'), [])
+        self.assertEqual(meta, {'k': 'v'})
+        self.assertEqual(idx.get_document(b'2')['content'], 'mickey')
+
     def test_stopwords_file(self):
         tokenizer = db.Index('i', stopwords_file=None).tokenizer
         self.assertEqual(sorted(tokenizer.tokenize('the walrus')),
@@ -158,7 +172,7 @@ class TestSearchIndex(WalrusTestCase):
         assertMatches('(green AND nug) OR (blue AND bar)', [])
         assertMatches('nuglet', [])
         assertMatches('foobar', [])
-        assertMatches('foo"bar green', ['foo green'])
+        assertMatches('foo, "green', ['foo green'])
 
         results = [doc['content'] for doc in index.search('')]
         self.assertEqual(sorted(results), sorted(messages))

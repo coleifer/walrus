@@ -29,12 +29,7 @@ walrus consists of:
 * [Graph store](https://walrus.readthedocs.io/en/latest/graph.html)
 * [Rate-limiting](https://walrus.readthedocs.io/en/latest/rate-limit.html)
 * [Locking](https://walrus.readthedocs.io/en/latest/api.html#walrus.Lock)
-* **Experimental** active-record style [Models](https://walrus.readthedocs.io/en/latest/models.html) that support persisting structured information and performing complex queries using secondary indexes.
 * More? [More!](https://walrus.readthedocs.io)
-
-### Models
-
-Persistent structures implemented on top of Hashes. Supports secondary indexes to allow filtering on equality, inequality, ranges, less/greater-than, and a basic full-text search index. The full-text search features a boolean search query parser, porter stemmer, stop-word filtering, and optional double-metaphone implementation.
 
 ### Found a bug?
 

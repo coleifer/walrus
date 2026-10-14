@@ -12,8 +12,7 @@ class Tokenizer(object):
         self._use_stemmer = stemmer
         self._use_metaphone = metaphone
         self._min_word_length = min_word_length
-        self._symbols_re = re.compile(
-            r'[\.,;:"\'\\/!@#\$%\?\*\(\)\-=+\[\]\{\}_]')
+        self._symbols_re = re.compile(r'[\W_]+')
 
         self._stopwords = self._load_stopwords(stopwords_file)
 
@@ -30,10 +29,10 @@ class Tokenizer(object):
         Use the porter stemmer to generate consistent forms of
         words, e.g.::
 
-            from walrus.search.utils import PorterStemmer
+            from walrus.search.porter import PorterStemmer
             stemmer = PorterStemmer()
             for word in ['faith', 'faiths', 'faithful']:
-                print(s.stem(word, 0, len(word) - 1))
+                print(stemmer.stem(word, 0, len(word) - 1))
 
             # Prints:
             # faith

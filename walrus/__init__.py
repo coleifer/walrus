@@ -46,7 +46,6 @@ from walrus.database import Database
 from walrus.fts import Index
 from walrus.graph import Graph
 from walrus.lock import Lock
-from walrus.models import *
 from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitException
 from walrus.rate_limit import RateLimitLua

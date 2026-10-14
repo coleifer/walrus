@@ -30,7 +30,6 @@ walrus consists of:
 * graph store
 * rate limiting
 * locks
-* **experimental** active-record models (secondary indexes, full-text search, composable query filters, etc)
 * more? more!
 
 My hope is that walrus saves you time developing your application by providing
@@ -55,7 +54,6 @@ Contents:
    graph
    rate-limit
    streams
-   models
    api
    contributing
 

@@ -278,24 +278,6 @@ High-level APIs
       release,
       clear
 
-.. autoclass:: Model
-    :members:
-      __database__,
-      __namespace__,
-      index_separator,
-      __init__,
-      incr,
-      to_hash,
-      create,
-      all,
-      query,
-      query_delete,
-      get,
-      load,
-      delete,
-      save,
-      count
-
 .. autoclass:: RateLimit
     :members:
       __init__,
@@ -314,76 +296,3 @@ High-level APIs
       reset,
       read,
       set_id
-
-Field types
------------
-
-.. autoclass:: Field
-    :members:
-      __init__,
-      get_indexes
-
-.. autoclass:: TextField
-    :members:
-
-    .. py:method:: search(query[, default_conjunction='and'])
-
-        :param str query: Search query.
-        :param str default_conjunction: Either ``'and'`` or ``'or'``.
-
-        Create an expression corresponding to the given search query. Search queries can contain conjunctions (``AND`` and ``OR``).
-
-        Example:
-
-        .. code-block:: python
-
-            class Message(Model):
-                database = my_db
-                content = TextField(fts=True)
-
-            expression = Message.content.search('python AND (redis OR walrus)')
-            messages = Message.query(expression)
-            for message in messages:
-                print(message.content)
-
-.. autoclass:: IntegerField
-    :members:
-
-.. autoclass:: AutoIncrementField(IntegerField)
-    :members:
-
-.. autoclass:: FloatField
-    :members:
-
-.. autoclass:: ByteField
-    :members:
-
-.. autoclass:: BooleanField
-    :members:
-
-.. autoclass:: UUIDField
-    :members:
-
-.. autoclass:: DateTimeField
-    :members:
-
-.. autoclass:: DateField
-    :members:
-
-.. autoclass:: JSONField
-    :members:
-
-Container Field Types
-^^^^^^^^^^^^^^^^^^^^^
-
-.. autoclass:: HashField
-    :members:
-
-.. autoclass:: ListField
-    :members:
-
-.. autoclass:: SetField
-    :members:
-
-.. autoclass:: ZSetField
-    :members:
