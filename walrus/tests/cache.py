@@ -1,4 +1,5 @@
 import datetime
+import time
 
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
@@ -100,6 +101,23 @@ class TestCache(WalrusTestCase):
             assertMisses('foo', 1)
         assertMisses('bar', 2)
         assertMisses('foo', 2)
+
+    def test_cached_early_refresh(self):
+        S = {'count': 0}
+        @cache.cached(timeout=60, early_refresh=True)
+        def counter():
+            S['count'] += 1
+            return S['count']
+
+        self.assertEqual(counter(), 1)
+        self.assertEqual(counter(), 1)
+
+        # An entry at its expiry time is always recomputed.
+        cache.set(counter.make_key((), {}), (1, 0.1, time.time()), 60)
+        self.assertEqual(counter(), 2)
+        self.assertEqual(counter(), 2)
+
+        self.assertRaises(ValueError, cache.cached, early_refresh=True)
 
     def test_cached_async(self):
         @cache.cache_async()

@@ -1,5 +1,7 @@
 from functools import wraps
+import math
 import pickle
+import random
 import threading
 import time
 from queue import Queue
@@ -176,7 +178,8 @@ class Cache(object):
         """Return the value of a counter, or 0 if it was never incremented."""
         return int(self.database.get(self.make_key(key)) or 0)
 
-    def cached(self, key_fn=hash_args, timeout=None, metrics=False):
+    def cached(self, key_fn=hash_args, timeout=None, metrics=False,
+               early_refresh=False):
         """
         Decorator that will transparently cache calls to the
         wrapped function. By default, the cache key will be made
@@ -187,7 +190,13 @@ class Cache(object):
             given args and kwargs.
         :param timeout: Time to cache return values.
         :param metrics: Keep stats on cache utilization and timing.
+        :param early_refresh: Recompute a value at random shortly before it
+            expires, so that concurrent callers do not all miss at once. The
+            chance rises as expiry nears and with the time the function takes
+            to run. Requires a timeout.
         :returns: a decorator.
+        :raises: ``ValueError`` if ``early_refresh`` is set without a
+            timeout.
 
         Usage::
 
@@ -209,6 +218,10 @@ class Cache(object):
         The default ``key_fn`` pickles the arguments, so they must be
         picklable.
         """
+        ttl = self.default_timeout if timeout is None else timeout
+        if early_refresh and not ttl:
+            raise ValueError('early_refresh requires a timeout.')
+
         def decorator(fn):
             def make_key(args, kwargs):
                 return '%s.%s:%s' % (fn.__module__, fn.__qualname__,
@@ -229,9 +242,19 @@ class Cache(object):
                 is_cache_hit = True
                 key = make_key(args, kwargs)
                 res = self.get(key, sentinel)
+                if early_refresh and res is not sentinel:
+                    # XFetch probabilistic early expiration.
+                    res, delta, expires = res
+                    jitter = delta * -math.log(1 - random.random())
+                    if start + jitter >= expires:
+                        res = sentinel
                 if res is sentinel:
                     res = fn(*args, **kwargs)
-                    self.set(key, res, timeout)
+                    if early_refresh:
+                        now = time.time()
+                        self.set(key, (res, now - start, now + ttl), ttl)
+                    else:
+                        self.set(key, res, timeout)
                     is_cache_hit = False
 
                 if metrics:

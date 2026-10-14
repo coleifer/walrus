@@ -92,6 +92,23 @@ To clear the cache, you can call the special ``bust()`` method on the decorated 
     >>> print(get_time('foo'))
     2015-01-07 18:31:15.326435
 
+Early Refresh
+-------------
+
+When a popular value expires, every caller misses at once and runs the
+function at the same time. With ``early_refresh=True``, callers recompute the
+value at random shortly before it expires, so usually one caller refreshes it
+while the rest are still served from the cache:
+
+.. code-block:: python
+
+    @cache.cached(timeout=300, early_refresh=True)
+    def top_posts():
+        return expensive_query()
+
+The chance of an early refresh rises as expiry nears and with how long the
+function took to run. ``early_refresh`` requires a timeout.
+
 Cached Property
 ---------------
 
