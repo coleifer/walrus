@@ -3,6 +3,13 @@ from walrus.tests.base import db
 
 
 class TestSearchIndex(WalrusTestCase):
+    def test_stopwords_file(self):
+        tokenizer = db.Index('i', stopwords_file=None).tokenizer
+        self.assertEqual(sorted(tokenizer.tokenize('the walrus')),
+                         ['the', 'walru'])
+        self.assertRaises(FileNotFoundError, db.Index, 'i',
+                          stopwords_file='missing.txt')
+
     def test_search_index(self):
         phrases = [
             ('A faith is a necessity to a man. Woe to him who believes in '

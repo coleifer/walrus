@@ -151,7 +151,7 @@ To perform boosts on a one-off basis while searching, we can specify a dictionar
 
     >>> ac.search(
     ...     'some phrase',
-    ...     boosts={popular_entry.id: 2.0, unpopular_entry.id, 0.5})
+    ...     boosts={popular_entry.id: 2.0, unpopular_entry.id: 0.5})
     ...
     [ list of matching entry's metadata ]
 
@@ -222,26 +222,26 @@ As you can see, results are scored by the proximity of the match to the front of
 Boosting
 ^^^^^^^^
 
-To modify the score of certain words or phrases, we can apply *boosts* when searching. Boosts consist of a dictionary mapping identifiers to multipliers. Multipliers greater than 1 will move results to the top, while multipliers between 0 and 1 will push results to the bottom.
+To modify the score of certain words or phrases, we can apply *boosts* when searching. Boosts consist of a dictionary mapping identifiers to multipliers. Multipliers greater than 1 will move results to the top, while multipliers between 0 and 1 will push results to the bottom. The position of a match in the title outweighs small multipliers, so these examples use large ones.
 
 In this example, we'll take the 3rd result, *bb cc* and bring it to the top:
 
 .. code-block:: pycon
 
-    >>> ac.search('cc', boosts={'bb cc': 2})
+    >>> ac.search('cc', boosts={'bb cc': 5})
     ['bb cc',
      'cc aa bb',
      'aa cc',
      'bb aa cc']
 
-In this example, we'll take the best result, *cc aa bb*, and push it back a spot:
+In this example, we'll take the best result, *cc aa bb*, and push it behind *aa cc* and *bb cc*:
 
 .. code-block:: pycon
 
-    >>> ac.search('cc', boosts={'cc aa bb': .75})
+    >>> ac.search('cc', boosts={'cc aa bb': .2})
     ['aa cc',
-     'cc aa bb',
      'bb cc',
+     'cc aa bb',
      'bb aa cc']
 
 Persisting boosts
@@ -251,8 +251,8 @@ While boosts can be specified on a one-off basis while searching, we can also pe
 
 .. code-block:: pycon
 
-    >>> ac.boost_object(obj_id='bb cc', multiplier=2.0)
-    >>> ac.boost_object(obj_id='cc aa bb', multiplier=.75)
+    >>> ac.boost_object(obj_id='bb cc', multiplier=5.0)
+    >>> ac.boost_object(obj_id='cc aa bb', multiplier=.2)
 
 Now we can search and our boosts will automatically be in effect:
 

@@ -74,6 +74,20 @@ class TestAutocomplete(WalrusTestCase):
         assertBoosts('alp', {'t1': 0.5}, [5, 9, 1])
         assertBoosts('alp', {'t1': 1.5, 't3': 1.6}, [9, 1, 5])
         assertBoosts('alp', {'t3': 1.5, '5': 1.6}, [5, 9, 1])
+        assertBoosts('alp', {5: 1.6}, [5, 1, 9])
+
+        # Repeating a boosted search, served from cache, gives the same order.
+        assertBoosts('alp', {'t1': 0.5}, [5, 9, 1])
+
+        # The cache key expires once, not on every search.
+        key = self.ac.get_cache_key(['alp'], {b't1': 0.5})
+        db.expire(key, 5)
+        self.ac.search('alp', boosts={'t1': 0.5})
+        self.assertTrue(db.ttl(key) <= 5)
+
+        # A saved boost for an id and type together applies.
+        self.ac.boost_object(9, 't3', multiplier=100)
+        assertBoosts('alp', None, [9, 1, 5])
 
     def test_stored_boosts(self):
         id_to_type = {
@@ -103,6 +117,7 @@ class TestAutocomplete(WalrusTestCase):
 
         results = self.ac.search('testing', limit=2)
         self.assertResults(results, [1, 2])
+        self.assertEqual(self.ac.search('testing', limit=0), [])
 
     def test_search_empty(self):
         self.assertList(self.ac.search(''), [])
@@ -125,6 +140,11 @@ class TestAutocomplete(WalrusTestCase):
 
         self.ac.store('aa b cc')
         self.assertList(self.ac.search('cc'), ['tt cc', 'aa b cc', 'aa bb cc'])
+
+        # A prefix scores by its first occurrence in the title.
+        self.ac.store('walrus wally')
+        self.ac.store('abc walrus')
+        self.assertList(self.ac.search('wal'), ['walrus wally', 'abc walrus'])
 
     def test_simple(self):
         for _, title in self.test_data:
@@ -173,6 +193,12 @@ class TestAutocomplete(WalrusTestCase):
         # Item with obj_id=2 has already been removed.
         with self.assertRaises(KeyError):
             self.ac.remove(2)
+
+        # Removing leaves other objects that share a prefix.
+        self.ac.store('walrus wally')
+        self.ac.store('walnut')
+        self.ac.remove('walrus wally')
+        self.assertList(self.ac.search('wal'), ['walnut'])
 
     def test_tokenize_title(self):
         self.assertEqual(
@@ -241,6 +267,14 @@ class TestAutocomplete(WalrusTestCase):
 
         # Verify that we clean up any crap when updating.
         self.assertList(self.ac.search('herp'), [])
+
+    def test_update_keeps_boost(self):
+        # Storing the same title again only updates the data.
+        self.ac.store('id1', 'title foo', 'd1')
+        self.ac.store('id2', 'title zap', 'd2')
+        self.ac.boost_object('id2', multiplier=10)
+        self.ac.store('id2', 'title zap', 'D2')
+        self.assertList(self.ac.search('tit'), ['D2', 'd1'])
 
     def test_word_position_ordering(self):
         self.ac.store('aaaa bbbb')

@@ -18,9 +18,8 @@ class Tokenizer(object):
         self._stopwords = self._load_stopwords(stopwords_file)
 
     def _load_stopwords(self, filename):
-        stopwords = load_stopwords(filename)
-        if stopwords:
-            return set(stopwords.splitlines())
+        if filename:
+            return set(load_stopwords(filename).splitlines())
 
     def split_phrase(self, phrase):
         """Split the document or search query into tokens."""

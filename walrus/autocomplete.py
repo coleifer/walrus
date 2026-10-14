@@ -122,8 +122,8 @@ class Autocomplete(object):
         combined_id = self.object_key(obj_id, obj_type)
 
         if self.exists(obj_id, obj_type):
-            stored_title = self._title_data[combined_id]
-            if stored_title == title:
+            stored_title = decode(self._title_data[combined_id])
+            if stored_title == decode(title):
                 self._data[combined_id] = data
                 return
             else:
@@ -140,8 +140,9 @@ class Autocomplete(object):
             position_score = word_score + (self._offset * idx)
             key_score = position_score + title_score
             for substring in self.substrings(word):
+                # NX keeps the score of the first, best-placed occurrence.
                 self.database.zadd(self.word_key(substring),
-                                   {combined_id: key_score})
+                                   {combined_id: key_score}, nx=True)
 
         return True
 
@@ -161,11 +162,8 @@ class Autocomplete(object):
 
         for word in self.tokenize_title(title):
             for substring in self.substrings(word):
-                key = self.word_key(substring)
-                if not self.database.zrange(key, 1, 2):
-                    self.database.delete(key)
-                else:
-                    self.database.zrem(key, combined_id)
+                # Redis deletes a sorted set when its last member is removed.
+                self.database.zrem(self.word_key(substring), combined_id)
 
         del self._data[combined_id]
         del self._title_data[combined_id]
@@ -208,7 +206,7 @@ class Autocomplete(object):
             ac.boost_object(
                 popular_entry.id,
                 'entry',
-                multipler=5.0,
+                multiplier=5.0,
                 relative=False)
         """
         combined_id = self.object_key(obj_id or '', obj_type or '')
@@ -220,7 +218,7 @@ class Autocomplete(object):
 
     def _load_objects(self, obj_id_zset, limit, chunk_size=1000):
         ct = i = 0
-        while True:
+        while limit is None or ct < limit:
             id_chunk = obj_id_zset[i:i + chunk_size]
             if not id_chunk:
                 return
@@ -234,7 +232,7 @@ class Autocomplete(object):
                 else:
                     yield raw_data
                 ct += 1
-                if limit and ct == limit:
+                if ct == limit:
                     return
 
     def _load_saved_boosts(self):
@@ -273,36 +271,41 @@ class Autocomplete(object):
                    if (c not in self._stopwords) or (i == last_token)]
 
         if not cleaned:
-            return
+            return []
 
         all_boosts = self._load_saved_boosts()
         if boosts:
             for key in boosts:
-                all_boosts[encode(key)] = boosts[key]
+                # Format keys the way object_key() formats ids.
+                all_boosts[encode('%s' % key)] = boosts[key]
 
         if len(cleaned) == 1 and not all_boosts:
             result_key = self.word_key(cleaned[0])
         else:
+            # Build, boost and expire the cache key only once, so the boosts
+            # don't compound and the results refresh after the timeout.
             result_key = self.get_cache_key(cleaned, all_boosts)
             if result_key not in self.database:
                 self.database.zinterstore(
                     result_key,
                     list(map(self.word_key, cleaned)))
-            self.database.expire(result_key, self._cache_timeout)
+                self._apply_boosts(result_key, all_boosts)
+                self.database.expire(result_key, self._cache_timeout)
 
         results = self.database.ZSet(result_key)
-        if all_boosts:
-            for raw_id, score in results[:, True]:
-                orig_score = score
-                for identifier in raw_id.split(encode('\x01'), 1):
-                    if identifier and identifier in all_boosts:
-                        score *= 1 / all_boosts[identifier]
+        return list(self._load_objects(results, limit, chunk_size))
 
-                if orig_score != score:
-                    results[raw_id] = score
+    def _apply_boosts(self, result_key, boosts):
+        results = self.database.ZSet(result_key)
+        for raw_id, score in results[:, True]:
+            orig_score = score
+            # A boost may target the id, the type, or both together.
+            for identifier in [raw_id] + raw_id.split(encode('\x01'), 1):
+                if identifier and identifier in boosts:
+                    score *= 1 / boosts[identifier]
 
-        for result in self._load_objects(results, limit, chunk_size):
-            yield result
+            if orig_score != score:
+                results[raw_id] = score
 
     def get_cache_key(self, phrases, boosts):
         if boosts:
@@ -322,7 +325,7 @@ class Autocomplete(object):
         :rtype: list
         """
         fn = (lambda v: json.loads(decode(v))) if self._use_json else decode
-        return map(fn, self._data.values())
+        return list(map(fn, self._data.values()))
 
     def list_titles(self):
         """
@@ -330,7 +333,7 @@ class Autocomplete(object):
 
         :rtype: list
         """
-        return map(decode, self._title_data.values())
+        return list(map(decode, self._title_data.values()))
 
     def flush(self, batch_size=1000):
         """

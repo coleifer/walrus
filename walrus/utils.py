@@ -74,12 +74,9 @@ class memoize(dict):
 
 @memoize
 def load_stopwords(stopwords_file):
-    path, filename = os.path.split(stopwords_file)
-    if not path:
-        path = os.path.dirname(__file__)
-    filename = os.path.join(path, filename)
-    if not os.path.exists(filename):
-        return
-
-    with open(filename) as fh:
+    # Prefer a file bundled with walrus, then the path as given.
+    bundled = os.path.join(os.path.dirname(__file__), stopwords_file)
+    if os.path.exists(bundled):
+        stopwords_file = bundled
+    with open(stopwords_file) as fh:
         return fh.read()
