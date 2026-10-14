@@ -2,6 +2,8 @@ from functools import wraps
 import os
 import threading
 
+from redis.exceptions import RedisError
+
 
 class _BaseLock(object):
     # Subclasses set the key prefix, which also names their Lua scripts, and
@@ -9,19 +11,25 @@ class _BaseLock(object):
     prefix = None
     value = 1
 
-    def __init__(self, database, name, ttl=None, lock_id=None):
+    def __init__(self, database, name, ttl=None, lock_id=None,
+                 auto_renew=False):
         """
         :param database: A walrus ``Database`` instance.
         :param str name: The name for the lock.
         :param int ttl: The time-to-live for the lock in milliseconds.
         :param str lock_id: Token used by every acquire of this instance. By
             default each acquire uses a new random token.
+        :param bool auto_renew: Renew the lock from a background thread
+            every third of its ``ttl`` until it is released.
+        :raises: ``ValueError`` if ``auto_renew`` is set without a ``ttl``.
         """
+        if auto_renew and not ttl:
+            raise ValueError('auto_renew requires a ttl.')
         self.database = database
         self.name = name
         self.ttl = ttl or 0
         self._lock_id = lock_id
-        # Each thread keeps a stack of the tokens it acquired.
+        self.auto_renew = auto_renew
         self._local = threading.local()
 
     @property
@@ -33,16 +41,40 @@ class _BaseLock(object):
         return '%s.event:%s' % (self.prefix, self.name)
 
     @property
-    def _tokens(self):
-        if not hasattr(self._local, 'tokens'):
-            self._local.tokens = []
-        return self._local.tokens
+    def _stack(self):
+        # Each thread keeps a stack of (token, stop renewal event) for the
+        # locks it acquired.
+        if not hasattr(self._local, 'stack'):
+            self._local.stack = []
+        return self._local.stack
 
-    def _script(self, name, token):
+    def _latest(self, pop=False):
+        stack = self._stack
+        if not stack:
+            return self._lock_id or '', None
+        return stack.pop() if pop else stack[-1]
+
+    def _script(self, name, token, ttl=None):
         return self.database.run_script(
             '%s_%s' % (self.prefix, name),
             keys=[self.key, self.event],
-            args=[token, self.ttl, self.value])
+            args=[token, self.ttl if ttl is None else ttl, self.value])
+
+    def _renew_in_background(self, token):
+        stop = threading.Event()
+
+        def renew():
+            while not stop.wait(self.ttl / 3000.):
+                try:
+                    if self._script('renew', token) != 1:
+                        return  # The lock was lost.
+                except RedisError:
+                    pass  # Retry at the next interval.
+
+        thread = threading.Thread(target=renew)
+        thread.daemon = True
+        thread.start()
+        return stop
 
     def acquire(self, block=True):
         """
@@ -74,7 +106,10 @@ class _BaseLock(object):
 
         while True:
             if self._script('acquire', token) == 1:
-                self._tokens.append(token)
+                stop = None
+                if self.auto_renew:
+                    stop = self._renew_in_background(token)
+                self._stack.append((token, stop))
                 return True
             elif not block:
                 return False
@@ -90,9 +125,31 @@ class _BaseLock(object):
 
         :returns: Returns ``True`` if the lock was released.
         """
-        tokens = self._tokens
-        token = tokens.pop() if tokens else self._lock_id or ''
+        token, stop = self._latest(pop=True)
+        if stop is not None:
+            stop.set()
         return self._script('release', token) != 0
+
+    def renew(self, ttl=None):
+        """
+        Reset the TTL of the lock most recently acquired by the current
+        thread, if it still holds it.
+
+        :param int ttl: The new time-to-live in milliseconds. Defaults to
+            the ``ttl`` of the lock.
+        :returns: Returns ``True`` if the lock is still held.
+        """
+        return self._script('renew', self._latest()[0], ttl) == 1
+
+    def held(self):
+        """
+        Check with Redis whether the current thread still holds the lock it
+        most recently acquired.
+
+        :returns: Returns ``True`` if the lock is still held.
+        """
+        # A TTL of 0 renews nothing, so the script only checks the token.
+        return self._script('renew', self._latest()[0], 0) == 1
 
     def clear(self):
         """
@@ -183,12 +240,14 @@ class Semaphore(_BaseLock):
     """
     prefix = 'semaphore'
 
-    def __init__(self, database, name, value=1, ttl=None):
+    def __init__(self, database, name, value=1, ttl=None, auto_renew=False):
         """
         :param database: A walrus ``Database`` instance.
         :param str name: The name for the semaphore.
         :param int value: Number of holders allowed at once.
         :param int ttl: The time-to-live for each holder in milliseconds.
+        :param bool auto_renew: As in :py:class:`Lock`.
         """
-        super(Semaphore, self).__init__(database, name, ttl)
+        super(Semaphore, self).__init__(database, name, ttl,
+                                        auto_renew=auto_renew)
         self.value = value

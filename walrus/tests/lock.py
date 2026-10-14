@@ -107,6 +107,26 @@ class TestLock(WalrusTestCase):
         time.sleep(0.2)
         self.assertTrue(db.semaphore('short', 1).acquire(block=False))
 
+    def test_renew(self):
+        lock = db.lock('renew', ttl=100)
+        self.assertFalse(lock.held())
+        lock.acquire()
+        self.assertTrue(lock.renew(5000))
+        time.sleep(0.2)
+        self.assertTrue(lock.held())
+        lock.release()
+        self.assertFalse(lock.renew())
+
+        # A background thread keeps a short TTL alive until release.
+        for obj in (db.lock('auto', ttl=150, auto_renew=True),
+                    db.semaphore('auto', 1, ttl=150, auto_renew=True)):
+            with obj:
+                time.sleep(0.4)
+                self.assertTrue(obj.held())
+            self.assertFalse(obj.held())
+
+        self.assertRaises(ValueError, db.lock, 'x', auto_renew=True)
+
     def test_lock_cleanup(self):
         self.assertEqual(len(db), 0)
         lock = db.lock('lock-a')

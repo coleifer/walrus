@@ -63,3 +63,40 @@ itself once the TTL passes:
 
     with sem:
         crawl(url)
+
+Renewing
+--------
+
+A long task can outlive the ``ttl``. :py:meth:`~Lock.renew` resets the TTL if
+the current thread still holds the lock, and :py:meth:`~Lock.held` checks
+without renewing:
+
+.. code-block:: pycon
+
+    >>> lock = db.lock('reports', ttl=10000)
+    >>> lock.acquire()
+    True
+    >>> lock.renew()
+    True
+    >>> lock.held()
+    True
+
+With ``auto_renew=True``, a background thread renews the lock every third of
+its TTL until it is released. Semaphores support all three.
+
+Leader Election
+---------------
+
+An auto-renewing lock elects a leader among processes. Each one runs:
+
+.. code-block:: python
+
+    lock = db.lock('scheduler', ttl=10000, auto_renew=True)
+
+    with lock:  # Blocks until this process is the leader.
+        while lock.held():
+            run_scheduled_jobs()
+
+If the leader dies, its lock expires within the TTL and a waiting process
+takes over. If the leader stalls past the TTL and loses the lock, ``held()``
+returns ``False`` and leaving the ``with`` block raises ``RuntimeError``.

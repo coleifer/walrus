@@ -305,6 +305,8 @@ High-level APIs
       __init__,
       acquire,
       release,
+      renew,
+      held,
       clear
 
 .. autoclass:: Semaphore

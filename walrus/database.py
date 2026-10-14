@@ -279,7 +279,7 @@ class Database(Redis):
         """
         return Graph(self, name)
 
-    def lock(self, name, ttl=None, lock_id=None):
+    def lock(self, name, ttl=None, lock_id=None, auto_renew=False):
         """
         Create a named :py:class:`Lock` instance. The lock implements
         an API similar to the standard library's ``threading.Lock``,
@@ -291,10 +291,12 @@ class Database(Redis):
             expire.
         :param str lock_id: Token used by every acquire of this instance. By
             default each acquire uses a new random token.
+        :param bool auto_renew: Renew the lock from a background thread
+            every third of its ``ttl`` until it is released.
         """
-        return Lock(self, name, ttl, lock_id)
+        return Lock(self, name, ttl, lock_id, auto_renew)
 
-    def semaphore(self, name, value=1, ttl=None):
+    def semaphore(self, name, value=1, ttl=None, auto_renew=False):
         """
         Create a named :py:class:`Semaphore`, a lock that up to ``value``
         holders can hold at once.
@@ -303,8 +305,9 @@ class Database(Redis):
         :param int value: Number of holders allowed at once.
         :param int ttl: The time-to-live for each holder in milliseconds
             (optional). If the ttl is ``None`` then holders do not expire.
+        :param bool auto_renew: As in :py:meth:`~Database.lock`.
         """
-        return Semaphore(self, name, value, ttl)
+        return Semaphore(self, name, value, ttl, auto_renew)
 
     def rate_limit(self, name, limit=5, per=60, debug=False):
         """
