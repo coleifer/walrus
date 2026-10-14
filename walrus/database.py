@@ -81,6 +81,7 @@ class Database(Redis):
             'stream': self.Stream}
         self._transaction_local = TransactionLocal()
         self._transaction_lock = threading.RLock()
+        self._scripts = {}
         if script_dir is not False:
             self.init_scripts(script_dir=script_dir)
 
@@ -255,14 +256,14 @@ class Database(Redis):
         """
         return Counter(self, name=name)
 
-    def graph(self, name, *args, **kwargs):
+    def graph(self, name):
         """
         Creates a :py:class:`Graph` instance.
 
-        :param str name: The namespace for the graph metadata.
+        :param str name: Key of the sorted set that stores the graph.
         :returns: a :py:class:`Graph` instance.
         """
-        return Graph(self, name, *args, **kwargs)
+        return Graph(self, name)
 
     def lock(self, name, ttl=None, lock_id=None):
         """

@@ -8,6 +8,8 @@ class TestSearchIndex(WalrusTestCase):
         idx.add('1', 'the walrus and the “carpenter”')
         idx.add('2', 'huey')
         self.assertEqual(len(idx.search('the walrus')), 1)
+        self.assertEqual(idx.search('the'), [])
+        self.assertEqual(idx.search('!!!'), [])
         self.assertEqual(len(idx.search('walrus (huey OR carpenter)')), 1)
 
         # Adding an existing key replaces its words and copies the metadata.

@@ -209,7 +209,8 @@ class Autocomplete(object):
                 multiplier=5.0,
                 relative=False)
         """
-        combined_id = self.object_key(obj_id or '', obj_type or '')
+        combined_id = self.object_key('' if obj_id is None else obj_id,
+                                      obj_type)
         if relative:
             current = float(self._boosts[combined_id] or 1.0)
             self._boosts[combined_id] = current * multiplier
@@ -230,7 +231,7 @@ class Autocomplete(object):
                 if self._use_json:
                     yield json.loads(decode(raw_data))
                 else:
-                    yield raw_data
+                    yield decode(raw_data)
                 ct += 1
                 if ct == limit:
                     return

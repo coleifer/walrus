@@ -86,10 +86,13 @@ class Graph(object):
 
     See: http://redis.io/topics/indexes#representing-and-querying-graphs-using-an-hexastore
     """
+    #: Create named variables for :py:meth:`Graph.search`, written as
+    #: ``graph.v.X`` or ``graph.v('X')``.
+    v = _VariableGenerator()
+
     def __init__(self, walrus, namespace):
         self.walrus = walrus
         self.namespace = namespace
-        self.v = _VariableGenerator()
         self._z = self.walrus.ZSet(self.namespace)
 
     def store(self, s, p, o):
@@ -152,13 +155,6 @@ class Graph(object):
             for key in self._z.range_by_lex('[' + start, b'[' + end):
                 keys, p1, p2, p3 = decode(key).split('::')
                 yield dict(zip(keys, (p1, p2, p3)))
-
-    def v(self, name):
-        """
-        Create a named variable, used to construct multi-clause queries with
-        the :py:meth:`Graph.search` method.
-        """
-        return Variable(name)
 
     def search(self, *conditions):
         """

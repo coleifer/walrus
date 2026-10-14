@@ -260,6 +260,10 @@ class TestZSet(WalrusTestCase):
         self.assertEqual(self.zs[2], [b'i2'])
         self.assertEqual(self.zs[9], [])
 
+        del self.zs[0]
+        self.assertEqual(self.zs[0], [b'i1'])
+        self.zs['i0'] = 0
+
         del self.zs['i1']
         del self.zs['i3']
         self.zs['i2'] = -2

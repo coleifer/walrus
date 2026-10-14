@@ -24,22 +24,24 @@ def safe_decode_list(l):
             else i for i in l]
 
 
-def _sort_set(value):
-    # Set iteration order varies between processes, so sort the members.
+def _canonical(value):
+    # Set and dict order can vary, so sort them at any depth.
     if isinstance(value, (set, frozenset)):
-        return type(value), sorted(value, key=repr)
+        return type(value), sorted(map(_canonical, value), key=repr)
+    elif isinstance(value, dict):
+        items = ((_canonical(k), _canonical(v)) for k, v in value.items())
+        return dict, sorted(items, key=repr)
+    elif isinstance(value, (list, tuple)):
+        return type(value), [_canonical(v) for v in value]
     return value
 
 
 def hash_args(args, kwargs):
     """
-    Hash function arguments by pickling them. Keyword arguments and set
-    members are sorted first, so equal calls hash the same in any order and
-    in any process.
+    Hash function arguments by pickling them. Sets and dicts are sorted at
+    any depth first, so equal calls hash the same in any process.
     """
-    data = (tuple(_sort_set(a) for a in args),
-            sorted((k, _sort_set(v)) for k, v in kwargs.items()))
-    return hashlib.md5(pickle.dumps(data)).hexdigest()
+    return hashlib.md5(pickle.dumps(_canonical((args, kwargs)))).hexdigest()
 
 
 def make_python_attr(s):

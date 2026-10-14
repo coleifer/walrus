@@ -30,6 +30,9 @@ class TestTimeSeries(WalrusTestCase):
         self.assertEqual([m.sequence for m in self.ts.sa[:d]], [9, 11])
         self.assertEqual([m.sequence for m in self.ts.read()], [9, 10, 11])
         self.assertEqual(len(self.ts.sa.revrange(d)), 2)
+        self.assertEqual(len(self.ts.sa.pending(d, d)), 2)
+        claimed = self.ts.sa.autoclaim('c2', 0)
+        self.assertEqual([m.sequence for m in claimed[1]], [9, 11])
         self.ts.sa.trim(minid=(d, 11), approximate=False)
         self.assertEqual(len(self.ts.sa[:]), 1)
 

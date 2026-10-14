@@ -72,7 +72,7 @@ class Index(object):
         """
         return self._get_hash(document_id).as_dict(True)
 
-    def add(self, key, content, __metadata=None, **metadata):
+    def add(self, key, content, _metadata=None, **metadata):
         """
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
@@ -86,7 +86,7 @@ class Index(object):
             self.remove(key, preserve_data=True)
 
         self.members.add(key)
-        self._get_hash(key).update(dict(__metadata or {}, **metadata),
+        self._get_hash(key).update(dict(_metadata or {}, **metadata),
                                    content=content)
 
         for word, score in self.tokenizer.tokenize(content).items():
@@ -113,7 +113,7 @@ class Index(object):
             if len(word_key) == 0:
                 word_key.clear()
 
-    def update(self, key, content, __metadata=None, **metadata):
+    def update(self, key, content, _metadata=None, **metadata):
         """
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
@@ -123,9 +123,9 @@ class Index(object):
         optionally, updated with the provided metadata.
         """
         self.remove(key, preserve_data=True)
-        self.add(key, content, __metadata, **metadata)
+        self.add(key, content, _metadata, **metadata)
 
-    def replace(self, key, content, __metadata=None, **metadata):
+    def replace(self, key, content, _metadata=None, **metadata):
         """
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
@@ -135,7 +135,7 @@ class Index(object):
         replaced with the provided metadata.
         """
         self.remove(key)
-        self.add(key, content, __metadata, **metadata)
+        self.add(key, content, _metadata, **metadata)
 
     # Each part of a query becomes a temporary sorted set of matching document
     # keys, scored so that better matches sort first, or None when the part
@@ -158,9 +158,9 @@ class Index(object):
         return self._store(command, [lhs, rhs])
 
     def _search(self, query):
-        tokens = _lex(query)
-        if not tokens:
+        if not query.strip():
             return [(member, 0) for member in self.members]
+        tokens = _lex(query)
 
         def accept(kind):
             if tokens and tokens[0][0] == kind:
@@ -184,12 +184,15 @@ class Index(object):
             if words:
                 return self._match(words[1])
             elif accept('('):
+                if not tokens or accept(')'):
+                    return None
                 result = expression()
                 accept(')')  # Tolerate a missing close at the end.
                 return result
             raise ValueError('Malformed query: %s' % query)
 
-        result_key = expression()
+        # A query with no searchable words matches nothing.
+        result_key = expression() if tokens else None
         if tokens:
             raise ValueError('Malformed query: %s' % query)
         return self.db.ZSet(result_key) if result_key else []

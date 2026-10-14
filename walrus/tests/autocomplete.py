@@ -110,6 +110,17 @@ class TestAutocomplete(WalrusTestCase):
         results = self.ac.search('aa', boosts={'aac': 1.5})
         self.assertList(results, ['aab', 'aac', 'aaa', 'aaab'])
 
+    def test_store_edge_cases(self):
+        ac = db.autocomplete(namespace='raw', use_json=False)
+        ac.store('walrus')
+        self.assertEqual(ac.search('wal'), ['walrus'])
+
+        # An id of 0 is boosted on its own, not as the whole type.
+        self.ac.store(0, 'aa x', 'zero', 't')
+        self.ac.store(1, 'aa y', 'one', 't')
+        self.ac.boost_object(0, 't', multiplier=0.01)
+        self.assertEqual(self.ac.search('aa'), ['one', 'zero'])
+
     def test_limit(self):
         self.store_test_data()
         results = self.ac.search('testing', limit=1)

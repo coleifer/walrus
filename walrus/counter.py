@@ -25,7 +25,7 @@ class Counter(object):
         if isinstance(other, Counter):
             other = other.value()
         if not isinstance(other, int):
-            raise TypeError('Cannot add %s, not an integer.' % other)
+            raise TypeError('Counter operand must be an integer: %r' % other)
         method(other)
         return self
 
@@ -34,6 +34,3 @@ class Counter(object):
 
     def __isub__(self, other):
         return self._op(self.decr, other)
-
-    __add__ = __iadd__
-    __sub__ = __isub__

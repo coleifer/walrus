@@ -20,7 +20,9 @@ class Cache(object):
         :param database: :py:class:`Database` instance.
         :param name: Namespace for this cache.
         :param int default_timeout: Default cache timeout.
-        :param debug: Disable cache for debugging purposes. Cache will no-op.
+        :param debug: Disable caching for debugging purposes. ``get``,
+            ``set``, ``delete``, their ``*_many`` variants and the decorators
+            do nothing, so decorated functions always run.
         """
         self.database = database
         self.name = name
@@ -94,11 +96,11 @@ class Cache(object):
                 self.metrics['misses'] += 1
         return accum
 
-    def set_many(self, __data=None, timeout=None, **kwargs):
+    def set_many(self, _data=None, timeout=None, **kwargs):
         """
         Set multiple key/value pairs in one operation.
 
-        :param dict __data: provide data as dictionary of key/value pairs.
+        :param dict _data: provide data as dictionary of key/value pairs.
         :param timeout: optional timeout for data.
         :param kwargs: alternatively, provide data as keyword arguments.
         :returns: True on success.
@@ -107,8 +109,8 @@ class Cache(object):
             return True
 
         timeout = timeout if timeout is not None else self.default_timeout
-        if __data is not None:
-            kwargs.update(__data)
+        if _data is not None:
+            kwargs.update(_data)
         if not kwargs:
             return True
 
@@ -132,7 +134,7 @@ class Cache(object):
         :param list keys: keys to delete.
         :returns: number of keys removed.
         """
-        if self.debug: return
+        if self.debug: return 0
         prefixed = [self.make_key(key) for key in keys]
         return self.database.delete(*prefixed) if prefixed else 0
 

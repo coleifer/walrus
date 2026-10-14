@@ -204,11 +204,11 @@ class Hash(Container):
         return bool(self.database.hsetnx(self.key, key, value))
 
     @chainable_method
-    def update(self, __data=None, **kwargs):
+    def update(self, _data=None, **kwargs):
         """
         Update the hash using the given dictionary or key/value pairs.
         """
-        data = dict(__data or {}, **kwargs)
+        data = dict(_data or {}, **kwargs)
         if data:
             self.database.hset(self.key, mapping=data)
 
@@ -630,13 +630,16 @@ class ZSet(Sortable, Container):
 
     def __delitem__(self, item):
         """
-        Delete the given item(s) from the set. Like
-        :py:meth:`~ZSet.__getitem__`, this method supports a wide
-        variety of indexing and slicing options.
+        Delete the given item(s) from the set. A slice or an int removes by
+        rank, as :py:meth:`~ZSet.__getitem__` reads. Any other value is
+        removed as a member. Use :py:meth:`~ZSet.remove` for members that
+        are ints.
         """
         if isinstance(item, slice):
             start, stop = self._convert_slice(item)
             return self.database.zremrangebyrank(self.key, start, stop)
+        elif isinstance(item, int):
+            return self.database.zremrangebyrank(self.key, item, item)
         else:
             return self.remove(item)
 

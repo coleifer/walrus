@@ -69,6 +69,8 @@ class TestCache(WalrusTestCase):
         key = now.make_key((), {'a': 1, 'b': 2})
         self.assertTrue(key.startswith('walrus.tests.cache.now:'))
         self.assertEqual(key, now.make_key((), {'b': 2, 'a': 1}))
+        self.assertEqual(now.make_key(([{'a': 1, 'b': 2}],), {}),
+                         now.make_key(([{'b': 2, 'a': 1}],), {}))
 
     def test_cached_property(self):
         c = Clock()

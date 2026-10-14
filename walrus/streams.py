@@ -110,8 +110,11 @@ class TimeSeriesStream(ConsumerGroupStream):
 
     def autoclaim(self, consumer, min_idle_time, start_id=0, count=None,
                   justid=False):
-        return super(TimeSeriesStream, self).autoclaim(
+        resp = super(TimeSeriesStream, self).autoclaim(
             consumer, min_idle_time, normalize_id(start_id), count, justid)
+        if justid:
+            return resp
+        return [resp[0], xrange_to_messages(self.key, resp[1])] + resp[2:]
 
     def add(self, data, id='*', maxlen=None, approximate=True):
         db_id = super(TimeSeriesStream, self).add(data, normalize_id(id),
@@ -149,8 +152,8 @@ class TimeSeriesStream(ConsumerGroupStream):
 
     def pending(self, start='-', stop='+', count=1000, consumer=None,
                 idle=None):
-        start = normalize_id(start)
-        stop = normalize_id(stop)
+        start = normalize_id(start, None)
+        stop = normalize_id(stop, None)
         resp = self.database.xpending_range(self.key, self.group, min=start,
                                             max=stop, count=count,
                                             consumername=consumer, idle=idle)

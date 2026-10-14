@@ -15,7 +15,8 @@ class TestCounter(WalrusTestCase):
         self.assertEqual(counter_b.value(), 0)
         counter_b += 3
         self.assertEqual(counter_b.value(), 3)
-        counter_b = counter_b + counter_a
+        counter_b += counter_a
         self.assertEqual(counter_b.value(), 7)
-        counter_b = counter_b - 5
+        counter_b -= 5
         self.assertEqual(counter_b.value(), 2)
+        self.assertRaises(TypeError, lambda: counter_b + 1)
