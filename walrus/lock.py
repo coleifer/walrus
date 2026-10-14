@@ -1,5 +1,6 @@
 from functools import wraps
 import os
+import threading
 
 
 class Lock(object):
@@ -50,12 +51,15 @@ class Lock(object):
         :param database: A walrus ``Database`` instance.
         :param str name: The name for the lock.
         :param int ttl: The time-to-live for the lock in milliseconds.
-        :param str lock_id: Unique identifier for the lock instance.
+        :param str lock_id: Token used by every acquire of this instance. By
+            default each acquire uses a new random token.
         """
         self.database = database
         self.name = name
         self.ttl = ttl or 0
-        self._lock_id = lock_id or os.urandom(32)
+        self._lock_id = lock_id
+        # Each thread keeps the token of the lock it acquired.
+        self._local = threading.local()
 
     @property
     def key(self):
@@ -84,13 +88,22 @@ class Lock(object):
             the lock.
         :returns: Returns ``True`` if the lock was acquired.
         """
-        event_wait = self.ttl // 1000 if self.ttl else 1
+        # Wake at least once per TTL, so an abandoned lock is retried once it
+        # expires, and well before the socket times out.
+        event_wait = self.ttl / 1000. if self.ttl else 1
+        socket_timeout = self.database.connection_pool.connection_kwargs.get(
+            'socket_timeout')
+        if socket_timeout:
+            event_wait = min(event_wait, socket_timeout / 2.)
+        token = self._lock_id or os.urandom(32)
 
         while True:
             acquired = self.database.run_script(
                 'lock_acquire',
                 keys=[self.key],
-                args=[self._lock_id, self.ttl])
+                args=[token, self.ttl])
+            if acquired == 1:
+                self._local.token = token
             if acquired == 1 or not block:
                 return acquired == 1
 
@@ -105,10 +118,11 @@ class Lock(object):
 
         :returns: Returns ``True`` if the lock was released.
         """
+        token = getattr(self._local, 'token', self._lock_id) or ''
         unlocked = self.database.run_script(
             'lock_release',
             keys=[self.key, self.event],
-            args=[self._lock_id])
+            args=[token])
         return unlocked != 0
 
     def clear(self):
@@ -124,7 +138,8 @@ class Lock(object):
         self.acquire()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if not self.release():
+        # A failed release must not hide an exception from the body.
+        if not self.release() and exc_type is None:
             raise RuntimeError('Error releasing lock "%s".' % self.name)
 
     def __call__(self, fn):

@@ -1,4 +1,9 @@
+import threading
+
 from walrus.containers import *
+from walrus.database import Database
+from walrus.tests.base import HOST
+from walrus.tests.base import PORT
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 
@@ -32,6 +37,34 @@ class TestWalrus(WalrusTestCase):
         z_db = db.get_key('z1')
         self.assertTrue(isinstance(z_db, ZSet))
         self.assertEqual(z_db.score('i1'), 1.)
+
+        db.xadd('st1', {'k': 'v'})
+        self.assertTrue(isinstance(db.get_key('st1'), Stream))
+
+        ddb = Database(host=HOST, port=PORT, db=15, decode_responses=True)
+        self.assertTrue(isinstance(ddb.get_key('h1'), Hash))
+
+    def test_from_url(self):
+        url = 'redis://%s:%s/15' % (HOST, PORT)
+        self.assertTrue(Database.from_url(url, script_dir=False).ping())
+
+    def test_socket_timeout(self):
+        # Blocking commands wait as long as asked, unless a timeout is given.
+        def timeout(d):
+            return d.connection_pool.connection_kwargs['socket_timeout']
+        url = 'redis://%s:%s/15' % (HOST, PORT)
+        self.assertIsNone(timeout(db))
+        self.assertIsNone(timeout(Database.from_url(url)))
+        self.assertEqual(timeout(Database(host=HOST, socket_timeout=3)), 3)
+
+    def test_stream_log(self):
+        # The monitor connection is released once the callback stops it.
+        t = threading.Thread(target=db.stream_log, args=(lambda line: False,))
+        t.start()
+        while t.is_alive():
+            db.ping()
+            t.join(0.05)
+        self.assertEqual(len(db.connection_pool._in_use_connections), 0)
 
     def test_atomic(self):
         def assertDepth(depth):

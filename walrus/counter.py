@@ -10,8 +10,7 @@ class Counter(object):
         self.database = database
         self.name = name
         self.key = 'counter:%s' % self.name
-        if self.key not in self.database:
-            self.database[self.key] = 0
+        self.database.setnx(self.key, 0)
 
     def decr(self, decr_by=1):
         return self.database.decr(self.key, decr_by)

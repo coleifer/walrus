@@ -1,10 +1,31 @@
 import threading
+import time
 
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 
 
 class TestLock(WalrusTestCase):
+    def test_lock_edge_cases(self):
+        # A waiter retries once an abandoned, short-lived lock expires.
+        db.lock('short', ttl=500).acquire()
+        self.assertTrue(db.lock('short', ttl=500).acquire())
+
+        # Threads sharing one instance hold their own tokens.
+        lock = db.lock('shared', ttl=100)
+        lock.acquire()
+        time.sleep(0.2)
+        t = threading.Thread(target=lock.acquire)
+        t.start()
+        t.join()
+        self.assertFalse(lock.release())
+
+        # A failed release does not hide the body's exception.
+        with self.assertRaises(ValueError):
+            with db.lock('m', ttl=100):
+                time.sleep(0.2)
+                raise ValueError
+
     def test_lock(self):
         lock_a = db.lock('lock-a')
         lock_b = db.lock('lock-b')
@@ -14,7 +35,6 @@ class TestLock(WalrusTestCase):
         lock_a2 = db.lock('lock-a')
         self.assertFalse(lock_a2.acquire(block=False))
         self.assertFalse(lock_a2.release())
-        self.assertNotEqual(lock_a._lock_id, lock_a2._lock_id)
 
         self.assertFalse(lock_a.acquire(block=False))
         self.assertFalse(lock_b.acquire(block=False))

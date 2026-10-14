@@ -65,18 +65,39 @@ class Database(Redis):
             base ``Redis`` instance.
         :param str script_dir: Path to directory containing walrus
             scripts. Use "script_dir=False" to disable loading any scripts.
+        :param float socket_timeout: Seconds to wait for a reply. Defaults
+            to ``None``, which waits indefinitely, so blocking commands such
+            as ``BLPOP`` can wait as long as they were asked to.
         """
         script_dir = kwargs.pop('script_dir', None)
+        # redis-py 8 defaults to a 5 second timeout, then retries.
+        kwargs.setdefault('socket_timeout', None)
         super(Database, self).__init__(*args, **kwargs)
         self.__mapping = {
-            b'list': self.List,
-            b'set': self.Set,
-            b'zset': self.ZSet,
-            b'hash': self.Hash}
+            'list': self.List,
+            'set': self.Set,
+            'zset': self.ZSet,
+            'hash': self.Hash,
+            'stream': self.Stream}
         self._transaction_local = TransactionLocal()
         self._transaction_lock = threading.RLock()
         if script_dir is not False:
             self.init_scripts(script_dir=script_dir)
+
+    @classmethod
+    def from_url(cls, url, script_dir=None, **kwargs):
+        """
+        Create a :py:class:`Database` from a URL. ``script_dir`` works as it
+        does for the constructor, and other kwargs configure the connection
+        pool.
+        """
+        kwargs.setdefault('socket_timeout', None)
+        db = super(Database, cls).from_url(url, **kwargs)
+        if script_dir is False:
+            db._scripts = {}
+        elif script_dir:
+            db.init_scripts(script_dir=script_dir)
+        return db
 
     def __bool__(self):
         return True  # Avoid falling back to __len__().
@@ -200,12 +221,13 @@ class Database(Redis):
         a hash key is requested, then a :py:class:`Hash` will be
         returned.
 
-        Note: only works for Hash, List, Set and ZSet.
+        Note: only works for Hash, List, Set, ZSet and Stream.
 
         :param str key: Key to retrieve.
-        :returns: A hash, set, list, zset or array.
+        :returns: A hash, set, list, zset or stream.
         """
-        return self.__mapping.get(self.type(key), self.__getitem__)(key)
+        return self.__mapping.get(decode(self.type(key)),
+                                  self.__getitem__)(key)
 
     def hash_exists(self, key):
         return self.exists(key)
@@ -431,18 +453,18 @@ class Database(Redis):
             return inner
         return decorator
 
-    def stream_log(self, callback, connection_id='monitor'):
+    def stream_log(self, callback):
         """
         Stream Redis activity one line at a time to the given
-        callback.
+        callback, until the callback returns a false value.
 
         :param callback: A function that accepts a single argument,
             the Redis command.
         """
-        conn = self.connection_pool.get_connection(connection_id, None)
-        conn.send_command('monitor')
-        while callback(conn.read_response()):
-            pass
+        # The monitor closes its connection when done, ending MONITOR mode.
+        with self.monitor() as monitor:
+            while callback(monitor.connection.read_response()):
+                pass
 
 
 class _Atomic(object):
