@@ -5,6 +5,12 @@ Lightweight Python utilities for working with Redis.
 __author__ = 'Charles Leifer'
 __license__ = 'MIT'
 __version__ = '0.9.8'
+__all__ = [
+    'Array', 'Autocomplete', 'BitField', 'BloomFilter', 'Cache',
+    'ConsumerGroup', 'Container', 'Counter', 'Database', 'Graph', 'Hash',
+    'HyperLogLog', 'Index', 'List', 'Lock', 'Message', 'RateLimit',
+    'RateLimitException', 'RateLimitLua', 'Set', 'Stream', 'TimeSeries',
+    'Walrus', 'ZSet']
 
 #               ___
 #            .-9 9 `\

@@ -17,7 +17,8 @@ Walrus provides a lightweight :py:class:`Model` class for storing structured dat
 
 .. code-block:: pycon
 
-    >>> from walrus import *
+    >>> from walrus import Database
+    >>> from walrus.models import DateField, DateTimeField, Model, SetField, TextField
     >>> db = Database()
 
 Let's create a simple data model to store some users.

@@ -12,7 +12,11 @@ from flask import session
 from flask import url_for
 from functools import wraps
 from hashlib import md5
-from walrus import *
+from walrus import Database
+from walrus.models import DateTimeField
+from walrus.models import Model
+from walrus.models import TextField
+from walrus.models import ZSetField
 
 # Configure our app's settings.
 DEBUG = True

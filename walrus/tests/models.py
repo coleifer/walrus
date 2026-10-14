@@ -1,6 +1,19 @@
 import datetime
+import uuid
 
-from walrus import *
+from walrus.models import AutoIncrementField
+from walrus.models import BooleanField
+from walrus.models import ByteField
+from walrus.models import DateField
+from walrus.models import DateTimeField
+from walrus.models import FloatField
+from walrus.models import HashField
+from walrus.models import IntegerField
+from walrus.models import JSONField
+from walrus.models import Model
+from walrus.models import PickledField
+from walrus.models import TextField
+from walrus.models import UUIDField
 from walrus.query import OP_AND
 from walrus.query import OP_OR
 from walrus.tests.base import WalrusTestCase

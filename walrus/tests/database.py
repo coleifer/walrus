@@ -44,6 +44,12 @@ class TestWalrus(WalrusTestCase):
         ddb = Database(host=HOST, port=PORT, db=15, decode_responses=True)
         self.assertTrue(isinstance(ddb.get_key('h1'), Hash))
 
+    def test_star_import(self):
+        ns = {}
+        exec('from walrus import *', ns)
+        self.assertTrue('Database' in ns)
+        self.assertFalse('datetime' in ns)
+
     def test_from_url(self):
         url = 'redis://%s:%s/15' % (HOST, PORT)
         self.assertTrue(Database.from_url(url, script_dir=False).ping())

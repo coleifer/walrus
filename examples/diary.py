@@ -4,7 +4,10 @@ from collections import OrderedDict
 import datetime
 import sys
 
-from walrus import *
+from walrus import Database
+from walrus.models import DateTimeField
+from walrus.models import Model
+from walrus.models import TextField
 
 database = Database(host='localhost', port=6379, db=0)
 
