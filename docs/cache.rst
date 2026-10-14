@@ -7,6 +7,8 @@ Cache
 
 Walrus provides a simple :py:class:`Cache` implementation that makes use of Redis' key expiration feature. The cache can be used to set or retrieve values, and also provides a decorator (:py:meth:`Cache.cached`) for wrapping function.
 
+Cached values are pickled, so the :py:class:`Database` must not use ``decode_responses``.
+
 Basic usage
 -----------
 
@@ -105,6 +107,9 @@ Python supports dynamic instance attributes through the ``property`` decorator. 
 
     >>> print(clock.now)
     2015-01-12 21:10:34.335755
+
+The instance is part of the cache key, so instances that pickle the same share
+a cached value.
 
 .. _cache-async:
 

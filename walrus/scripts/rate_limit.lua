@@ -18,6 +18,6 @@ else
         redis.call('LPUSH', key, current_time)
     end
     redis.call('LTRIM', key, 0, limit_count - 1)
-    redis.call('PEXPIRE', key, limit_count * 2000)
 end
+redis.call('PEXPIRE', key, math.floor(limit_time * 2000))
 return is_limited

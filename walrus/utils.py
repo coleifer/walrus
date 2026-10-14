@@ -1,4 +1,6 @@
+import hashlib
 import os
+import pickle
 import re
 
 
@@ -27,6 +29,24 @@ def decode_dict_keys(d):
     for key in d:
         accum[decode(key)] = d[key]
     return accum
+
+
+def _sort_set(value):
+    # Set iteration order varies between processes, so sort the members.
+    if isinstance(value, (set, frozenset)):
+        return type(value), sorted(value, key=repr)
+    return value
+
+
+def hash_args(args, kwargs):
+    """
+    Hash function arguments by pickling them. Keyword arguments and set
+    members are sorted first, so equal calls hash the same in any order and
+    in any process.
+    """
+    data = (tuple(_sort_set(a) for a in args),
+            sorted((k, _sort_set(v)) for k, v in kwargs.items()))
+    return hashlib.md5(pickle.dumps(data)).hexdigest()
 
 
 def make_python_attr(s):

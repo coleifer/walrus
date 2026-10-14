@@ -1,7 +1,7 @@
-import hashlib
-import pickle
 import time
 from functools import wraps
+
+from walrus.utils import hash_args
 
 
 class RateLimitException(Exception):
@@ -43,6 +43,8 @@ class RateLimit(object):
         """
         if self._debug:
             return False
+        elif self._limit < 1:
+            return True
 
         counter = self.database.List(self.name + ':' + key)
         n = len(counter)
@@ -81,8 +83,7 @@ class RateLimit(object):
         """
         if key_function is None:
             def key_function(*args, **kwargs):
-                data = pickle.dumps((args, sorted(kwargs.items())))
-                return hashlib.md5(data).hexdigest()
+                return hash_args(args, kwargs)
 
         def decorator(fn):
             @wraps(fn)
@@ -105,6 +106,8 @@ class RateLimitLua(RateLimit):
     def limit(self, key):
         if self._debug:
             return False
+        elif self._limit < 1:
+            return True
 
         key = self.name + ':' + key
         return bool(self.database.run_script(

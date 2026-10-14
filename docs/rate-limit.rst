@@ -15,7 +15,7 @@ Example with a rate limiter that allows 2 events every 10 seconds.
 * List for key ``192.168.1.2`` now contains ``['14:42:27.04521']`` (these are actually unix timestamps, but are shown as times for readability).
 * Five seconds later log another event from the same IP.
 * List for ``192.168.1.2`` now contains ``['14:42:32.08293', '14:42:27.04521']``
-* Two seconds later attempt another event from the same IP. Since the list is "at capacity", and the time difference between the oldest event and the newest is less than 10 seconds, the event will not be logged and the event will be rate-limited.
+* Two seconds later attempt another event from the same IP. Since the list is "at capacity", and the time difference between the oldest event and now is less than 10 seconds, the event will not be logged and the event will be rate-limited.
 
 Basic usage
 -----------
@@ -45,7 +45,7 @@ The :py:meth:`RateLimit.rate_limited` decorator can be used to restrict calls to
 
 .. code-block:: python
 
-    rate_limit = walrus.rate_limit('login-limiter', limit=3, per=60)
+    rate_limit = db.rate_limit('login-limiter', limit=3, per=60)
 
     @app.route('/login/', methods=['GET', 'POST'])
     @rate_limit.rate_limited(lambda: request.remote_addr)

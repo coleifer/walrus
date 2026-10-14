@@ -1,19 +1,18 @@
 from functools import wraps
-import hashlib
 import pickle
 import threading
 import time
 from queue import Queue
 
 from walrus.utils import decode
-from walrus.utils import encode
-
+from walrus.utils import hash_args
 
 
 class Cache(object):
     """
     Cache implementation with simple ``get``/``set`` operations,
-    and a decorator.
+    and a decorator. Cached values are pickled, so the database must not
+    use ``decode_responses``.
     """
     def __init__(self, database, name='cache', default_timeout=None,
                  debug=False):
@@ -46,14 +45,12 @@ class Cache(object):
         if self.debug:
             return default
 
-        try:
-            value = self.database[key]
-        except KeyError:
+        value = self.database.get(key)
+        if value is None:
             self.metrics['misses'] += 1
             return default
-        else:
-            self.metrics['hits'] += 1
-            return pickle.loads(value)
+        self.metrics['hits'] += 1
+        return pickle.loads(value)
 
     def set(self, key, value, timeout=None):
         """
@@ -67,12 +64,9 @@ class Cache(object):
         if self.debug:
             return True
 
-        pickled_value = pickle.dumps(value)
         self.metrics['writes'] += 1
-        if timeout:
-            return self.database.setex(key, int(timeout), pickled_value)
-        else:
-            return self.database.set(key, pickled_value)
+        px = int(timeout * 1000) if timeout else None
+        return self.database.set(key, pickle.dumps(value), px=px)
 
     def delete(self, key):
         """Remove the given key from the cache."""
@@ -90,6 +84,7 @@ class Cache(object):
         accum = {}
         if self.debug: return accum
 
+        keys = list(keys)
         prefixed = [self.make_key(key) for key in keys]
         for key, value in zip(keys, self.database.mget(prefixed)):
             if value is not None:
@@ -114,6 +109,8 @@ class Cache(object):
         timeout = timeout if timeout is not None else self.default_timeout
         if __data is not None:
             kwargs.update(__data)
+        if not kwargs:
+            return True
 
         accum = {}
         for key, value in kwargs.items():
@@ -123,7 +120,7 @@ class Cache(object):
         pipeline.mset(accum)
         if timeout:
             for key in accum:
-                pipeline.expire(key, timeout)
+                pipeline.pexpire(key, int(timeout * 1000))
 
         self.metrics['writes'] += len(accum)
         return pipeline.execute()[0]
@@ -137,13 +134,16 @@ class Cache(object):
         """
         if self.debug: return
         prefixed = [self.make_key(key) for key in keys]
-        return self.database.delete(*prefixed)
+        return self.database.delete(*prefixed) if prefixed else 0
 
     def keys(self, strip_prefix=False):
         """
         Return all keys for cached values. By default the keys returned are the
         *full* Redis key, including any prefix. To strip the prefix, specify
-        ``strip_prefix=False``.
+        ``strip_prefix=True``.
+
+        A cache owns every key under its ``name:`` prefix, so this includes
+        the keys of any cache whose name starts with ``name:``.
 
         :param bool strip_prefix: remove cache key prefix
         :returns: list of Redis keys corresponding to cached data
@@ -153,7 +153,8 @@ class Cache(object):
                 return decode(k)[self.prefix_len:]
         else:
             _clean_key = decode
-        return map(_clean_key, self.database.keys(self.make_key('') + '*'))
+        return map(_clean_key,
+                   self.database.scan_iter(match=self.make_key('') + '*'))
 
     def flush(self):
         """Remove all cached objects from the database."""
@@ -162,12 +163,18 @@ class Cache(object):
             return self.database.delete(*keys)
 
     def incr(self, key, delta=1):
+        """
+        Increment the counter stored at ``key``. Counters are plain integers
+        rather than pickled values, so read one with
+        :py:meth:`~Cache.get_counter` instead of :py:meth:`~Cache.get`.
+        """
         return self.database.incr(self.make_key(key), delta)
 
-    def _key_fn(a, k):
-        return hashlib.md5(pickle.dumps((a, k))).hexdigest()
+    def get_counter(self, key):
+        """Return the value of a counter, or 0 if it was never incremented."""
+        return int(self.database.get(self.make_key(key)) or 0)
 
-    def cached(self, key_fn=_key_fn, timeout=None, metrics=False):
+    def cached(self, key_fn=hash_args, timeout=None, metrics=False):
         """
         Decorator that will transparently cache calls to the
         wrapped function. By default, the cache key will be made
@@ -197,10 +204,14 @@ class Cache(object):
 
         The decorated function also gains a new attribute named
         ``bust`` which will clear the cache for the given args.
+
+        The default ``key_fn`` pickles the arguments, so they must be
+        picklable.
         """
         def decorator(fn):
             def make_key(args, kwargs):
-                return '%s:%s' % (fn.__name__, key_fn(args, kwargs))
+                return '%s.%s:%s' % (fn.__module__, fn.__qualname__,
+                                     key_fn(args, kwargs))
 
             def bust(*args, **kwargs):
                 return self.delete(make_key(args, kwargs))
@@ -224,12 +235,10 @@ class Cache(object):
 
                 if metrics:
                     dur = time.time() - start
-                    if is_cache_hit:
-                        _metrics['hits'] += 1
-                        _metrics['avg_hit_time'] += (dur / _metrics['hits'])
-                    else:
-                        _metrics['misses'] += 1
-                        _metrics['avg_miss_time'] += (dur / _metrics['misses'])
+                    count, avg = (('hits', 'avg_hit_time') if is_cache_hit
+                                  else ('misses', 'avg_miss_time'))
+                    _metrics[count] += 1
+                    _metrics[avg] += (dur - _metrics[avg]) / _metrics[count]
 
                 return res
 
@@ -240,10 +249,12 @@ class Cache(object):
             return inner
         return decorator
 
-    def cached_property(self, key_fn=_key_fn, timeout=None):
+    def cached_property(self, key_fn=hash_args, timeout=None):
         """
         Decorator that will transparently cache calls to the wrapped
-        method. The method will be exposed as a property.
+        method. The method will be exposed as a property. The instance is
+        part of the cache key, so instances that pickle the same share a
+        cached value.
 
         Usage::
 
@@ -257,15 +268,11 @@ class Cache(object):
             clock = Clock()
             print(clock.now)
         """
-        def key_wrapper(a, k):
-            instance = a[0]
-            return key_fn((id(instance), a), k)
-
         this = self
 
         class _cached_property(object):
             def __init__(self, fn):
-                self._fn = this.cached(key_wrapper, timeout)(fn)
+                self._fn = this.cached(key_fn, timeout)(fn)
 
             def __get__(self, instance, instance_type=None):
                 if instance is None:
@@ -283,7 +290,7 @@ class Cache(object):
 
         return decorator
 
-    def cache_async(self, key_fn=_key_fn, timeout=3600):
+    def cache_async(self, key_fn=hash_args, timeout=3600):
         """
         Decorator that will execute the cached function in a separate
         thread. The function will immediately return, returning a
@@ -304,12 +311,18 @@ class Cache(object):
             def inner(*args, **kwargs):
                 q = Queue()
                 def _sub_fn():
-                    q.put(wrapped(*args, **kwargs))
+                    try:
+                        q.put((wrapped(*args, **kwargs), None))
+                    except Exception as exc:
+                        q.put((None, exc))
                 def _get_value(block=True, timeout=None):
                     if not hasattr(_get_value, '_return_value'):
                         result = q.get(block=block, timeout=timeout)
                         _get_value._return_value = result
-                    return _get_value._return_value
+                    value, exc = _get_value._return_value
+                    if exc is not None:
+                        raise exc
+                    return value
 
                 thread = threading.Thread(target=_sub_fn)
                 thread.start()

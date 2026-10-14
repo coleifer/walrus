@@ -23,6 +23,12 @@ class TestRateLimit(WalrusTestCase):
 
         self.assertFalse(self.rl.limit('k2'))
 
+        # History expires after twice the period, even under the limit.
+        self.assertTrue(0 < db.pttl('test-rl:k2') <= 2000)
+
+        rl = self.get_rate_limit('test-rl0', 0, 1)
+        self.assertTrue(rl.limit('k1'))
+
     def test_rate_limit_rollover(self):
         rl = self.get_rate_limit('test-rl2', 3, 100)
         container = db.List('test-rl2:k1')

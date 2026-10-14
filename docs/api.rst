@@ -238,6 +238,7 @@ High-level APIs
       keys,
       flush,
       incr,
+      get_counter,
       cached,
       cached_property,
       cache_async

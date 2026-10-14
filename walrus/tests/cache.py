@@ -31,15 +31,25 @@ class TestCache(WalrusTestCase):
         self.assertTrue(cache.get('foo') is None)
         self.assertEqual(cache.delete('foo'), 0)
 
+        self.assertTrue(cache.set('n', 5, 0.5))
+        self.assertEqual(cache.get('n'), 5)
+
+        self.assertEqual(cache.get_counter('hits'), 0)
+        cache.incr('hits')
+        self.assertEqual(cache.get_counter('hits'), 1)
+
     def test_cache_bulk_apis(self):
         self.assertEqual(cache.get_many(['k1', 'k2']), {})
 
         data = {'k1': 'v1', 'k2': 'v2'}
         self.assertEqual(cache.set_many(data, 60), True)
         self.assertEqual(cache.get_many(['k1', 'kx', 'k2']), data)
+        self.assertEqual(cache.get_many(iter(['k1'])), {'k1': 'v1'})
         self.assertEqual(cache.delete_many(['k1', 'kx', 'k2']), 2)
         self.assertEqual(cache.get_many(['k1', 'k2']), {})
         self.assertEqual(cache.delete_many(['k1', 'kx', 'k2']), 0)
+        self.assertEqual(cache.set_many({}), True)
+        self.assertEqual(cache.delete_many([]), 0)
 
     def test_cache_decorator(self):
         n0 = now()  # Each should have its own cache-key.
@@ -55,6 +65,11 @@ class TestCache(WalrusTestCase):
         self.assertNotEqual(now(1), n1)
         self.assertEqual(now(1), now(1))
 
+        # Keys include the module and qualified name, and sort kwargs.
+        key = now.make_key((), {'a': 1, 'b': 2})
+        self.assertTrue(key.startswith('walrus.tests.cache.now:'))
+        self.assertEqual(key, now.make_key((), {'b': 2, 'a': 1}))
+
     def test_cached_property(self):
         c = Clock()
         n1 = c.now
@@ -66,16 +81,9 @@ class TestCache(WalrusTestCase):
         self.assertTrue(n1 != n3)
         self.assertEqual(c.now, n3)
 
+        # Instances that pickle the same share a cached value.
         ca, cb = Clock(), Clock()
-        n1 = ca.now
-        self.assertEqual(ca.now, n1)
-        n2 = cb.now
-        self.assertEqual(cb.now, n2)
-        self.assertTrue(n1 != n2)
-
-        del ca.now
-        self.assertTrue(ca.now != n1)
-        self.assertTrue(ca.now != cb.now)
+        self.assertEqual(ca.now, cb.now)
 
     def test_cached_return_none(self):
         S = {'count': 0}
@@ -102,6 +110,11 @@ class TestCache(WalrusTestCase):
 
         self.assertEqual(double_value(3)(), 6)
         self.assertEqual(double_value(4)(), 8)
+
+        @cache.cache_async()
+        def boom():
+            raise ValueError('boom')
+        self.assertRaises(ValueError, boom())
 
     def test_flush_empty_cache(self):
         cache.set('foo', 'bar', 10)

@@ -43,6 +43,7 @@ from walrus.lock import Lock
 from walrus.models import *
 from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitException
+from walrus.rate_limit import RateLimitLua
 from walrus.streams import Message
 from walrus.streams import TimeSeries
 
