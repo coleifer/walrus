@@ -31,6 +31,7 @@ from walrus.lock import Lock
 from walrus.rate_limit import RateLimit
 from walrus.rate_limit import RateLimitLua
 from walrus.streams import TimeSeries
+from walrus.utils import decode
 
 
 class TransactionLocal(threading.local):
@@ -87,7 +88,7 @@ class Database(Redis):
         :param name: stream identifier
         :param id: new value for last ID
         """
-        return self.execute_command('XSETID', name, id) == b'OK'
+        return decode(self.execute_command('XSETID', name, id)) == 'OK'
 
     def xpending_summary(self, key, group):
         """

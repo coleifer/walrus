@@ -123,3 +123,4 @@ class TestWalrus(WalrusTestCase):
         self.assertTrue(db.cas('k1', 'v1-', 'v2'))
         self.assertFalse(db.cas('k1', 'v1', 'v3'))
         self.assertEqual(db['k1'], b'v2')
+        self.assertTrue(db.cas('k1', '', 'v3'))

@@ -227,7 +227,7 @@ return values are always unsigned integers:
 .. code-block:: pycon
 
     >>> bf.set('u8', 0, 166).execute()  # 10100110
-    166
+    [0]
 
     >>> bf[:8]  # Read first 8 bits as unsigned byte.
     166

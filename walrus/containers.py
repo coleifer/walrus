@@ -965,10 +965,9 @@ class Array(Container):
 
     def __setitem__(self, idx, value):
         """Set the value at the given index."""
-        return self.database.run_script(
-            'array_set',
-            keys=[self.key],
-            args=[idx, value])
+        if not self.database.run_script('array_set', keys=[self.key],
+                                        args=[idx, value]):
+            raise IndexError('array assignment index out of range')
 
     def __delitem__(self, idx):
         """Delete the given index."""
@@ -1013,16 +1012,17 @@ class Array(Container):
         Return a boolean indicating whether the given item is stored
         in the array. O(n).
         """
-        item = encode(item)
+        item = self.database.connection_pool.get_encoder().encode(item)
         for value in self:
-            if value == item:
+            if encode(value) == item:
                 return True
         return False
 
     def __iter__(self):
         """Return an iterable that yields array items."""
-        return iter(
-            item[1] for item in sorted(self.database.hscan_iter(self.key)))
+        items = sorted(self.database.hscan_iter(self.key),
+                       key=lambda item: int(item[0]))
+        return iter(item[1] for item in items)
 
     def as_list(self, decode=False):
         """
@@ -1280,7 +1280,8 @@ class ConsumerGroupStream(Stream):
         :param consumer: restrict message list to the given consumer
         :param int idle: filter by idle-time in milliseconds (6.2)
         :returns: A list containing status for each pending message. Each
-            pending message returns [id, consumer, idle time, deliveries].
+            pending message is a dict with ``message_id``, ``consumer``,
+            ``time_since_delivered`` and ``times_delivered``.
         """
         return self.database.xpending_range(self.key, self.group, min=start,
                                             max=stop, count=count,
@@ -1368,6 +1369,10 @@ class ConsumerGroup(object):
         # or, alternatively:
         cg.streams['stream-1']
 
+    A stream whose attribute name would collide with a ``ConsumerGroup``
+    attribute (such as ``read`` or ``keys``), or with an earlier stream, is
+    only available through ``cg.streams``.
+
     :param Database database: Redis client
     :param name: consumer group name
     :param keys: stream identifier(s) to monitor. May be a single stream
@@ -1387,11 +1392,13 @@ class ConsumerGroup(object):
         self._consumer = consumer or (self.name + '.c1')
         self.streams = {}  # Dict of key->ConsumerGroupStream.
 
-        # Add attributes for each stream exposed as part of the group.
+        # Add attributes for each stream exposed as part of the group. A name
+        # that collides with an attribute or an earlier stream is skipped.
         for key in self.keys:
             attr = make_python_attr(key)
             stream = self.stream_key_class(database, name, key, self._consumer)
-            setattr(self, attr, stream)
+            if not hasattr(self, attr):
+                setattr(self, attr, stream)
             self.streams[key] = stream
 
     def consumer(self, name):
@@ -1417,7 +1424,7 @@ class ConsumerGroup(object):
                 if not self.database.exists(key):
                     msg_id = self.database.xadd(key, {'': ''}, id=b'0-1')
                     self.database.xdel(key, msg_id)
-                elif self.database.type(key) != b'stream':
+                elif _decode(self.database.type(key)) != 'stream':
                     raise ValueError('Consumer group key "%s" exists and is '
                                      'not a stream. To prevent data-loss '
                                      'this key will not be deleted.' % key)
@@ -1624,8 +1631,8 @@ class BitField(Container):
         if item.stop is None or item.stop < 0:
             raise ValueError('slice must have a non-negative upper-bound')
         start = item.start or 0
-        if start > item.stop:
-            raise ValueError('start of slice cannot exceed stop')
+        if not 0 < item.stop - start < 64:
+            raise ValueError('slice must span 1 to 63 bits')
         return start, item.stop
 
     def __getitem__(self, item):
@@ -1641,13 +1648,13 @@ class BitField(Container):
         """
         Short-hand for setting a range of bits in a bitfield. Note that the
         item **must** be a slice specifying the start and end of the range of
-        bits to read. If the value representation exceeds the number of bits
+        bits to read. If the value is negative or exceeds the number of bits
         implied by the slice range, a ``ValueError`` is raised.
         """
         start, stop = self._validate_slice(item)
         nbits = stop - start
-        if value >= (1 << nbits):
-            raise ValueError('value exceeds width specified by slice')
+        if not 0 <= value < (1 << nbits):
+            raise ValueError('value does not fit width specified by slice')
         self.set('u%s' % nbits, start, value).execute()
 
     def __delitem__(self, item):

@@ -2,6 +2,9 @@ import unittest
 
 from walrus.containers import *
 from walrus.containers import _normalize_stream_keys
+from walrus.database import Database
+from walrus.tests.base import HOST
+from walrus.tests.base import PORT
 from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 from walrus.utils import decode
@@ -474,13 +477,19 @@ class TestArray(WalrusTestCase):
         self.arr.extend(['foo', 'bar', 'baz'])
         self.assertList(self.arr, [b'ix', b'iy', b'foo', b'bar', b'baz'])
 
+        with self.assertRaises(IndexError):
+            self.arr[5] = 'x'
+
+        self.arr.append(5)
+        self.assertTrue(5 in self.arr)
+
     def test_as_list(self):
         self.arr.extend(['foo', 'bar'])
         self.assertEqual(self.arr.as_list(True), ['foo', 'bar'])
         self.assertEqual(db.Array('test').as_list(), [])
 
     def test_from_list(self):
-        data = list('abcdefghij')
+        data = list('abcdefghijkl')
         arr = Array.from_list(db, 'test', data)
         self.assertEqual(arr.as_list(True), data)
 
@@ -561,6 +570,19 @@ class TestStream(WalrusTestCase):
         # We can register the consumer group with another key.
         cg = db.consumer_group('cg', ['sa', 'sb'])
         self.assertEqual(cg.create(), {'sa': False, 'sb': True})
+
+        # A stream named like a method does not replace the method.
+        cg = db.consumer_group('cg2', ['read'])
+        cg.create()
+        self.assertEqual(cg.read(), [])
+        self.assertEqual(cg.streams['read'].key, 'read')
+
+    def test_decode_responses(self):
+        ddb = Database(host=HOST, port=PORT, db=15, decode_responses=True)
+        cg = ddb.consumer_group('cg', ['sa'])
+        cg.create()
+        self.assertEqual(cg.create(), {'sa': False})
+        self.assertTrue(ddb.Stream('sa').set_id('5'))
 
     def test_consumer_group_stream_creation(self):
         cg = db.consumer_group('cg1', ['stream-a', 'stream-b'])
@@ -959,12 +981,17 @@ class TestBitField(WalrusTestCase):
         self.assertRaises(ValueError, lambda: self.bf[1])
         self.assertRaises(ValueError, lambda: self.bf[1:])
         self.assertRaises(ValueError, lambda: self.bf[4:1])
+        self.assertRaises(ValueError, lambda: self.bf[3:3])
+        self.assertRaises(ValueError, lambda: self.bf[0:64])
 
         self.bf[:8] = 89  # 01011001
         self.assertEqual(self.bf[:8], 89)
         def overflow():
             self.bf[:8] = 256
         self.assertRaises(ValueError, overflow)
+        def negative():
+            self.bf[:8] = -1
+        self.assertRaises(ValueError, negative)
         self.bf[:8] = 255
         self.assertEqual(self.bf[:8], 255)
 

@@ -8,3 +8,4 @@ if idx < 0 or idx >= arr_len then
   return nil
 end
 redis.call('HSET', key, idx, ARGV[2])
+return 1
