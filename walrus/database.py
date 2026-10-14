@@ -313,8 +313,7 @@ class Database(Redis):
 
     def event(self, name):
         """
-        Create a named :py:class:`Event`, a flag that one call to
-        :py:meth:`~Event.set` raises for every waiter.
+        Create a named :py:class:`Event` flag.
 
         :param str name: The name of the event.
         """

@@ -218,8 +218,8 @@ class Cache(object):
         The default ``key_fn`` pickles the arguments, so they must be
         picklable.
         """
-        ttl = self.default_timeout if timeout is None else timeout
-        if early_refresh and not ttl:
+        # Without a timeout, the default is read on each call, as in set().
+        if early_refresh and timeout is not None and not timeout:
             raise ValueError('early_refresh requires a timeout.')
 
         def decorator(fn):
@@ -257,12 +257,15 @@ class Cache(object):
                         self.metrics['misses'] += 1
                         res = sentinel
                 if res is sentinel:
+                    ttl = self.default_timeout if timeout is None else timeout
+                    if early_refresh and not ttl:
+                        raise ValueError('early_refresh requires a timeout.')
                     res = fn(*args, **kwargs)
                     if early_refresh:
                         now = time.time()
                         self.set(key, (res, now - start, now + ttl), ttl)
                     else:
-                        self.set(key, res, timeout)
+                        self.set(key, res, ttl)
                     is_cache_hit = False
 
                 if metrics:

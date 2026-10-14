@@ -34,9 +34,10 @@ class _Primitive(object):
         # Rotating the list at key onto itself leaves its signal in place, so
         # one push wakes every waiter. Wait in short steps, so done() can be
         # polled in case the push was missed.
-        deadline = None if timeout is None else time.time() + timeout
+        deadline = None if timeout is None else time.monotonic() + timeout
         while True:
-            seconds = 1 if deadline is None else min(1, deadline - time.time())
+            seconds = (1 if deadline is None else
+                       min(1, deadline - time.monotonic()))
             if seconds <= 0:
                 return False
             if self.database.brpoplpush(key, key, self._cap(seconds)):
@@ -112,8 +113,8 @@ class _BaseLock(_Primitive):
         """
         Acquire the lock. The lock will be held until it is released
         by calling :py:meth:`~Lock.release`. If the lock was
-        initialized with a ``ttl``, then the lock will be released
-        automatically after the given number of milliseconds.
+        initialized with a ``ttl``, then it expires after that many
+        milliseconds unless it is renewed.
 
         By default this method will block until the lock becomes
         free (either by being released or expiring). The blocking is
@@ -259,7 +260,7 @@ class Lock(_BaseLock):
 class Semaphore(_BaseLock):
     """
     A lock that up to ``value`` holders can hold at once. It has the same
-    API as :py:class:`Lock`, and a single thread may hold several slots.
+    methods as :py:class:`Lock`, and a single thread may hold several slots.
 
     Holders are stored in a sorted set scored by their expiry time, so with
     a ``ttl`` the slot of a crashed holder frees itself once the TTL passes.

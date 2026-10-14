@@ -122,11 +122,17 @@ class TestCache(WalrusTestCase):
         # Early-refresh entries never share keys with plain ones.
         self.assertTrue(':early:' in counter.make_key((), {}))
 
-        self.assertRaises(ValueError, cache.cached, early_refresh=True)
-        self.assertRaises(ValueError, cache.cached_property,
-                          early_refresh=True)
-        self.assertRaises(ValueError, cache.cache_async, timeout=0,
-                          early_refresh=True)
+        for decorator in (cache.cached, cache.cached_property,
+                          cache.cache_async):
+            self.assertRaises(ValueError, decorator, timeout=0,
+                              early_refresh=True)
+
+        # Without a timeout, the cache's default is read on each call.
+        late = db.cache(name='test.late')
+        fn = late.cached(early_refresh=True)(time.time)
+        self.assertRaises(ValueError, fn)
+        late.default_timeout = 60
+        self.assertEqual(fn(), fn())
 
     def test_cached_async(self):
         @cache.cache_async()

@@ -190,6 +190,12 @@ class TestLock(WalrusTestCase):
         self.assertRaises(KeyboardInterrupt, barrier.wait)
         self.assertEqual(db.hget(barrier.key, 'count'), b'0')
 
+        # Stale signals are dropped if the hash is lost.
+        lost = db.barrier('lost', 1)
+        lost.wait()
+        db.delete(lost.key)
+        self.assertFalse(db.barrier('lost', 2).wait(0.1))
+
     def test_lock_cleanup(self):
         self.assertEqual(len(db), 0)
         lock = db.lock('lock-a')
