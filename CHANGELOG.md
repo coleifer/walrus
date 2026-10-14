@@ -8,6 +8,10 @@ Bigger changes:
 
 * Drop Python 2.7 support.
 * Remove the experimental `walrus.models` module. It was fraught.
+* New `Semaphore`, `Event` and `Barrier`, plus `renew()`, `held()` and
+  `auto_renew` on locks for leader election. Also new are `early_refresh` on
+  the cache decorators, `BitField.bitop()` with `&=`, `|=` and `^=`, and
+  per-field TTLs on `Hash`.
 
 Smaller changes:
 
