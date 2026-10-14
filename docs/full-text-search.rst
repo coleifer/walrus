@@ -1,5 +1,7 @@
 .. _full-text-search:
 
+.. currentmodule:: walrus
+
 Full-text Search
 ================
 
@@ -64,9 +66,9 @@ To remove a document use :py:meth:`Index.remove`:
 Searching
 ---------
 
-Use the :py:meth:`Index.search` method to perform searches. The search query
-can include set operations (e.g. *AND*, *OR*) and use parentheses to indicate
-operation precedence.
+Use the :py:meth:`Index.search` method to perform searches. It returns a list
+of document dicts, best match first. A document ranks higher when the query
+words make up more of its content.
 
 .. code-block:: python
 
@@ -74,6 +76,22 @@ operation precedence.
         # Print the "title" that was stored as metadata. The "content" field
         # contains the original content of the document as it was indexed.
         print(document['title'], document['content'])
+
+Words and groups next to each other must all match, as if joined by ``AND`` or
+``&``. ``OR`` or ``|`` matches either side and binds less tightly than
+``AND``. Use parentheses to group. The operators must be uppercase, since
+lowercase ``and`` and ``or`` are stopwords. A quoted phrase matches documents
+containing all of its words, in any order.
+
+.. code-block:: python
+
+    search_index.search('python flask')              # Both words.
+    search_index.search('flask | django')            # Either word.
+    search_index.search('python (flask OR django)')  # Python and either one.
+
+Stopwords and punctuation are skipped. A blank query returns every document,
+and a query with nothing left to search, such as ``'the'``, returns an empty
+list. A malformed query, such as ``'flask)'``, raises ``ValueError``.
 
 Phonetic search, using ``metaphone``, is tolerant of typos:
 

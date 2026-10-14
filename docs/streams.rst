@@ -1,6 +1,6 @@
 .. _streams:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Streams
 =======
@@ -33,7 +33,7 @@ the following operations:
 * Delete one or more items (``XDEL``) - :py:meth:`Stream.delete`
 * Get the length of the stream (``XLEN``) - :py:meth:`Stream.length`
 * Trim the length to a given size (``XTRIM``) - :py:meth:`Stream.trim`
-* Set the maximum allowable ID (``XSETID``) - :py:meth:`Stream.set_id`
+* Set the last ID of the stream (``XSETID``) - :py:meth:`Stream.set_id`
 
 To get started with streams, we'll create a :py:class:`Database` instance and
 use it to instantiate a :py:class:`Stream`:
@@ -83,12 +83,12 @@ endpoints are inclusive when using the range API:
     messages = stream[msgid::2]
 
     # messages contains the first two messages:
-    [(b'1539008903588-0', {b'message': b'hello, stream'}),
+    [(b'1539008903588-0', {b'message': b'hello streams'}),
      (b'1539008914283-0', {b'message': b'message 2'})]
 
     # Get all messages in stream:
     messages = list(stream)
-    [(b'1539008903588-0', {b'message': b'hello, stream'}),
+    [(b'1539008903588-0', {b'message': b'hello streams'}),
      (b'1539008914283-0', {b'message': b'message 2'}),
      (b'1539008918230-0', {b'message': b'message 3'})]
 
@@ -120,12 +120,12 @@ items, then request it to be trimmed to 10 items:
     # Trim stream-2 to (approximately) 10 most-recent messages.
     nremoved = stream2.trim(10)
     print(nremoved)
-    # 909
+    # 900
     print(len(stream2))
-    # 91
+    # 100
 
     # To trim to an exact number, specify `approximate=False`:
-    stream2.trim(10, approximate=False)  # Returns 81.
+    stream2.trim(10, approximate=False)  # Returns 90.
     print(len(stream2))
     # 10
 
@@ -142,7 +142,7 @@ supports blocking until messages become available.
     stream.read()
 
     # Returns:
-    [(b'1539008903588-0', {b'message': b'hello, stream'}),
+    [(b'1539008903588-0', {b'message': b'hello streams'}),
      (b'1539008914283-0', {b'message': b'message 2'}),
      (b'1539008918230-0', {b'message': b'message 3'})]
 
@@ -182,10 +182,10 @@ Consumer groups
 In consumer-group mode, streams retain the behaviors of standalone mode, adding
 functionality which makes them *stateful*. What state is tracked?
 
-* Read any unseen messages (``XREADGROUP``) - :py:meth:`ConsumerGroupStream.read`
-* List messages that were read, but not acknowledged (``XPENDING``) - :py:meth:`ConsumerGroupStream.pending`
-* Acknowledge one or more pending messages (``XACK``) - :py:meth:`ConsumerGroupStream.ack`
-* Claim one or more pending messages for re-processing (``XCLAIM``) - :py:meth:`ConsumerGroupStream.claim`
+* Read any unseen messages (``XREADGROUP``) - :py:meth:`.ConsumerGroupStream.read`
+* List messages that were read, but not acknowledged (``XPENDING``) - :py:meth:`.ConsumerGroupStream.pending`
+* Acknowledge one or more pending messages (``XACK``) - :py:meth:`.ConsumerGroupStream.ack`
+* Claim one or more pending messages for re-processing (``XCLAIM``) - :py:meth:`.ConsumerGroupStream.claim`
 
 :py:class:`ConsumerGroup` objects provide the building-blocks for robust
 message processing pipelines or task queues. Ordinarily this type of stuff
@@ -196,11 +196,7 @@ RDB and replicated.
 
 .. code-block:: python
 
-    # Consumer groups require that a stream exist before the group can be
-    # created, so we have to add an empty message.
     stream_keys = ['stream-a', 'stream-b', 'stream-c']
-    for stream in stream_keys:
-        db.xadd(stream, {'data': ''})
 
     # Create a consumer-group for streams a, b, and c. We will mark all
     # messages as having been processed, so only messages added after the
@@ -261,7 +257,7 @@ message from stream *c*:
 
 When using consumer groups, messages that are read need to be **acknowledged**.
 Let's look at the **pending** (read but unacknowledged) messages from
-stream *a* using the :py:meth:`~ConsumerGroupStream.pending` method, which
+stream *a* using the :py:meth:`~.ConsumerGroupStream.pending` method, which
 returns a list of metadata about each unacknowledged message:
 
 .. code-block:: python
@@ -274,7 +270,7 @@ returns a list of metadata about each unacknowledged message:
       'time_since_delivered': 22238, 'times_delivered': 1}]
 
 To acknowledge receipt of a message and remove it from the pending list, use
-the :py:meth:`~ConsumerGroupStream.ack` method on the consumer group stream:
+the :py:meth:`~.ConsumerGroupStream.ack` method on the consumer group stream:
 
 .. code-block:: python
 
@@ -290,7 +286,7 @@ the :py:meth:`~ConsumerGroupStream.ack` method on the consumer group stream:
 
 Consumer groups have the concept of individual **consumers**. These might be
 workers in a process pool, for example. Note that the
-:py:meth:`~ConsumerGroupStream.pending` method returned the consumer name as
+:py:meth:`~.ConsumerGroupStream.pending` method returned the consumer name as
 ``"cg-abc.c1"``. Walrus uses the consumer group name + ``".c1"`` as the name
 for the default consumer name. To create another consumer within a given group,
 we can use the :py:meth:`~ConsumerGroup.consumer` method:
@@ -331,7 +327,7 @@ message was read by our new consumer, *"cg-abc.c2"*:
      {'message_id': b'1539023088126-2', 'consumer': b'cg-abc.c2',
       'time_since_delivered': 5966, 'times_delivered': 1}]
 
-Consumers can :py:meth:`~ConsumerGroupStream.claim` pending messages, which
+Consumers can :py:meth:`~.ConsumerGroupStream.claim` pending messages, which
 transfers ownership of the message and returns a list of (message id, data)
 tuples to the caller:
 
@@ -347,7 +343,8 @@ tuples to the caller:
     [(b'1539023088126-0', {b'message': b'c-0'})]
 
 Re-inspecting the pending messages for stream *c*, we can see that the consumer
-for the first message has changed and the message age has been reset:
+for the first message has changed, the message age has been reset and the
+delivery count has gone up:
 
 .. code-block:: python
 
@@ -356,7 +353,7 @@ for the first message has changed and the message age has been reset:
 
     # Returns:
     [{'message_id': b'1539023088126-0', 'consumer': b'cg-abc.c2',
-      'time_since_delivered': 2168, 'times_delivered': 1},
+      'time_since_delivered': 2168, 'times_delivered': 2},
      {'message_id': b'1539023088126-1', 'consumer': b'cg-abc.c1',
       'time_since_delivered': 47141, 'times_delivered': 1},
      {'message_id': b'1539023088126-2', 'consumer': b'cg-abc.c2',
@@ -375,19 +372,22 @@ useful APIs:
   pending messages.
 * ``consumer_group.stream.delete(*id_list)`` - delete one or more messages
   by ID.
-* ``consumer_group.stream.pending(start='-', stop='+', count=1000)`` - get the
-  list of unacknowledged messages in the stream. The ``start`` and ``stop``
-  parameters can be message ids, while the ``count`` parameter can be used to
-  limit the number of results returned.
-* ``consumer_group.stream.read(count=None, block=None)`` - monitor the
-  stream for new messages within the context of the consumer group. This
-  method can be made to block by specifying a ``block`` (or ``0`` to block
-  forever).
+* ``consumer_group.stream.pending(start='-', stop='+', count=1000,
+  consumer=None, idle=None)`` - get the list of unacknowledged messages in the
+  stream. The ``start`` and ``stop`` parameters can be message ids, while the
+  ``count`` parameter can be used to limit the number of results returned. The
+  ``consumer`` and ``idle`` parameters filter by consumer name and minimum idle
+  time in milliseconds.
+* ``consumer_group.stream.read(count=None, block=None, last_id=None)`` -
+  monitor the stream for new messages within the context of the consumer
+  group. This method can be made to block by specifying a ``block`` (or ``0``
+  to block forever).
 * ``consumer_group.stream.set_id(id='$')`` - set the id of the last-read
   message for the consumer group. Use the special id ``"$"`` to indicate all
   messages have been read, or ``"0-0"`` to mark all messages as unread.
-* ``consumer_group.stream.trim(count, approximate=True)`` - trim the stream to
-  the given size.
+* ``consumer_group.stream.trim(count=None, approximate=True, minid=None,
+  limit=None)`` - trim the stream to the given size, or remove the messages
+  with ids lower than ``minid``.
 
 TimeSeries
 ----------
@@ -518,4 +518,4 @@ For more information, the following links may be helpful:
 * `Redis streams introduction <https://redis.io/topics/streams-intro>`_.
 * `Example multi-process task queue using walrus and streams <http://charlesleifer.com/blog/multi-process-task-queue-using-redis-streams/>`_.
 * API docs for :py:class:`Stream`, :py:class:`ConsumerGroup`,
-  :py:class:`ConsumerGroupStream` and :py:class:`TimeSeries`.
+  :py:class:`.ConsumerGroupStream` and :py:class:`TimeSeries`.

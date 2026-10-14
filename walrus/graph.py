@@ -37,9 +37,9 @@ class Graph(object):
     * huey -- lives -- Kansas
 
     We might wish to ask questions of our data-store like "which of charlie's
-    friends live in Kansas?" To do this we will store every permutation of
-    the S-P-O triples, then we can do efficient queries using the parts of
-    the relationship we know:
+    friends live in Kansas?" To do this we will store three rotations of each
+    S-P-O triple (spo, pos and osp), then we can do efficient queries using
+    the parts of the relationship we know:
 
     * query the "object" portion of the "charlie -- friends" subject
       and predicate.
@@ -159,7 +159,9 @@ class Graph(object):
     def search(self, *conditions):
         """
         Given a set of conditions, return all values that satisfy the
-        conditions for a given set of variables.
+        conditions for a given set of variables. Each condition is a dict
+        with any of the keys ``s``, ``p`` and ``o``, or an ``(s, p, o)``
+        tuple.
 
         For example, suppose I wanted to find all of my friends who live in
         Kansas:
@@ -171,7 +173,7 @@ class Graph(object):
                 {'s': 'charlie', 'p': 'friends', 'o': X},
                 {'s': X, 'p': 'lives', 'o': 'Kansas'})
 
-        The return value consists of a dictionary keyed by variable, whose
+        The return value consists of a dictionary keyed by variable name, whose
         values are ``set`` objects containing the values that satisfy the
         query clauses, e.g.:
 

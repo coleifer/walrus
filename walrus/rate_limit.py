@@ -5,18 +5,18 @@ from walrus.utils import hash_args
 
 
 class RateLimitException(Exception):
-    pass
+    """Raised when a call to a rate-limited function exceeds the limit."""
 
 
 class RateLimit(object):
     """
-    Rate limit implementation. Allows up to "limit" number of events every per
-    the given number of seconds.
+    Rate limit implementation. Allows up to ``limit`` events every ``per``
+    seconds.
     """
     def __init__(self, database, name, limit=5, per=60, debug=False):
         """
         :param database: :py:class:`Database` instance.
-        :param name: Namespace for this cache.
+        :param name: Namespace for this rate limiter.
         :param int limit: Number of events allowed during a given time period.
         :param int per: Time period the ``limit`` applies to, in seconds.
         :param debug: Disable rate-limit for debugging purposes. All events
@@ -75,10 +75,10 @@ class RateLimit(object):
         ``RateLimitException`` will be raised.
 
         :param key_function: Function that accepts the params of the decorated
-            function and returns a string key. If not provided, a hash of the
-            args and kwargs will be used.
-        :returns: If the call is not rate-limited, then the return value will
-            be that of the decorated function.
+            function and returns a string key. If not provided, the key is a
+            hash of the pickled args and kwargs. For a method these include
+            ``self``, which must then be picklable.
+        :returns: a decorator.
         :raises: ``RateLimitException``.
         """
         if key_function is None:
@@ -100,8 +100,8 @@ class RateLimit(object):
 
 class RateLimitLua(RateLimit):
     """
-    Rate limit implementation. Allows up to "limit" number of events every per
-    the given number of seconds. Uses a Lua script to ensure atomicity.
+    Rate limit implementation. Allows up to ``limit`` events every ``per``
+    seconds. Uses a Lua script to ensure atomicity.
     """
     def limit(self, key):
         if self._debug:

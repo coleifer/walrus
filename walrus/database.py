@@ -145,8 +145,8 @@ class Database(Redis):
 
     def clear_transaction(self):
         """
-        Clear the currently active transaction (if exists) and remove
-        it from the transaction stack.
+        Clear the currently active transaction and remove it from the
+        transaction stack.
 
         :returns: No return value.
         :raises: ``ValueError`` if no transaction is active.
@@ -234,6 +234,15 @@ class Database(Redis):
         return self.exists(key)
 
     def autocomplete(self, namespace='autocomplete', **kwargs):
+        """
+        Create an :py:class:`Autocomplete` instance.
+
+        :param str namespace: Prefix for the index's keys. Defaults to
+            ``'autocomplete'``, where the :py:class:`Autocomplete` constructor
+            defaults to ``'walrus'``.
+        :param kwargs: Options passed to :py:class:`Autocomplete`.
+        :returns: An :py:class:`Autocomplete` instance.
+        """
         return Autocomplete(self, namespace, **kwargs)
 
     def cache(self, name='cache', default_timeout=None):
@@ -242,7 +251,7 @@ class Database(Redis):
 
         :param str name: The name used to prefix keys used to
             store cached data.
-        :param int default_timeout: The default key expiry.
+        :param float default_timeout: The default key expiry in seconds.
         :returns: A :py:class:`Cache` instance.
         """
         return Cache(self, name=name, default_timeout=default_timeout)
@@ -275,13 +284,14 @@ class Database(Redis):
         :param int ttl: The time-to-live for the lock in milliseconds
             (optional). If the ttl is ``None`` then the lock will not
             expire.
-        :param str lock_id: Optional identifier for the lock instance.
+        :param str lock_id: Token used by every acquire of this instance. By
+            default each acquire uses a new random token.
         """
         return Lock(self, name, ttl, lock_id)
 
     def rate_limit(self, name, limit=5, per=60, debug=False):
         """
-        Rate limit implementation. Allows up to `limit` of events every `per`
+        Rate limit implementation. Allows up to `limit` events every `per`
         seconds.
 
         See :ref:`rate-limit` for more information.
@@ -290,7 +300,7 @@ class Database(Redis):
 
     def rate_limit_lua(self, name, limit=5, per=60, debug=False):
         """
-        Rate limit implementation. Allows up to `limit` of events every `per`
+        Rate limit implementation. Allows up to `limit` events every `per`
         seconds. Uses a Lua script for atomicity.
 
         See :ref:`rate-limit` for more information.
@@ -355,8 +365,8 @@ class Database(Redis):
         :param keys: stream identifier(s) to monitor. May be a single stream
             key, a list of stream keys, or a key-to-minimum id mapping. The
             minimum id for each stream should be considered an exclusive
-            lower-bound. The '$' value can also be used to only read values
-            added *after* our command started blocking.
+            lower-bound. Use '$' to read only messages added after the group
+            is created.
         :param consumer: name for consumer within group
         :returns: a :py:class:`ConsumerGroup` instance
         """
@@ -373,8 +383,8 @@ class Database(Redis):
         :param keys: stream identifier(s) to monitor. May be a single stream
             key, a list of stream keys, or a key-to-minimum id mapping. The
             minimum id for each stream should be considered an exclusive
-            lower-bound. The '$' value can also be used to only read values
-            added *after* our command started blocking.
+            lower-bound. Use '$' to read only messages added after the group
+            is created.
         :param consumer: name for consumer within group
         :returns: a :py:class:`TimeSeries` instance
         """
@@ -396,17 +406,24 @@ class Database(Redis):
         the question: "is X a member of set S?" It is possible to receive a
         false positive, but impossible to receive a false negative (in other
         words, if the bloom filter contains a value, it will never erroneously
-        report that it does *not* contain such a value). The accuracy of the
-        bloom-filter and the likelihood of a false positive can be reduced by
-        increasing the size of the bloomfilter. The default size is 64KB (or
-        524,288 bits).
+        report that it does *not* contain such a value). The likelihood of a
+        false positive can be reduced by increasing the size of the
+        bloomfilter.
+
+        :param key: The key that stores the filter.
+        :param int size: Size of the filter in bytes. The default is 64KB (or
+            524,288 bits).
+        :returns: a :py:class:`BloomFilter` instance.
         """
         return BloomFilter(self, key, size)
 
     def cas(self, key, value, new_value):
         """
         Perform an atomic compare-and-set on the value in "key", using a prefix
-        match on the provided value.
+        match on the provided value. An empty ``value`` matches any existing
+        value, and a missing key never matches.
+
+        :returns: 1 if the value was set, otherwise 0.
         """
         return self.run_script('cas', keys=[key], args=[value, new_value])
 
@@ -415,13 +432,16 @@ class Database(Redis):
         Decorator for wrapping functions used to listen for Redis
         pub-sub messages.
 
-        The listener will listen until the decorated function
-        raises a ``StopIteration`` exception.
+        Listening starts when the decorated function is called, and lasts
+        until the function raises a ``StopIteration`` exception. The function
+        receives each message, including the subscribe confirmations, as the
+        keyword arguments ``type``, ``pattern``, ``channel`` and ``data``.
 
         :param list channels: Channels to listen on.
         :param list patterns: Patterns to match.
         :param bool is_async: Whether to start the listener in a
-            separate thread.
+            separate thread. If so, calling the decorated function returns
+            the ``threading.Thread``.
         """
         def decorator(fn):
             _channels = channels or []
@@ -459,8 +479,9 @@ class Database(Redis):
         Stream Redis activity one line at a time to the given
         callback, until the callback returns a false value.
 
-        :param callback: A function that accepts a single argument,
-            the Redis command.
+        :param callback: A function that accepts a single argument, the raw
+            ``MONITOR`` line as bytes. The line holds the timestamp, database
+            and client address, followed by the command.
         """
         # The monitor closes its connection when done, ending MONITOR mode.
         with self.monitor() as monitor:

@@ -1,6 +1,6 @@
 .. _getting-started:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Getting Started
 ===============

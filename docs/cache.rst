@@ -1,11 +1,11 @@
 .. _cache:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Cache
 =====
 
-Walrus provides a simple :py:class:`Cache` implementation that makes use of Redis' key expiration feature. The cache can be used to set or retrieve values, and also provides a decorator (:py:meth:`Cache.cached`) for wrapping function.
+Walrus provides a simple :py:class:`Cache` implementation that makes use of Redis' key expiration feature. The cache can be used to set or retrieve values, and also provides a decorator (:py:meth:`Cache.cached`) for wrapping functions.
 
 Cached values are pickled, so the :py:class:`Database` must not use ``decode_responses``.
 
@@ -21,10 +21,11 @@ You can :py:meth:`~Cache.get`, :py:meth:`~Cache.set` and :py:meth:`~Cache.delete
     >>> cache = db.cache()
 
     >>> cache.set('foo', 'bar', 10)  # Set foo=bar, expiring in 10s.
+    True
     >>> cache.get('foo')
     'bar'
 
-    >>> time.sleep(10)
+    >>> time.sleep(11)
     >>> cache.get('foo') is None
     True
 
@@ -52,9 +53,9 @@ The :py:meth:`Cache.cached` decorator will *memoize* the return values from the 
     >>> print(get_time())  # Hits the cache.
     2015-01-07 18:26:42.730638
 
-    >>> time.sleep(10)  # Wait for cache to expire then call again.
+    >>> time.sleep(11)  # Wait for cache to expire then call again.
     >>> print(get_time())
-    2015-01-07 18:26:53.529011
+    2015-01-07 18:26:53.741936
 
 If a decorated function accepts arguments, then values will be cached based on the arguments specified. In the example below we'll pass a garbage argument to the ``get_time`` function to show how the cache varies for different arguments:
 
@@ -87,13 +88,14 @@ To clear the cache, you can call the special ``bust()`` method on the decorated 
 .. code-block:: pycon
 
     >>> get_time.bust('foo')
+    1
     >>> print(get_time('foo'))
     2015-01-07 18:31:15.326435
 
 Cached Property
 ---------------
 
-Python supports dynamic instance attributes through the ``property`` decorator. A property looks like a normal instance attribute, but it's value is calculated at run-time. Walrus comes with a special decorator designed for implementing *cached properties*. Here is how you might use :py:meth:`~Cache.cached_property`:
+Python supports dynamic instance attributes through the ``property`` decorator. A property looks like a normal instance attribute, but its value is calculated at run-time. Walrus comes with a special decorator designed for implementing *cached properties*. Here is how you might use :py:meth:`~Cache.cached_property`:
 
 .. code-block:: pycon
 
@@ -118,7 +120,7 @@ Cache Asynchronously
 
 If you have a function that runs slowly and would like to be able to perform other operations while waiting for the return value, you might try the *asynchronous cache decorator*, :py:meth:`~Cache.cache_async`.
 
-The :py:meth:`~Cache.cache_async` decorator will run the decorated function in a separate thread. The function therefore will return immediately, even though your code may be processing in the background. Calls to the decorated function will return a method on a synchronized queue object. When the value is calculated (or returned from the cache), it will be placed in the queue and you can retrieve it.
+The :py:meth:`~Cache.cache_async` decorator will run the decorated function in a separate thread. The function therefore will return immediately, even though your code may be processing in the background. Calls to the decorated function will return a function that reads the result from a queue. When the value is calculated (or returned from the cache), it will be placed in the queue and you can retrieve it.
 
 Let's see how this works. We'll add a call to ``time.sleep`` in the decorated function to simulate a function that takes a while to run, and we'll also print a message indicating that we're inside the function body.
 
@@ -138,7 +140,7 @@ The first time we call our function we will see the message indicating our funct
     >>> result = get_now()
     About to sleep for 5 seconds.
     >>> result
-    <function _get_value at 0x7fe3a4685de8>
+    <function Cache.cache_async.<locals>.decorator.<locals>.inner.<locals>._get_value at 0x7fe3a4685de8>
 
 If we attempt to check the result immediately, there will be no value because the function is still sleeping. In this case a queue ``Empty`` exception is raised:
 

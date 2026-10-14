@@ -8,11 +8,16 @@ API Documentation
 .. autoclass:: Database(Redis)
     :members:
       __init__,
+      from_url,
+      atomic,
+      commit_transaction,
+      clear_transaction,
       run_script,
       get_temp_key,
       __iter__,
       search,
       get_key,
+      autocomplete,
       cache,
       counter,
       graph,
@@ -33,6 +38,7 @@ API Documentation
       bloom_filter,
       cas,
       xsetid,
+      xpending_summary,
       listener,
       stream_log
 
@@ -56,8 +62,11 @@ Container types
       values,
       items,
       update,
+      setnx,
       incr,
-      as_dict
+      incr_float,
+      as_dict,
+      from_dict
 
 .. autoclass:: List(Container)
     :members:
@@ -71,9 +80,13 @@ Container types
       extend,
       insert_before,
       insert_after,
+      pop,
       popleft,
       popright,
-      as_list
+      bpopleft,
+      bpopright,
+      as_list,
+      from_list
 
 .. autoclass:: Set(Container)
     :members:
@@ -93,7 +106,8 @@ Container types
       diffstore,
       interstore,
       unionstore,
-      as_set
+      as_set,
+      from_set
 
 .. autoclass:: ZSet(Container)
     :members:
@@ -125,7 +139,8 @@ Container types
       bpopmax,
       popmin_compat,
       popmax_compat,
-      as_items
+      as_items,
+      from_dict
 
 .. autoclass:: HyperLogLog(Container)
     :members:
@@ -144,16 +159,19 @@ Container types
       pop,
       __contains__,
       __iter__,
-      as_list
+      as_list,
+      from_list
 
 .. autoclass:: Stream(Container)
     :members:
       __getitem__,
       __delitem__,
       __len__,
+      length,
       add,
       get,
       range,
+      revrange,
       read,
       delete,
       trim,
@@ -181,7 +199,8 @@ Container types
       pending,
       autoclaim,
       read,
-      set_id
+      set_id,
+      delete_consumer
 
 .. autoclass:: BitField(Container)
     :members:
@@ -288,6 +307,8 @@ High-level APIs
     :members:
       limit
 
+.. autoclass:: RateLimitException
+
 .. autoclass:: TimeSeries(ConsumerGroup)
     :members:
       consumer,
@@ -296,3 +317,20 @@ High-level APIs
       reset,
       read,
       set_id
+
+.. autoclass:: walrus.streams.TimeSeriesStream(ConsumerGroupStream)
+    :members:
+      add,
+      get,
+      range,
+      revrange,
+      read,
+      delete,
+      trim,
+      ack,
+      claim,
+      autoclaim,
+      pending,
+      set_id
+
+.. autoclass:: Message

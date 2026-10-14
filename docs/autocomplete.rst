@@ -1,13 +1,13 @@
 .. _autocomplete:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Autocomplete
 ============
 
 Provide suggestions based on partial string search. Walrus' autocomplete library is based on the implementation from `redis-completion <https://github.com/coleifer/redis-completion>`_.
 
-.. note:: The walrus implementation of autocomplete relies on the ``HSCAN`` command and therefore requires Redis >= 2.8.0.
+.. note:: The walrus implementation of autocomplete relies on ``ZADD NX`` and therefore requires Redis >= 3.0.2.
 
 Overview
 --------
@@ -144,6 +144,8 @@ Suppose we have a very popular blog entry that is frequently searched for. We ca
     ...     obj_id=popular_entry.id,
     ...     obj_type='entry',
     ...     multiplier=2.0)
+
+Storing the entry again with a new title drops its saved boost.
 
 To perform boosts on a one-off basis while searching, we can specify a dictionary mapping object IDs or types to a particular multiplier:
 

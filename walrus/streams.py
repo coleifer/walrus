@@ -93,7 +93,7 @@ class TimeSeriesStream(ConsumerGroupStream):
         ts.stream_1  # TimeSeriesStream for "stream-1"
         ts.stream_2  # TimeSeriesStream for "stream-2"
 
-    This class implements the same methods as :py:class:`ConsumerGroupStream`,
+    This class implements the same methods as :py:class:`.ConsumerGroupStream`,
     with the following differences in behavior:
 
     * Anywhere an ID (or list of IDs) is accepted, this class will also accept
@@ -186,7 +186,7 @@ class TimeSeries(ConsumerGroup):
 
     Each registered stream within the group is exposed as a special attribute
     that provides stream-specific APIs within the context of the group. For
-    more information see :py:class:`TimeSeriesStream`.
+    more information see :py:class:`.TimeSeriesStream`.
 
     Example::
 
@@ -195,12 +195,12 @@ class TimeSeries(ConsumerGroup):
         ts.stream_2  # TimeSeriesStream for "stream-2"
 
     :param Database database: Redis client
-    :param group: name of consumer group
+    :param name: name of consumer group
     :param keys: stream identifier(s) to monitor. May be a single stream
         key, a list of stream keys, or a key-to-minimum id mapping. The
         minimum id for each stream should be considered an exclusive
-        lower-bound. The '$' value can also be used to only read values
-        added *after* our command started blocking.
+        lower-bound. Use '$' to read only messages added after the group
+        is created.
     :param consumer: name for consumer within group
     :returns: a :py:class:`TimeSeries` instance
     """
@@ -209,7 +209,7 @@ class TimeSeries(ConsumerGroup):
     def read(self, count=None, block=None):
         """
         Read unseen messages from all streams in the consumer group. Wrapper
-        for :py:class:`Database.xreadgroup` method.
+        for ``Database.xreadgroup()``.
 
         :param int count: limit number of messages returned
         :param int block: milliseconds to block, 0 for indefinitely.

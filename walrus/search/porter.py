@@ -36,14 +36,13 @@ Modified and adapted to work with stdnet.
 class PorterStemmer(object):
 
     def __init__(self):
-        """The main part of the stemming algorithm starts here.
+        """
         b is a buffer holding a word to be stemmed. The letters are in b[k0],
-        b[k0+1] ... ending at b[k]. In fact k0 = 0 in this demo program. k is
-        readjusted downwards as the stemming progresses. Zero termination is
-        not in fact used in the algorithm.
+        b[k0+1] ... ending at b[k]. k is readjusted downwards as the stemming
+        progresses.
 
-        Note that only lower case sequences are stemmed. Forcing to lower case
-        should be done before stem(...) is called.
+        Only lower case sequences are stemmed. Forcing to lower case should be
+        done before stem(...) is called.
         """
         self.b = ""  # buffer for word to be stemmed
         self.k = 0
@@ -325,13 +324,9 @@ class PorterStemmer(object):
             self.k = self.k -1
 
     def stem(self, p, i, j):
-        """In stem(p,i,j), p is a char pointer, and the string to be stemmed
-        is from p[i] to p[j] inclusive. Typically i is zero and j is the
-        offset to the last character of a string, (p[j+1] == '\0'). The
-        stemmer adjusts the characters p[i] ... p[j] and returns the new
-        end-point of the string, k. Stemming never increases word length, so
-        i <= k <= j. To turn the stemmer into a module, declare 'stem' as
-        extern, and delete the remainder of this file.
+        """
+        Stem p[i] to p[j] inclusive and return the stemmed string. Typically
+        i is zero and j is len(p) - 1. Stemming never increases word length.
         """
         # copy the parameters into statics
         self.b = p

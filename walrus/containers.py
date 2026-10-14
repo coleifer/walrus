@@ -150,7 +150,7 @@ class Hash(Container):
 
     def __contains__(self, key):
         """
-        Return a boolean valud indicating whether the given key
+        Return a boolean value indicating whether the given key
         exists.
         """
         return self.database.hexists(self.key, key)
@@ -171,7 +171,8 @@ class Hash(Container):
         Search the keys of the given hash using the specified pattern.
 
         :param str pattern: Pattern used to match keys.
-        :param int count: Limit number of results returned.
+        :param int count: Hint for the number of keys each SCAN call
+            examines. All matches are returned regardless.
         :returns: An iterator yielding matching key/value pairs.
         """
         return self._scan(match=pattern, count=count)
@@ -441,7 +442,8 @@ class Set(Sortable, Container):
         Search the values of the given set using the specified pattern.
 
         :param str pattern: Pattern used to match keys.
-        :param int count: Limit number of results returned.
+        :param int count: Hint for the number of members each SCAN call
+            examines. All matches are returned regardless.
         :returns: An iterator yielding matching values.
         """
         return self._scan(match=pattern, count=count)
@@ -451,26 +453,29 @@ class Set(Sortable, Container):
         return self.database.smembers(self.key)
 
     def random(self, n=None):
-        """Return a random member of the given set."""
+        """
+        Return a random member of the given set. If ``n`` is given,
+        return a list of up to ``n`` distinct members.
+        """
         return self.database.srandmember(self.key, n)
 
     def __sub__(self, other):
         """
-        Return the set difference of the current set and the left-
+        Return the set difference of the current set and the right-
         hand :py:class:`Set` object.
         """
         return self.database.sdiff(self.key, other.key)
 
     def __or__(self, other):
         """
-        Return the set union of the current set and the left-hand
+        Return the set union of the current set and the right-hand
         :py:class:`Set` object.
         """
         return self.database.sunion(self.key, other.key)
 
     def __and__(self, other):
         """
-        Return the set intersection of the current set and the left-
+        Return the set intersection of the current set and the right-
         hand :py:class:`Set` object.
         """
         return self.database.sinter(self.key, other.key)
@@ -601,8 +606,8 @@ class ZSet(Sortable, Container):
             zs[:10]
             zs[:10, False]
 
-            # Return the range of values between 'k1' and 'k10' along
-            # with their scores.
+            # Return the values from 'k1' up to but not including 'k10'
+            # along with their scores.
             zs['k1':'k10', True]
 
             # Return the range of items preceding 'k5' without scores.
@@ -681,7 +686,8 @@ class ZSet(Sortable, Container):
         pattern.
 
         :param str pattern: Search pattern using wildcards.
-        :param int count: Limit result set size.
+        :param int count: Hint for the number of items each SCAN call
+            examines. All matches are returned regardless.
         :returns: Iterator that yields matching item/score tuples.
         """
         return self._scan(match=pattern, count=count)
@@ -720,8 +726,9 @@ class ZSet(Sortable, Container):
         :param high: Upper bound.
         :param bool with_scores: Whether the range should include the
             scores along with the items.
-        :param bool desc: Whether to sort the results descendingly.
-        :param bool reverse: Whether to select the range in reverse.
+        :param bool desc: Count ranks from the highest score, so the
+            results come back in descending order.
+        :param bool reverse: Same as ``desc``.
         """
         if reverse:
             return self.database.zrevrange(self.key, low, high, with_scores)
@@ -730,6 +737,7 @@ class ZSet(Sortable, Container):
 
     def range_by_score(self, low, high, start=None, num=None,
                        with_scores=False, reverse=False):
+        """Return the items with scores between ``low`` and ``high``."""
         if reverse:
             fn = self.database.zrevrangebyscore
             low, high = high, low
@@ -771,6 +779,7 @@ class ZSet(Sortable, Container):
         return self.database.zremrangebyscore(self.key, low, high)
 
     def remove_by_lex(self, low, high):
+        """Remove the members in the given lexicographical range."""
         return self.database.zremrangebylex(self.key, low, high)
 
     def incr(self, key, incr_by=1.):
@@ -804,6 +813,7 @@ class ZSet(Sortable, Container):
 
         :param dest: the name of the key to store intersection
         :param others: One or more :py:class:`ZSet` instances
+        :param kwargs: passed to ``zinterstore()``, e.g. ``aggregate='MAX'``
         :returns: A :py:class:`ZSet` referencing ``dest``.
         """
         keys = [self.key]
@@ -818,6 +828,7 @@ class ZSet(Sortable, Container):
 
         :param dest: the name of the key to store union
         :param others: One or more :py:class:`ZSet` instances
+        :param kwargs: passed to ``zunionstore()``, e.g. ``aggregate='MAX'``
         :returns: A :py:class:`ZSet` referencing ``dest``.
         """
         keys = [self.key]
@@ -847,7 +858,8 @@ class ZSet(Sortable, Container):
         an item becomes available or timeout is reached (0 for no timeout,
         default).
 
-        Returns a 2-tuple of (item, score).
+        Returns a 2-tuple of (item, score), or None if the timeout is
+        reached.
         """
         res = self.database.bzpopmin(self.key, timeout)
         if res is not None:
@@ -859,7 +871,8 @@ class ZSet(Sortable, Container):
         an item becomes available or timeout is reached (0 for no timeout,
         default).
 
-        Returns a 2-tuple of (item, score).
+        Returns a 2-tuple of (item, score), or None if the timeout is
+        reached.
         """
         res = self.database.bzpopmax(self.key, timeout)
         if res is not None:
@@ -928,6 +941,7 @@ class HyperLogLog(Container):
         return self.database.pfadd(self.key, *items)
 
     def __len__(self):
+        """Return the estimated number of distinct items."""
         return self.database.pfcount(self.key)
 
     def __ior__(self, other):
@@ -1036,7 +1050,7 @@ class Array(Container):
     @classmethod
     def from_list(cls, database, key, data, clear=False):
         """
-        Create and populate an Array object from a data dictionary.
+        Create and populate an Array object from a list.
         """
         arr = cls(database, key)
         if clear:
@@ -1121,6 +1135,7 @@ class Stream(Container):
         return self.database.xrevrange(self.key, start, stop, count)
 
     def __iter__(self):
+        """Iterate over all messages in the stream."""
         return iter(self[:])
 
     def __delitem__(self, item):
@@ -1134,8 +1149,9 @@ class Stream(Container):
 
     def delete(self, *id_list):
         """
-        Delete one or more message by id. The index can be either a single
-        message id or a list/tuple of multiple ids.
+        Delete one or more messages by id.
+
+        :returns: number of messages deleted.
         """
         return self.database.xdel(self.key, *id_list)
 
@@ -1166,7 +1182,7 @@ class Stream(Container):
     def info(self):
         """
         Retrieve information about the stream. Wraps call to
-        :py:meth:`~Database.xinfo_stream`.
+        ``xinfo_stream()``.
 
         :returns: a dictionary containing stream metadata
         """
@@ -1175,27 +1191,29 @@ class Stream(Container):
     def groups_info(self):
         """
         Retrieve information about consumer groups for the stream. Wraps call
-        to :py:meth:`~Database.xinfo_groups`.
+        to ``xinfo_groups()``.
 
-        :returns: a dictionary containing consumer group metadata
+        :returns: a list of dictionaries containing consumer group metadata
         """
         return self.database.xinfo_groups(self.key)
 
     def consumers_info(self, group):
         """
         Retrieve information about consumers within the given consumer group
-        operating on the stream. Calls :py:meth:`~Database.xinfo_consumers`.
+        operating on the stream. Calls ``xinfo_consumers()``.
 
         :param group: consumer group name
-        :returns: a dictionary containing consumer metadata
+        :returns: a list of dictionaries containing consumer metadata
         """
         return self.database.xinfo_consumers(self.key, group)
 
     def set_id(self, id):
         """
-        Set the maximum message id for the stream.
+        Set the last id of the stream (``XSETID``). Ids generated by later
+        calls to :py:meth:`~Stream.add` will be greater than it.
 
-        :param id: id of last-read message
+        :param id: new last id, which cannot be lower than the id of the
+            newest message.
         """
         return self.database.xsetid(self.key, id)
 
@@ -1218,7 +1236,7 @@ class ConsumerGroupStream(Stream):
     """
     Helper for working with an individual stream within the context of a
     consumer group. This object is exposed as an attribute on a
-    :py:class:`ConsumerGroup` object using the stream key for the attribute
+    :py:class:`.ConsumerGroup` object using the stream key for the attribute
     name.
 
     This class should not be created directly. It will automatically be added
@@ -1241,7 +1259,7 @@ class ConsumerGroupStream(Stream):
     def consumers_info(self):
         """
         Retrieve information about consumers within the given consumer group
-        operating on the stream. Calls :py:meth:`~Database.xinfo_consumers`.
+        operating on the stream. Calls ``xinfo_consumers()``.
 
         :returns: a list of dictionaries containing consumer metadata
         """
@@ -1249,8 +1267,8 @@ class ConsumerGroupStream(Stream):
 
     def ack(self, *id_list):
         """
-        Acknowledge that the message(s) were been processed by the consumer
-        associated with the parent :py:class:`ConsumerGroup`.
+        Acknowledge that the message(s) have been processed by the consumer
+        associated with the parent :py:class:`.ConsumerGroup`.
 
         :param id_list: one or more message ids to acknowledge
         :returns: number of messages marked acknowledged
@@ -1260,9 +1278,9 @@ class ConsumerGroupStream(Stream):
     def claim(self, *id_list, **kwargs):
         """
         Claim pending - but unacknowledged - messages for this stream within
-        the context of the parent :py:class:`ConsumerGroup`.
+        the context of the parent :py:class:`.ConsumerGroup`.
 
-        :param id_list: one or more message ids to acknowledge
+        :param id_list: one or more message ids to claim
         :param min_idle_time: minimum idle time in milliseconds (keyword-arg).
         :returns: list of (message id, data) 2-tuples of messages that were
             successfully claimed
@@ -1301,7 +1319,8 @@ class ConsumerGroupStream(Stream):
         :param start_id: start id
         :param count: optional, upper limit of entries to claim. Default 100.
         :param justid: return just IDs of messages claimed.
-        :returns: [next start id, [messages that were claimed]
+        :returns: [next start id, claimed (message id, data) 2-tuples, ids
+            of deleted messages], or a list of claimed ids if ``justid``.
         """
         return self.database.xautoclaim(self.key, self.group, consumer,
                                         min_idle_time, start_id, count, justid)
@@ -1309,12 +1328,13 @@ class ConsumerGroupStream(Stream):
     def read(self, count=None, block=None, last_id=None):
         """
         Monitor the stream for new messages within the context of the parent
-        :py:class:`ConsumerGroup`.
+        :py:class:`.ConsumerGroup`.
 
         :param int count: limit number of messages returned
         :param int block: milliseconds to block, 0 for indefinitely.
         :param str last_id: optional last ID, by default uses the special
-            token ">", which reads the oldest unread message.
+            token ">", which reads messages not yet delivered to any
+            consumer in the group.
         :returns: a list of (message id, data) 2-tuples.
         """
         key = {self.key: '>' if last_id is None else last_id}
@@ -1325,7 +1345,7 @@ class ConsumerGroupStream(Stream):
     def set_id(self, id='$'):
         """
         Set the last-read message id for the stream within the context of the
-        parent :py:class:`ConsumerGroup`. By default this will be the special
+        parent :py:class:`.ConsumerGroup`. By default this will be the special
         "$" identifier, meaning all messages are marked as having been read.
 
         :param id: id of last-read message (or "$").
@@ -1336,8 +1356,8 @@ class ConsumerGroupStream(Stream):
         """
         Remove a specific consumer from a consumer group.
 
-        :consumer: name of consumer to delete. If not provided, will be the
-            default consumer for this stream.
+        :param consumer: name of consumer to delete. If not provided, will be
+            the default consumer for this stream.
         :returns: number of pending messages that the consumer had before
             being deleted.
         """
@@ -1357,7 +1377,7 @@ class ConsumerGroup(object):
 
     Each registered stream within the group is exposed as a special attribute
     that provides stream-specific APIs within the context of the group. For
-    more information see :py:class:`ConsumerGroupStream`.
+    more information see :py:class:`.ConsumerGroupStream`.
 
     The streams managed by a consumer group must exist before the consumer
     group can be created. By default, calling :py:meth:`ConsumerGroup.create`
@@ -1381,8 +1401,8 @@ class ConsumerGroup(object):
     :param keys: stream identifier(s) to monitor. May be a single stream
         key, a list of stream keys, or a key-to-minimum id mapping. The
         minimum id for each stream should be considered an exclusive
-        lower-bound. The '$' value can also be used to only read values
-        added *after* our command started blocking.
+        lower-bound. Use '$' to read only messages added after the group
+        is created.
     :param consumer: name for consumer
     """
     stream_key_class = ConsumerGroupStream
@@ -1419,8 +1439,9 @@ class ConsumerGroup(object):
 
         :param ensure_keys_exist: Ensure that the streams exist before creating
             the consumer group. Streams that do not exist will be created.
-        :param mkstream: Use the "MKSTREAM" option to ensure stream exists (may
-            require unstable version of Redis).
+        :param mkstream: Use the "MKSTREAM" option to ensure stream exists.
+        :returns: a dictionary mapping stream key to True, or to False if the
+            group already exists on that stream.
         """
         if ensure_keys_exist:
             for key in self.keys:
@@ -1465,12 +1486,12 @@ class ConsumerGroup(object):
     def read(self, count=None, block=None, consumer=None):
         """
         Read unseen messages from all streams in the consumer group. Wrapper
-        for :py:class:`Database.xreadgroup` method.
+        for ``Database.xreadgroup()``.
 
         :param int count: limit number of messages returned
         :param int block: milliseconds to block, 0 for indefinitely.
         :param consumer: consumer name
-        :returns: a list of (stream key, messages) tuples, where messages is
+        :returns: a list of [stream key, messages] lists, where messages is
             a list of (message id, data) 2-tuples.
         """
         if consumer is None: consumer = self._consumer
@@ -1493,7 +1514,7 @@ class ConsumerGroup(object):
     def stream_info(self):
         """
         Retrieve information for each stream managed by the consumer group.
-        Calls :py:meth:`~Database.xinfo_stream` for each stream.
+        Calls ``xinfo_stream()`` for each stream.
 
         :returns: a dictionary mapping stream key to a dictionary of metadata
         """
@@ -1521,10 +1542,11 @@ class BitFieldOperation(object):
             an unsigned 8-bit integer.
         :param int offset: offset (in number of bits).
         :param int increment: value to increment the bitfield by.
-        :param str overflow: overflow algorithm. Defaults to WRAP, but other
-            acceptable values are SAT and FAIL. See the Redis docs for
-            descriptions of these algorithms.
-        :returns: a :py:class:`BitFieldOperation` instance.
+        :param str overflow: overflow algorithm. Defaults to WRAP, or to the
+            overflow set earlier in the same chain. Other acceptable values
+            are SAT and FAIL. See the Redis docs for descriptions of these
+            algorithms.
+        :returns: a :py:class:`.BitFieldOperation` instance.
         """
         if overflow is not None and overflow != self._last_overflow:
             self._last_overflow = overflow
@@ -1540,7 +1562,7 @@ class BitFieldOperation(object):
         :param fmt: format-string for the bitfield being read, e.g. u8 for an
             unsigned 8-bit integer.
         :param int offset: offset (in number of bits).
-        :returns: a :py:class:`BitFieldOperation` instance.
+        :returns: a :py:class:`.BitFieldOperation` instance.
         """
         self.operations.append(('GET', fmt, offset))
         return self
@@ -1549,11 +1571,11 @@ class BitFieldOperation(object):
         """
         Set the value of a given bitfield.
 
-        :param fmt: format-string for the bitfield being read, e.g. u8 for an
-            unsigned 8-bit integer.
+        :param fmt: format-string for the bitfield being written, e.g. u8 for
+            an unsigned 8-bit integer.
         :param int offset: offset (in number of bits).
         :param int value: value to set at the given position.
-        :returns: a :py:class:`BitFieldOperation` instance.
+        :returns: a :py:class:`.BitFieldOperation` instance.
         """
         self.operations.append(('SET', fmt, offset, value))
         return self
@@ -1598,7 +1620,7 @@ class BitField(Container):
         :param str overflow: overflow algorithm. Defaults to WRAP, but other
             acceptable values are SAT and FAIL. See the Redis docs for
             descriptions of these algorithms.
-        :returns: a :py:class:`BitFieldOperation` instance.
+        :returns: a :py:class:`.BitFieldOperation` instance.
         """
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.incrby(fmt, offset, increment, overflow)
@@ -1610,7 +1632,7 @@ class BitField(Container):
         :param fmt: format-string for the bitfield being read, e.g. u8 for an
             unsigned 8-bit integer.
         :param int offset: offset (in number of bits).
-        :returns: a :py:class:`BitFieldOperation` instance.
+        :returns: a :py:class:`.BitFieldOperation` instance.
         """
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.get(fmt, offset)
@@ -1619,11 +1641,11 @@ class BitField(Container):
         """
         Set the value of a given bitfield.
 
-        :param fmt: format-string for the bitfield being read, e.g. u8 for an
-            unsigned 8-bit integer.
+        :param fmt: format-string for the bitfield being written, e.g. u8 for
+            an unsigned 8-bit integer.
         :param int offset: offset (in number of bits).
         :param int value: value to set at the given position.
-        :returns: a :py:class:`BitFieldOperation` instance.
+        :returns: a :py:class:`.BitFieldOperation` instance.
         """
         bfo = BitFieldOperation(self.database, self.key)
         return bfo.set(fmt, offset, value)
@@ -1715,9 +1737,9 @@ class BloomFilter(Container):
     question: "is X a member of set S?" It is possible to receive a false
     positive, but impossible to receive a false negative (in other words, if
     the bloom filter contains a value, it will never erroneously report that it
-    does *not* contain such a value). The accuracy of the bloom-filter and the
-    likelihood of a false positive can be reduced by increasing the size of the
-    bloomfilter. The default size is 64KB (or 524,288 bits).
+    does *not* contain such a value). The likelihood of a false positive can
+    be reduced by increasing the size of the bloomfilter. The default size is
+    64KB (or 524,288 bits).
 
     Rather than instantiate this class directly, use
     :py:meth:`Database.bloom_filter`.
@@ -1739,7 +1761,7 @@ class BloomFilter(Container):
         """
         Add an item to the bloomfilter.
 
-        :param bytes data: a bytestring representing the item to add.
+        :param data: a str or bytestring representing the item to add.
         """
         bfo = BitFieldOperation(self.database, self.key)
         for bit_index in self._get_seeds(data):
@@ -1750,7 +1772,7 @@ class BloomFilter(Container):
         """
         Check if an item has been added to the bloomfilter.
 
-        :param bytes data: a bytestring representing the item to check.
+        :param data: a str or bytestring representing the item to check.
         :returns: a boolean indicating whether or not the item is present in
             the bloomfilter. False-positives are possible, but a negative
             return value is definitive.

@@ -1,11 +1,11 @@
 .. _graph:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Graph
 =====
 
-The walrus ``graph`` module provides a lightweight `hexastore <http://redis.io/topics/indexes#representing-and-querying-graphs-using-an-hexastore>`_ implementation. The :py:class:`Graph` class uses Redis :py:class:`ZSet` objects to store collections of ``subject - predicate - object`` triples. These relationships can then be queried in a very flexible manner.
+The walrus ``graph`` module provides a lightweight `hexastore <http://redis.io/topics/indexes#representing-and-querying-graphs-using-an-hexastore>`_ implementation. The :py:class:`Graph` class stores ``subject - predicate - object`` triples in a single Redis :py:class:`ZSet`. These relationships can then be queried in a very flexible manner.
 
 Values cannot contain ``::`` or start or end with ``:``, since ``::`` separates
 the parts of each stored key.
@@ -16,7 +16,7 @@ For example, we might store things like:
 * charlie -- lives -- Kansas
 * huey -- lives -- Kansas
 
-We might wish to ask questions of our data-store like "which of charlie's friends live in Kansas?" To do this, we will store every permutation of the S-P-O triples, then we can efficiently query using the parts of the relationship we know beforehand.
+We might wish to ask questions of our data-store like "which of charlie's friends live in Kansas?" To do this, we will store three rotations of each S-P-O triple (spo, pos and osp), then we can efficiently query using the parts of the relationship we know beforehand.
 
 * query the "object" portion of the "charlie -- friends" subject/predicate.
 * for each object returned, turn it into the subject of a second query whose predicate is "lives" and whose object is "Kansas".
@@ -71,7 +71,7 @@ In the above example, the result value is a dictionary of variable values that s
 An even simpler example
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Let's say we wish only to retrieve a list of Charlie's friends. In this case we do not need to use a variable. We can use the simpler :py:meth:`~Graph.query` method. This method optionally takes a subject, predicate and/or object and, using the provided data, returns all objects that "match" the given pieces.
+Let's say we wish only to retrieve a list of Charlie's friends. In this case we do not need to use a variable. We can use the simpler :py:meth:`~Graph.query` method. This method optionally takes a subject, predicate and/or object and, using the provided data, returns a generator of the triples that match the given pieces. Each triple is a dict with keys ``s``, ``p`` and ``o``.
 
 So to find Charlie's friends, we would write:
 

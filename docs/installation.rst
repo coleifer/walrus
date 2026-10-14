@@ -29,4 +29,7 @@ You can test your installation by running the test suite. Requires a running Red
 
 .. code-block:: console
 
-    python runtests.py
+    python -m unittest walrus.tests
+
+.. warning::
+    The tests flush database 15 on ``127.0.0.1:6379``. Set ``WALRUS_REDIS_HOST`` and ``WALRUS_REDIS_PORT`` to use another server.

@@ -19,7 +19,7 @@ class Cache(object):
         """
         :param database: :py:class:`Database` instance.
         :param name: Namespace for this cache.
-        :param int default_timeout: Default cache timeout.
+        :param float default_timeout: Default cache timeout in seconds.
         :param debug: Disable caching for debugging purposes. ``get``,
             ``set``, ``delete``, their ``*_many`` variants and the decorators
             do nothing, so decorated functions always run.
@@ -39,7 +39,7 @@ class Cache(object):
 
     def get(self, key, default=None):
         """
-        Retreive a value from the cache. In the event the value
+        Retrieve a value from the cache. In the event the value
         does not exist, return the ``default``.
         """
         key = self.make_key(key)
@@ -148,7 +148,7 @@ class Cache(object):
         the keys of any cache whose name starts with ``name:``.
 
         :param bool strip_prefix: remove cache key prefix
-        :returns: list of Redis keys corresponding to cached data
+        :returns: iterator of Redis keys corresponding to cached data
         """
         if strip_prefix:
             def _clean_key(k):
@@ -187,8 +187,7 @@ class Cache(object):
             given args and kwargs.
         :param timeout: Time to cache return values.
         :param metrics: Keep stats on cache utilization and timing.
-        :returns: Return the result of the decorated function
-            call with the given args and kwargs.
+        :returns: a decorator.
 
         Usage::
 
@@ -302,9 +301,9 @@ class Cache(object):
         For details, see the :ref:`cache-async` section of the docs.
 
         :param key_fn: Function used to generate cache key.
-        :param int timeout: Cache timeout in seconds.
-        :returns: A new function which can be called to retrieve the
-            return value of the decorated function.
+        :param float timeout: Cache timeout in seconds.
+        :returns: a decorator. Calling the decorated function returns a
+            function that retrieves the result.
         """
         def decorator(fn):
             wrapped = self.cached(key_fn, timeout)(fn)

@@ -13,12 +13,15 @@ class Counter(object):
         self.database.setnx(self.key, 0)
 
     def decr(self, decr_by=1):
+        """Decrement the counter and return the new value."""
         return self.database.decr(self.key, decr_by)
 
     def incr(self, incr_by=1):
+        """Increment the counter and return the new value."""
         return self.database.incr(self.key, incr_by)
 
     def value(self):
+        """Return the current value of the counter."""
         return int(self.database[self.key])
 
     def _op(self, method, other):

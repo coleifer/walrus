@@ -1,6 +1,6 @@
 .. _rate-limit:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Rate Limit
 ==========
@@ -20,7 +20,7 @@ Example with a rate limiter that allows 2 events every 10 seconds.
 Basic usage
 -----------
 
-You can :py:meth:`~RateLimit.limit` to log an event and check whether it should be rate-limited:
+You can call :py:meth:`~RateLimit.limit` to log an event and check whether it should be rate-limited:
 
 .. code-block:: pycon
 
@@ -57,4 +57,4 @@ The :py:meth:`RateLimit.rate_limited` decorator can be used to restrict calls to
 
     The :py:meth:`~RateLimit.rate_limited` decorator will raise a ``RateLimitException`` when an attempt to call the decorated function would exceed the allowed number of events. In your application you can catch these and perform the appropriate action.
 
-If no key function is supplied, then Walrus will simply take the hash of all the arguments the function was called with and treat that as the key. Except for very simple functions, this is probably not what you want, so take care to ensure your ``key_function`` works as you expect.
+If no key function is supplied, then Walrus will simply take the hash of all the arguments the function was called with and treat that as the key. The arguments are pickled, and for a method they include ``self``. Except for very simple functions, this is probably not what you want, so take care to ensure your ``key_function`` works as you expect.

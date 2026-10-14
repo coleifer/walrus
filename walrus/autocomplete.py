@@ -24,9 +24,9 @@ class Autocomplete(object):
         :param database: A :py:class:`Database` instance.
         :param namespace: Namespace to prefix keys used to store
             metadata.
-        :param cache_timeout: Complex searches using boosts will be
-            cached. Specify the amount of time these results are
-            cached for.
+        :param cache_timeout: Seconds to cache the results of multi-word
+            searches and searches with boosts. Cached results do not
+            reflect changes to the index until they expire.
         :param stopwords_file: Filename containing newline-separated
             stopwords. Set to `None` to disable stopwords filtering.
         :param bool use_json: Whether object data should be
@@ -103,12 +103,16 @@ class Autocomplete(object):
         :param obj_type: Optional object type. Since results can be
             boosted by type, you might find it useful to specify this
             when storing multiple types of objects.
+        :returns: True if the object is new, False if it was already stored.
 
         You have the option of storing several types of data as
         defined by the parameters. At the minimum, you can specify
         an ``obj_id``, which will be the word or phrase you wish to
         index. Alternatively, if for instance you were indexing blog
         posts, you might specify all parameters.
+
+        Storing an existing object with a new title re-indexes it and
+        drops its saved boost.
         """
         if title is None:
             title = obj_id
@@ -121,13 +125,13 @@ class Autocomplete(object):
 
         combined_id = self.object_key(obj_id, obj_type)
 
-        if self.exists(obj_id, obj_type):
+        created = not self.exists(obj_id, obj_type)
+        if not created:
             stored_title = decode(self._title_data[combined_id])
             if stored_title == decode(title):
                 self._data[combined_id] = data
-                return
-            else:
-                self.remove(obj_id, obj_type)
+                return False
+            self.remove(obj_id, obj_type)
 
         self._data[combined_id] = data
         self._title_data[combined_id] = title
@@ -144,7 +148,7 @@ class Autocomplete(object):
                 self.database.zadd(self.word_key(substring),
                                    {combined_id: key_score}, nx=True)
 
-        return True
+        return created
 
     def remove(self, obj_id, obj_type=None):
         """
@@ -153,6 +157,7 @@ class Autocomplete(object):
 
         :param obj_id: The object's unique identifier.
         :param obj_type: The object's type.
+        :raises: ``KeyError`` if the object is not in the index.
         """
         if not self.exists(obj_id, obj_type):
             raise KeyError('Object not found.')
@@ -182,9 +187,9 @@ class Autocomplete(object):
                      relative=True):
         """
         Boost search results for the given object or type by the
-        amount specified. When the ``multiplier`` is greater than
-        1, the results will percolate to the top. Values between
-        0 and 1 will percolate results to the bottom.
+        amount specified. A ``multiplier`` greater than 1 moves
+        results up, and values between 0 and 1 move them down. The
+        position of a match in the title outweighs small multipliers.
 
         Either an ``obj_id`` or ``obj_type`` (or both) must be
         specified.
@@ -199,7 +204,7 @@ class Autocomplete(object):
 
         .. code-block:: python
 
-            # Make all objects of type=photos percolate to top.
+            # Make all objects of type='photo' percolate to top.
             ac.boost_object(obj_type='photo', multiplier=2.0)
 
             # Boost a particularly popular blog entry.
@@ -260,6 +265,7 @@ class Autocomplete(object):
         :param int limit: Limit size of the result set.
         :param dict boosts: A mapping of object id/object type to
             floating point multipliers.
+        :param int chunk_size: Number of results to load at a time.
         :returns: A list containing the object data for objects
             matching the search phrase.
         """
@@ -339,6 +345,8 @@ class Autocomplete(object):
     def flush(self, batch_size=1000):
         """
         Delete all autocomplete indexes and metadata.
+
+        :param int batch_size: Number of keys to delete per command.
         """
         keys = self.database.keys(self.namespace + ':*')
         for i in range(0, len(keys), batch_size):

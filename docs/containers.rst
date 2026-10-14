@@ -1,9 +1,12 @@
 .. _containers:
 
-.. py:module:: walrus
+.. currentmodule:: walrus
 
 Containers
 ==========
+
+The examples below assume ``db = Database(decode_responses=True)``, so values
+are returned as ``str`` rather than ``bytes``.
 
 At the most basic level, Redis acts like an in-memory Python dictionary:
 
@@ -33,7 +36,7 @@ Redis also supports several primitive data-types:
 * :py:class:`Array`: like a Python list (custom data type implemented on top of ``Hash`` using lua scripts).
 * :py:class:`BitField`: a bitmap that supports random access.
 * :py:class:`BloomFilter`: probabilistic data-structure for testing set membership.
-* For stream types (:py:class:`Stream`: and :py:class:`ConsumerGroup`) see
+* For stream types (:py:class:`Stream` and :py:class:`ConsumerGroup`) see
   the :ref:`streams` documentation.
 
 Let's see how to use these types.
@@ -64,7 +67,7 @@ We can use common Python interfaces like iteration, len, contains, etc.
     >>> del h['favorite_cat']
     >>> h['age'] = 31
     >>> print(h)
-    <Hash "charlie": {'age': '31', 'name': 'Charlie'}>
+    <Hash "charlie": {'name': 'Charlie', 'age': '31'}>
 
     >>> 'name' in h
     True
@@ -80,7 +83,7 @@ The :py:class:`List` acts like a Python ``list``.
 
     >>> l = db.List('names')
     >>> l.extend(['charlie', 'huey', 'mickey', 'zaizee'])
-    4L
+    4
     >>> print(l[:2])
     ['charlie', 'huey']
     >>> print(l[-2:])
@@ -88,7 +91,7 @@ The :py:class:`List` acts like a Python ``list``.
     >>> l.pop()
     'zaizee'
     >>> l.prepend('scout')
-    4L
+    4
     >>> len(l)
     4
 
@@ -97,7 +100,7 @@ Sets
 
 The :py:class:`Set` acts like a Python ``set``.
 
-.. code-block:: python
+.. code-block:: pycon
 
     >>> s1 = db.Set('s1')
     >>> s2 = db.Set('s2')
@@ -152,16 +155,19 @@ HyperLogLog
 
 The :py:class:`HyperLogLog` provides an estimation of the number of distinct elements in a collection.
 
-.. code-block:: python
+.. code-block:: pycon
 
     >>> hl = db.HyperLogLog('hl')
     >>> hl.add(*range(100))
+    1
     >>> len(hl)
     100
     >>> hl.add(*range(1, 100, 2))
+    0
     >>> hl.add(*range(1, 100, 3))
+    0
     >>> len(hl)
-    102
+    100
 
 Arrays
 ------
@@ -188,13 +194,13 @@ for unsigned 8bit integer 0-255, "i4" for signed integer -8-7).
 .. code-block:: pycon
 
     >>> bf = db.bit_field('bf')
-    >>> resp = (bf
-    ...         .set('u8', 8, 255)
-    ...         .get('u8', 0)  # 00000000
-    ...         .get('u4', 8)  # 1111
-    ...         .get('u4', 12)  # 1111
-    ...         .get('u4', 13)  # 111? -> 1110
-    ...         .execute())
+    >>> (bf
+    ...  .set('u8', 8, 255)
+    ...  .get('u8', 0)  # 00000000
+    ...  .get('u4', 8)  # 1111
+    ...  .get('u4', 12)  # 1111
+    ...  .get('u4', 13)  # 111? -> 1110
+    ...  .execute())
     ...
     [0, 0, 15, 15, 14]
 
@@ -226,6 +232,7 @@ return values are always unsigned integers:
 
 .. code-block:: pycon
 
+    >>> bf = db.bit_field('bits')
     >>> bf.set('u8', 0, 166).execute()  # 10100110
     [0]
 
@@ -261,13 +268,13 @@ A :py:class:`BloomFilter` is a probabilistic data-structure used for answering
 the question: "is X a member of set S?" The bloom-filter may return a false
 positive, but it is impossible to receive a false negative (in other words, if
 the bloom-filter contains a value, it will never erroneously report that it
-does *not* contain such a value). The accuracy of the bloom-filter and the
-likelihood of a false positive can be reduced by increasing the size of the
-bloom-filter buffer. The default size is 64KB (or 524,288 bits).
+does *not* contain such a value). The likelihood of a false positive can be
+reduced by increasing the size of the bloom-filter buffer. The default size is
+64KB (or 524,288 bits).
 
 .. code-block:: pycon
 
-    >>> bf = db.bloom_filter('bf')  # Create a bloom-filter, stored in key "bf".
+    >>> bf = db.bloom_filter('bloom')  # Create a bloom-filter in key "bloom".
 
     >>> data = ('foo', 'bar', 'baz', 'nugget', 'this is a test', 'testing')
     >>> for item in data:
@@ -283,10 +290,11 @@ bloom-filter buffer. The default size is 64KB (or 524,288 bits).
     ...     assert item.title() not in bf  # Foo, Bar, etc, are *not* present.
     ...
 
-:py:class:`BloomFilter` implements only two methods:
+:py:class:`BloomFilter` implements two methods:
 
 * :py:meth:`~BloomFilter.add` - to add an item to the bloom-filter.
-* :py:meth:`~BloomFilter.contains` - test whether an item exists in the filter.
+* :py:meth:`~BloomFilter.contains` - test whether an item exists in the filter
+  (also available as ``item in bf``).
 
 .. note::
     Items cannot be removed from a bloom-filter.

@@ -26,7 +26,7 @@ class Lock(object):
 
     You can set a TTL on a lock to reduce the potential for deadlocks
     in the event of a crash. If a lock is not released before it
-    exceeds its TTL, and threads that are blocked waiting for the
+    exceeds its TTL, then threads that are blocked waiting for the
     lock could potentially re-acquire it.
 
     .. note:: TTL is specified in **milliseconds**.

@@ -257,7 +257,7 @@ class TestAutocomplete(WalrusTestCase):
 
     def test_updating(self):
         # store(obj_id, title=None, data=None, obj_type=None).
-        self.ac.store('id1', 'title baze', 'd1', 't1')
+        self.assertTrue(self.ac.store('id1', 'title baze', 'd1', 't1'))
         self.ac.store('id2', 'title nugget', 'd2', 't2')
         self.ac.store('id3', 'title foo', 'd3', 't3')
 
@@ -268,7 +268,7 @@ class TestAutocomplete(WalrusTestCase):
         self.assertList(self.ac.search('tit'), ['D1', 'd3', 'd2'])
 
         # Overwrite the data with a new title, will remove the title one refs.
-        self.ac.store('id1', 'Herple', 'done', 't1')
+        self.assertFalse(self.ac.store('id1', 'Herple', 'done', 't1'))
         self.assertList(self.ac.search('tit'), ['d3', 'd2'])
         self.assertList(self.ac.search('herp'), ['done'])
 

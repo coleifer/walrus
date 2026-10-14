@@ -96,6 +96,9 @@ class Index(object):
     def remove(self, key, preserve_data=False):
         """
         :param key: Document unique identifier.
+        :param bool preserve_data: Keep the stored content and metadata,
+            removing only the index entries.
+        :raises KeyError: if the document is not in the index.
 
         Remove the document from the search index.
         """
@@ -118,6 +121,7 @@ class Index(object):
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
         :param metadata: Arbitrary key/value pairs to store for document.
+        :raises KeyError: if the document is not in the index.
 
         Update the given document. Existing metadata will be preserved and,
         optionally, updated with the provided metadata.
@@ -130,9 +134,10 @@ class Index(object):
         :param key: Document unique identifier.
         :param str content: Content to store and index for search.
         :param metadata: Arbitrary key/value pairs to store for document.
+        :raises KeyError: if the document is not in the index.
 
-        Update the given document. Existing metadata will not be removed and
-        replaced with the provided metadata.
+        Replace the given document. Existing metadata is removed and replaced
+        with the provided metadata.
         """
         self.remove(key)
         self.add(key, content, _metadata, **metadata)
@@ -201,8 +206,8 @@ class Index(object):
         """
         :param str query: Search query. May contain boolean/set operations
             and parentheses.
-        :returns: a list of document hashes corresponding to matching
-            documents.
+        :returns: a list of document dicts, best match first.
+        :raises ValueError: if the query is malformed.
 
         Search the index. The return value is a list of dictionaries
         corresponding to the documents that matched. These dictionaries contain
@@ -215,8 +220,8 @@ class Index(object):
         """
         :param str query: Search query. May contain boolean/set operations
             and parentheses.
-        :returns: a list of (key, document hashes) tuples corresponding to
-            matching documents.
+        :returns: a list of (key, document dict) tuples, best match first.
+        :raises ValueError: if the query is malformed.
 
         Search the index. The return value is a list of (key, document dict)
         corresponding to the documents that matched. These dictionaries contain

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import optparse
-import os
 import sys
 import unittest
 
@@ -15,32 +14,19 @@ def runtests(verbose=False, failfast=False, names=None):
     return runner.run(suite)
 
 if __name__ == '__main__':
-    try:
-        from redis import Redis
-    except ImportError:
-        raise RuntimeError('redis-py must be installed.')
-    else:
-        try:
-            Redis().info()
-        except:
-            raise RuntimeError('redis server does not appear to be running')
-
     parser = optparse.OptionParser()
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose output.')
     parser.add_option('-f', '--failfast', action='store_true', default=False,
                       help='Stop on first failure or error.')
-    parser.add_option('-s', '--stream', action='store_true', dest='stream',
-                      help='Run stream command tests (default if server>=5.0)')
-    parser.add_option('-z', '--zpop', action='store_true', dest='zpop',
-                      help='Run ZPOP* tests (default if server>=5.0)')
     options, args = parser.parse_args()
-    if options.stream:
-        os.environ['TEST_STREAM'] = '1'
-    if options.zpop:
-        os.environ['TEST_ZPOP'] = '1'
 
     from walrus import tests
+    from walrus.tests.base import db
+    try:
+        db.ping()
+    except Exception:
+        raise RuntimeError('redis server does not appear to be running')
 
     result = runtests(
         verbose=options.verbose,
