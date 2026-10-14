@@ -27,6 +27,8 @@ from walrus.containers import ZSet
 from walrus.counter import Counter
 from walrus.fts import Index
 from walrus.graph import Graph
+from walrus.lock import Barrier
+from walrus.lock import Event
 from walrus.lock import Lock
 from walrus.lock import Semaphore
 from walrus.rate_limit import RateLimit
@@ -308,6 +310,25 @@ class Database(Redis):
         :param bool auto_renew: As in :py:meth:`~Database.lock`.
         """
         return Semaphore(self, name, value, ttl, auto_renew)
+
+    def event(self, name):
+        """
+        Create a named :py:class:`Event`, a flag that one call to
+        :py:meth:`~Event.set` raises for every waiter.
+
+        :param str name: The name of the event.
+        """
+        return Event(self, name)
+
+    def barrier(self, name, parties):
+        """
+        Create a named :py:class:`Barrier`, which blocks callers until
+        ``parties`` of them are waiting.
+
+        :param str name: The name of the barrier.
+        :param int parties: Number of callers to wait for.
+        """
+        return Barrier(self, name, parties)
 
     def rate_limit(self, name, limit=5, per=60, debug=False):
         """

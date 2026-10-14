@@ -1,14 +1,52 @@
 from functools import wraps
 import os
 import threading
+import time
 
 from redis.exceptions import RedisError
 
 
-class _BaseLock(object):
-    # Subclasses set the key prefix, which also names their Lua scripts, and
-    # the number of holders allowed at once.
+class _Primitive(object):
+    # Subclasses set the key prefix, which also names their Lua scripts.
     prefix = None
+
+    def __init__(self, database, name):
+        self.database = database
+        self.name = name
+
+    @property
+    def key(self):
+        return '%s:%s' % (self.prefix, self.name)
+
+    @property
+    def event(self):
+        return '%s.event:%s' % (self.prefix, self.name)
+
+    def _cap(self, seconds):
+        # Keep blocking calls well under the socket timeout.
+        socket_timeout = self.database.connection_pool.connection_kwargs.get(
+            'socket_timeout')
+        if socket_timeout:
+            return min(seconds, socket_timeout / 2.)
+        return seconds
+
+    def _block(self, key, timeout, done=None):
+        # Rotating the list at key onto itself leaves its signal in place, so
+        # one push wakes every waiter. Wait in short steps, so done() can be
+        # polled in case the push was missed.
+        deadline = None if timeout is None else time.time() + timeout
+        while True:
+            seconds = 1 if deadline is None else min(1, deadline - time.time())
+            if seconds <= 0:
+                return False
+            if self.database.brpoplpush(key, key, self._cap(seconds)):
+                return True
+            if done is not None and done():
+                return True
+
+
+class _BaseLock(_Primitive):
+    # Subclasses set the number of holders allowed at once.
     value = 1
 
     def __init__(self, database, name, ttl=None, lock_id=None,
@@ -25,20 +63,11 @@ class _BaseLock(object):
         """
         if auto_renew and not ttl:
             raise ValueError('auto_renew requires a ttl.')
-        self.database = database
-        self.name = name
+        super(_BaseLock, self).__init__(database, name)
         self.ttl = ttl or 0
         self._lock_id = lock_id
         self.auto_renew = auto_renew
         self._local = threading.local()
-
-    @property
-    def key(self):
-        return '%s:%s' % (self.prefix, self.name)
-
-    @property
-    def event(self):
-        return '%s.event:%s' % (self.prefix, self.name)
 
     @property
     def _stack(self):
@@ -96,12 +125,8 @@ class _BaseLock(object):
         :returns: Returns ``True`` if the lock was acquired.
         """
         # Wake at least once per TTL, so an abandoned lock is retried once it
-        # expires, and well before the socket times out.
-        event_wait = self.ttl / 1000. if self.ttl else 1
-        socket_timeout = self.database.connection_pool.connection_kwargs.get(
-            'socket_timeout')
-        if socket_timeout:
-            event_wait = min(event_wait, socket_timeout / 2.)
+        # expires.
+        event_wait = self._cap(self.ttl / 1000. if self.ttl else 1)
         token = self._lock_id or os.urandom(32)
 
         while True:
@@ -251,3 +276,107 @@ class Semaphore(_BaseLock):
         super(Semaphore, self).__init__(database, name, ttl,
                                         auto_renew=auto_renew)
         self.value = value
+
+
+class Event(_Primitive):
+    """
+    A flag shared across processes, like ``threading.Event``. A single call
+    to :py:meth:`~Event.set` wakes every waiter.
+
+    .. code-block:: python
+
+        ready = db.event('ready')
+
+        # Workers block until the flag is set.
+        ready.wait()
+
+        # Elsewhere:
+        ready.set()
+    """
+    prefix = 'event'
+
+    def set(self):
+        """Set the flag, waking every waiter."""
+        pipeline = self.database.pipeline()
+        pipeline.lpush(self.key, 1)
+        pipeline.ltrim(self.key, 0, 0)
+        pipeline.execute()
+
+    def is_set(self):
+        """Return ``True`` if the flag is set."""
+        return self.database.exists(self.key) == 1
+
+    def clear(self):
+        """Reset the flag, so :py:meth:`~Event.wait` blocks again."""
+        self.database.delete(self.key)
+
+    def wait(self, timeout=None):
+        """
+        Block until the flag is set.
+
+        :param float timeout: Seconds to wait. By default, wait forever.
+        :returns: ``True`` if the flag is set, ``False`` on timeout.
+        """
+        return self._block(self.key, timeout) or self.is_set()
+
+
+class Barrier(_Primitive):
+    """
+    Blocks callers until ``parties`` of them are waiting, then releases them
+    all, like ``threading.Barrier``. The barrier resets after each release,
+    so it can be reused.
+
+    .. code-block:: python
+
+        barrier = db.barrier('start', 3)
+
+        # Each of three workers:
+        barrier.wait()
+        run_job()
+    """
+    prefix = 'barrier'
+
+    def __init__(self, database, name, parties):
+        """
+        :param database: A walrus ``Database`` instance.
+        :param str name: The name for the barrier.
+        :param int parties: Number of callers to wait for.
+        """
+        super(Barrier, self).__init__(database, name)
+        self.parties = parties
+
+    def _signal(self, gen):
+        # Consecutive generations alternate between two signal lists.
+        return '%s:%s' % (self.event, gen % 2)
+
+    def _script(self, name, gen=0):
+        return self.database.run_script(
+            'barrier_%s' % name,
+            keys=[self.key, self._signal(0), self._signal(1)],
+            args=[self.parties, gen])
+
+    def wait(self, timeout=None):
+        """
+        Block until ``parties`` callers are waiting.
+
+        :param float timeout: Seconds to wait. By default, wait forever. On
+            timeout the caller withdraws, so it does not count toward the
+            next release.
+        :returns: ``True`` once all parties arrive, ``False`` on timeout.
+        """
+        gen, released = self._script('arrive')
+        if released:
+            return True
+
+        def done():
+            return int(self.database.hget(self.key, 'gen') or 0) > gen
+
+        if self._block(self._signal(gen), timeout, done):
+            return True
+        return self._script('leave', gen) == 0
+
+    def clear(self):
+        """
+        Reset the barrier. Do not use this method while callers are waiting.
+        """
+        self.database.delete(self.key, self._signal(0), self._signal(1))

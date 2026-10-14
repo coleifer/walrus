@@ -24,6 +24,8 @@ API Documentation
       graph,
       lock,
       semaphore,
+      event,
+      barrier,
       rate_limit,
       rate_limit_lua,
       Index,
@@ -312,6 +314,19 @@ High-level APIs
 .. autoclass:: Semaphore
     :members:
       __init__
+
+.. autoclass:: Event
+    :members:
+      set,
+      is_set,
+      clear,
+      wait
+
+.. autoclass:: Barrier
+    :members:
+      __init__,
+      wait,
+      clear
 
 .. autoclass:: RateLimit
     :members:

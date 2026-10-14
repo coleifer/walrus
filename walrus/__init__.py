@@ -6,9 +6,9 @@ __author__ = 'Charles Leifer'
 __license__ = 'MIT'
 __version__ = '0.9.8'
 __all__ = [
-    'Array', 'Autocomplete', 'BitField', 'BloomFilter', 'Cache',
-    'ConsumerGroup', 'Container', 'Counter', 'Database', 'Graph', 'Hash',
-    'HyperLogLog', 'Index', 'List', 'Lock', 'Message', 'RateLimit',
+    'Array', 'Autocomplete', 'Barrier', 'BitField', 'BloomFilter', 'Cache',
+    'ConsumerGroup', 'Container', 'Counter', 'Database', 'Event', 'Graph',
+    'Hash', 'HyperLogLog', 'Index', 'List', 'Lock', 'Message', 'RateLimit',
     'RateLimitException', 'RateLimitLua', 'Semaphore', 'Set', 'Stream',
     'TimeSeries', 'Walrus', 'ZSet']
 
@@ -45,6 +45,8 @@ from walrus.counter import Counter
 from walrus.database import Database
 from walrus.fts import Index
 from walrus.graph import Graph
+from walrus.lock import Barrier
+from walrus.lock import Event
 from walrus.lock import Lock
 from walrus.lock import Semaphore
 from walrus.rate_limit import RateLimit

@@ -29,7 +29,7 @@ walrus consists of:
 * full-text search
 * graph store
 * rate limiting
-* locks
+* locks, semaphores, events and barriers
 * more? more!
 
 My hope is that walrus saves you time developing your application by providing

@@ -127,6 +127,41 @@ class TestLock(WalrusTestCase):
 
         self.assertRaises(ValueError, db.lock, 'x', auto_renew=True)
 
+    def test_event(self):
+        event = db.event('e')
+        self.assertFalse(event.wait(0.1))
+
+        # One set() wakes every waiter.
+        results = []
+        threads = [threading.Thread(
+            target=lambda: results.append(event.wait(5))) for _ in range(3)]
+        for t in threads: t.start()
+        event.set()
+        for t in threads: t.join()
+        self.assertEqual(results, [True, True, True])
+
+        event.clear()
+        self.assertFalse(event.is_set())
+
+    def test_barrier(self):
+        barrier = db.barrier('b', 3)
+        results = []
+
+        def run_round():
+            threads = [threading.Thread(
+                target=lambda: results.append(barrier.wait(5)))
+                for _ in range(3)]
+            for t in threads: t.start()
+            for t in threads: t.join()
+
+        run_round()
+        run_round()  # The barrier resets after each release.
+        self.assertEqual(results, [True] * 6)
+
+        # A caller that times out withdraws.
+        self.assertFalse(barrier.wait(0.1))
+        self.assertEqual(db.hget(barrier.key, 'count'), b'0')
+
     def test_lock_cleanup(self):
         self.assertEqual(len(db), 0)
         lock = db.lock('lock-a')

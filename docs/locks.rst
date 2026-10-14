@@ -100,3 +100,38 @@ An auto-renewing lock elects a leader among processes. Each one runs:
 If the leader dies, its lock expires within the TTL and a waiting process
 takes over. If the leader stalls past the TTL and loses the lock, ``held()``
 returns ``False`` and leaving the ``with`` block raises ``RuntimeError``.
+
+Event
+-----
+
+An :py:class:`Event` is a flag shared across processes, like
+``threading.Event``. One call to :py:meth:`~Event.set` wakes every waiter:
+
+.. code-block:: pycon
+
+    >>> ready = db.event('ready')
+    >>> ready.wait(timeout=0.1)
+    False
+    >>> ready.set()
+    >>> ready.wait()
+    True
+    >>> ready.clear()
+    >>> ready.is_set()
+    False
+
+Barrier
+-------
+
+A :py:class:`Barrier` blocks callers until ``parties`` of them are waiting,
+then releases them all. It resets after each release, so it can be reused:
+
+.. code-block:: python
+
+    barrier = db.barrier('start', 3)
+
+    # In each of three workers:
+    if barrier.wait(timeout=30):
+        run_job()
+
+On timeout, :py:meth:`~Barrier.wait` returns ``False`` and the caller
+withdraws, so it does not count toward the next release.
