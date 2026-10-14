@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "walrus"
 dynamic = ["version"]
 description = "a set of utilities for working with redis"
-dependencies = ["redis"]
+dependencies = ["redis>=4.0.0"]
 requires-python = ">=3.8"
 readme = "README.md"
 authors = [

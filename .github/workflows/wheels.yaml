@@ -6,7 +6,11 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+-**"
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yaml
+
   build:
+    needs: [tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

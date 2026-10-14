@@ -11,6 +11,6 @@ with open(os.path.join(os.path.dirname(__file__),
 
 setup(name='walrus',
       version=version,
-      install_requires=['redis>=3.0.0'],
+      install_requires=['redis>=4.0.0'],
       packages=find_packages(),
       package_data={'walrus': ['scripts/*', 'stopwords.txt']})

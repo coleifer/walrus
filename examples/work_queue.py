@@ -8,6 +8,7 @@ from functools import wraps
 import datetime
 import multiprocessing
 import pickle
+import sys
 import time
 
 # At the time of writing, the standard redis-py client does not implement
@@ -16,6 +17,9 @@ import time
 # More info: https://github.com/coleifer/walrus
 from walrus import Walrus
 
+
+# Workers are forked, so they inherit the registered tasks and the client.
+mp = multiprocessing.get_context('fork')
 
 # Lightweight wrapper for storing exceptions that occurred executing a task.
 TaskError = namedtuple('TaskError', ('error',))
@@ -37,7 +41,7 @@ class TaskQueue(object):
         # Obtain a reference to the stream within the context of the
         # consumer group.
         self.stream = getattr(self.consumer_group, stream_key)
-        self.signal = multiprocessing.Event()  # Used to signal shutdown.
+        self.signal = mp.Event()  # Used to signal shutdown.
         self.signal.set()  # Indicate the server is not running.
 
         # Create the stream and consumer group (if they do not exist).
@@ -65,7 +69,7 @@ class TaskQueue(object):
     def deserialize_message(self, message):
         task_name, args, kwargs = pickle.loads(message)
         if task_name not in self._tasks:
-            raise Exception('task "%s" not registered with queue.')
+            raise Exception('task "%s" not registered with queue.' % task_name)
         return self._tasks[task_name], args, kwargs
 
     def serialize_message(self, task, args=None, kwargs=None):
@@ -97,7 +101,7 @@ class TaskQueue(object):
         self.signal.clear()
         for i in range(nworkers):
             worker = TaskWorker(self)
-            worker_t = multiprocessing.Process(target=worker.run)
+            worker_t = mp.Process(target=worker.run)
             worker_t.start()
             self._pool.append(worker_t)
 
@@ -131,7 +135,7 @@ class TaskWorker(object):
             resp = self.consumer_group.read(1, 1000, self.worker_name)
             if resp is not None:
                 # Resp is structured as:
-                # {stream_key: [(message id, data), ...]}
+                # [[stream_key, [(message id, data), ...]], ...]
                 for stream_key, message_list in resp:
                     task_id, data = message_list[0]
                     self.execute(task_id.decode('utf-8'), data[b'task'])
@@ -163,16 +167,12 @@ class TaskResultWrapper(object):
         if self._result is None:
             # Get the result from the result-store, optionally blocking until
             # the result becomes available.
-            if not block:
+            result = self.queue.get_result(self.task_id)
+            start = time.time()
+            while block and result is None and (
+                    timeout is None or (start + timeout) > time.time()):
+                time.sleep(0.1)
                 result = self.queue.get_result(self.task_id)
-            else:
-                start = time.time()
-                while timeout is None or (start + timeout) > time.time():
-                    result = self.queue.get_result(self.task_id)
-                    if result is None:
-                        time.sleep(0.1)
-                    else:
-                        break
 
             if result is not None:
                 self._result = result
@@ -184,7 +184,9 @@ class TaskResultWrapper(object):
 
 
 if __name__ == '__main__':
-    import sys; sys.set_int_max_str_digits(100000)
+    # Python limits int-to-str conversion, which the fib results exceed.
+    if hasattr(sys, 'set_int_max_str_digits'):
+        sys.set_int_max_str_digits(100000)
 
     db = Walrus()  # roughly equivalent to db = Redis().
     queue = TaskQueue(db)

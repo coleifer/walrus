@@ -107,7 +107,7 @@ def login_required(f):
 def get_object_or_404(model, pk):
     try:
         return model.load(pk)
-    except ValueError:
+    except KeyError:
         abort(404)
 
 # Custom template filter: Flask allows you to define these functions and then

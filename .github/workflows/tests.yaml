@@ -1,5 +1,5 @@
 name: Tests
-on: [push]
+on: [push, workflow_call]
 jobs:
   tests:
     name: ${{ matrix.python-version }}
@@ -21,4 +21,5 @@ jobs:
       - name: deps
         run: pip install .
       - name: runtests
-        run: python runtests.py
+        working-directory: ${{ runner.temp }}
+        run: python -m unittest walrus.tests
