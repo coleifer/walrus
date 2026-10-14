@@ -80,6 +80,14 @@ class TestHash(WalrusTestCase):
         self.assertTrue(self.hsh.setnx(key, value))
         self.assertFalse(self.hsh.setnx(key, value))
 
+    def test_expire_fields(self):
+        self.hsh.update(k1='v1', k2='v2')
+        self.assertEqual(self.hsh.expire_fields(60, 'k1', 'kx'), [1, -2])
+        self.assertEqual(self.hsh.pexpire_fields(5000, 'k2'), [1])
+        self.assertEqual(self.hsh.ttl_fields('k1', 'k2'), [60, 5])
+        self.assertEqual(self.hsh.expire_fields(None, 'k1'), [1])
+        self.assertEqual(self.hsh.ttl_fields('k1'), [-1])
+
 
 class TestSet(WalrusTestCase):
     def setUp(self):

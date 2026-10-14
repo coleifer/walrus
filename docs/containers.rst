@@ -74,6 +74,15 @@ We can use common Python interfaces like iteration, len, contains, etc.
     >>> len(h)
     2
 
+Fields can also expire individually. This requires Redis 7.4 or newer.
+
+.. code-block:: pycon
+
+    >>> h.expire_fields(60, 'age')
+    [1]
+    >>> h.ttl_fields('name', 'age')
+    [-1, 60]
+
 Lists
 -----
 

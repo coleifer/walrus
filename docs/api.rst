@@ -66,6 +66,9 @@ Container types
       setnx,
       incr,
       incr_float,
+      expire_fields,
+      pexpire_fields,
+      ttl_fields,
       as_dict,
       from_dict
 

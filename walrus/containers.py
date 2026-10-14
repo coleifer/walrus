@@ -221,6 +221,47 @@ class Hash(Container):
         """Increment the key by the given amount."""
         return self.database.hincrbyfloat(self.key, key, incr_by)
 
+    def _field_command(self, command, fields, ttl=None):
+        args = [command, self.key]
+        if ttl is not None:
+            args.append(ttl)
+        args.extend(('FIELDS', len(fields)) + fields)
+        return self.database.execute_command(*args)
+
+    def expire_fields(self, ttl, *fields):
+        """
+        Expire the given fields in the given number of seconds. If ``ttl``
+        is ``None``, then any expiry will be cleared and the fields will be
+        persisted. Requires Redis 7.4 or newer.
+
+        :returns: a list holding one status code per field, such as 1 if
+            the expiry was set or cleared and -2 if the field does not exist.
+        """
+        command = 'HPERSIST' if ttl is None else 'HEXPIRE'
+        return self._field_command(command, fields, ttl)
+
+    def pexpire_fields(self, ttl, *fields):
+        """
+        Expire the given fields in the given number of milliseconds. If
+        ``ttl`` is ``None``, then any expiry will be cleared and the fields
+        will be persisted. Requires Redis 7.4 or newer.
+
+        :returns: a list holding one status code per field, as in
+            :py:meth:`~Hash.expire_fields`.
+        """
+        command = 'HPERSIST' if ttl is None else 'HPEXPIRE'
+        return self._field_command(command, fields, ttl)
+
+    def ttl_fields(self, *fields):
+        """
+        Return the remaining time to live of the given fields. Requires
+        Redis 7.4 or newer.
+
+        :returns: a list holding the seconds left for each field, -1 if a
+            field has no expiry, or -2 if it does not exist.
+        """
+        return self._field_command('HTTL', fields)
+
     def as_dict(self, decode=False):
         """
         Return a dictionary containing all the key/value pairs in the
