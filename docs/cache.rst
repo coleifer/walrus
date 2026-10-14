@@ -108,6 +108,8 @@ while the rest are still served from the cache:
 
 The chance of an early refresh rises as expiry nears and with how long the
 function took to run. ``early_refresh`` requires a timeout.
+:py:meth:`~Cache.cached_property` and :py:meth:`~Cache.cache_async` accept the
+same flag.
 
 Cached Property
 ---------------

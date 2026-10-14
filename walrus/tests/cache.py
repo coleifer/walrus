@@ -117,7 +117,14 @@ class TestCache(WalrusTestCase):
         self.assertEqual(counter(), 2)
         self.assertEqual(counter(), 2)
 
+        # Early-refresh entries never share keys with plain ones.
+        self.assertTrue(':early:' in counter.make_key((), {}))
+
         self.assertRaises(ValueError, cache.cached, early_refresh=True)
+        self.assertRaises(ValueError, cache.cached_property,
+                          early_refresh=True)
+        self.assertRaises(ValueError, cache.cache_async, timeout=0,
+                          early_refresh=True)
 
     def test_cached_async(self):
         @cache.cache_async()

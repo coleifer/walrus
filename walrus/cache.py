@@ -223,9 +223,14 @@ class Cache(object):
             raise ValueError('early_refresh requires a timeout.')
 
         def decorator(fn):
+            # Early-refresh entries are stored differently, so they get their
+            # own keys and toggling the flag never reads the other format.
+            name = '%s.%s' % (fn.__module__, fn.__qualname__)
+            if early_refresh:
+                name += ':early'
+
             def make_key(args, kwargs):
-                return '%s.%s:%s' % (fn.__module__, fn.__qualname__,
-                                     key_fn(args, kwargs))
+                return '%s:%s' % (name, key_fn(args, kwargs))
 
             def bust(*args, **kwargs):
                 return self.delete(make_key(args, kwargs))
@@ -273,12 +278,17 @@ class Cache(object):
             return inner
         return decorator
 
-    def cached_property(self, key_fn=hash_args, timeout=None):
+    def cached_property(self, key_fn=hash_args, timeout=None,
+                        early_refresh=False):
         """
         Decorator that will transparently cache calls to the wrapped
         method. The method will be exposed as a property. The instance is
         part of the cache key, so instances that pickle the same share a
         cached value.
+
+        :param key_fn: Function used to generate cache key.
+        :param float timeout: Cache timeout in seconds.
+        :param early_refresh: As in :py:meth:`~Cache.cached`.
 
         Usage::
 
@@ -292,11 +302,11 @@ class Cache(object):
             clock = Clock()
             print(clock.now)
         """
-        this = self
+        cached = self.cached(key_fn, timeout, early_refresh=early_refresh)
 
         class _cached_property(object):
             def __init__(self, fn):
-                self._fn = this.cached(key_fn, timeout)(fn)
+                self._fn = cached(fn)
 
             def __get__(self, instance, instance_type=None):
                 if instance is None:
@@ -314,7 +324,8 @@ class Cache(object):
 
         return decorator
 
-    def cache_async(self, key_fn=hash_args, timeout=3600):
+    def cache_async(self, key_fn=hash_args, timeout=3600,
+                    early_refresh=False):
         """
         Decorator that will execute the cached function in a separate
         thread. The function will immediately return, returning a
@@ -325,11 +336,14 @@ class Cache(object):
 
         :param key_fn: Function used to generate cache key.
         :param float timeout: Cache timeout in seconds.
+        :param early_refresh: As in :py:meth:`~Cache.cached`.
         :returns: a decorator. Calling the decorated function returns a
             function that retrieves the result.
         """
+        cached = self.cached(key_fn, timeout, early_refresh=early_refresh)
+
         def decorator(fn):
-            wrapped = self.cached(key_fn, timeout)(fn)
+            wrapped = cached(fn)
 
             @wraps(fn)
             def inner(*args, **kwargs):
