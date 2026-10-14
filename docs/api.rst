@@ -17,6 +17,7 @@ API Documentation
       __iter__,
       search,
       get_key,
+      hash_exists,
       autocomplete,
       cache,
       counter,
@@ -78,6 +79,7 @@ Container types
       append,
       prepend,
       extend,
+      insert,
       insert_before,
       insert_after,
       pop,
@@ -85,6 +87,8 @@ Container types
       popright,
       bpopleft,
       bpopright,
+      move_tail,
+      bmove_tail,
       as_list,
       from_list
 
@@ -119,6 +123,7 @@ Container types
       __contains__,
       __len__,
       __iter__,
+      iterator,
       search,
       score,
       rank,

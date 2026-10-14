@@ -4,12 +4,16 @@ This document describes changes to the APIs.
 
 ### master
 
+Bigger changes:
+
 * Drop Python 2.7 support.
-* Remove the experimental `walrus.models` (`Model` and its field types).
+* Remove the experimental `walrus.models` module. It was fraught.
+
+Smaller changes:
+
 * Full-text search skips stopwords and punctuation in queries instead of
   matching nothing or stopping early, implies AND next to parentheses, and
-  splits documents on all punctuation. Adding an existing key replaces its
-  indexed content.
+  splits documents on punctuation now.
 * `del l[a:b]` trims a `List` to exactly the items `l[a:b]` returns. A
   negative stop used to be inclusive, so `del l[1:-1]` now also drops the
   last item.

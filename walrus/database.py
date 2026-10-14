@@ -231,6 +231,10 @@ class Database(Redis):
                                   self.__getitem__)(key)
 
     def hash_exists(self, key):
+        """
+        Return 1 if the given key exists, otherwise 0. The key may be of any
+        type.
+        """
         return self.exists(key)
 
     def autocomplete(self, namespace='autocomplete', **kwargs):

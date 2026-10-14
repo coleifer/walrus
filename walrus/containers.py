@@ -321,6 +321,16 @@ class List(Sortable, Container):
         return self.database.rpush(self.key, *value)
 
     def insert(self, value, pivot, where):
+        """
+        Insert the given value before or after the first occurrence of
+        ``pivot``.
+
+        :param value: Value to insert.
+        :param pivot: Existing value to insert next to.
+        :param str where: Either ``'before'`` or ``'after'``.
+        :returns: The new length of the list, -1 if ``pivot`` was not found,
+            or 0 if the list does not exist.
+        """
         return self.database.linsert(self.key, where, pivot, value)
 
     def insert_before(self, value, key):
@@ -365,9 +375,18 @@ class List(Sortable, Container):
             return ret[1]
 
     def move_tail(self, key):
+        """
+        Move the last item of the list to the head of the list at ``key``.
+        Returns the item, or None if the list is empty.
+        """
         return self.database.rpoplpush(self.key, key)
 
     def bmove_tail(self, key, timeout=0):
+        """
+        Move the last item of the list to the head of the list at ``key``,
+        blocking until an item becomes available or timeout is reached (0 for
+        no timeout, default). Returns the item, or None on timeout.
+        """
         return self.database.brpoplpush(self.key, key, timeout)
 
     def as_list(self, decode=False):
@@ -674,6 +693,12 @@ class ZSet(Sortable, Container):
         return iter(self.iterator(with_scores=True))
 
     def iterator(self, with_scores=False, reverse=False):
+        """
+        Return a list of all items, lowest score first.
+
+        :param bool with_scores: Return (item, score) 2-tuples.
+        :param bool reverse: Highest score first.
+        """
         return self.range(
             0,
             -1,
