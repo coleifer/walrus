@@ -4,7 +4,6 @@ import re
 from walrus.utils import decode
 from walrus.utils import encode
 from walrus.utils import load_stopwords
-from walrus.utils import PY3
 
 
 class Autocomplete(object):
@@ -277,11 +276,9 @@ class Autocomplete(object):
             return
 
         all_boosts = self._load_saved_boosts()
-        if PY3 and boosts:
+        if boosts:
             for key in boosts:
                 all_boosts[encode(key)] = boosts[key]
-        elif boosts:
-            all_boosts.update(boosts)
 
         if len(cleaned) == 1 and not all_boosts:
             result_key = self.word_key(cleaned[0])

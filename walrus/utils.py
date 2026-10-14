@@ -1,24 +1,9 @@
 import os
 import re
-import sys
-
-
-PY3 = sys.version_info[0] == 3
-
-if PY3:
-    unicode_type = str
-    basestring_type = (str, bytes)
-    def exception_message(exc):
-        return exc.args[0]
-else:
-    unicode_type = unicode
-    basestring_type = basestring
-    def exception_message(exc):
-        return exc.message
 
 
 def encode(s):
-    return s.encode('utf-8') if isinstance(s, unicode_type) else s
+    return s.encode('utf-8') if isinstance(s, str) else s
 
 
 def decode(s):

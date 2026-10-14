@@ -1,21 +1,16 @@
 import hashlib
 import operator
 import struct
-try:
-    from functools import reduce
-except ImportError:
-    pass
+from functools import reduce
 from functools import wraps
 try:
     from redis.exceptions import ResponseError
 except ImportError:
     ResponseError = Exception
 
-from walrus.utils import basestring_type
 from walrus.utils import decode as _decode
 from walrus.utils import decode_dict
 from walrus.utils import encode
-from walrus.utils import exception_message
 from walrus.utils import make_python_attr
 from walrus.utils import safe_decode_list
 
@@ -1042,7 +1037,7 @@ class Array(Container):
 
 
 def _normalize_stream_keys(keys, default_id='0-0'):
-    if isinstance(keys, basestring_type):
+    if isinstance(keys, (str, bytes)):
         return {keys: default_id}
     elif isinstance(keys, (list, tuple)):
         return dict([(key, default_id) for key in keys])
@@ -1429,7 +1424,7 @@ class ConsumerGroup(object):
                 resp[key] = self.database.xgroup_create(key, self.name, value,
                                                         mkstream)
             except ResponseError as exc:
-                if exception_message(exc).startswith('BUSYGROUP'):
+                if str(exc).startswith('BUSYGROUP'):
                     resp[key] = False
                 else:
                     raise

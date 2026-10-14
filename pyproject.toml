@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,12 +7,12 @@ name = "walrus"
 dynamic = ["version"]
 description = "a set of utilities for working with redis"
 dependencies = ["redis"]
+requires-python = ">=3.8"
 readme = "README.md"
 authors = [
     { name = "Charles Leifer", email = "coleifer@gmail.com" }
 ]
 classifiers = [
-    "Programming Language :: Python :: 2",
     "Programming Language :: Python :: 3",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]

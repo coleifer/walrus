@@ -31,7 +31,6 @@ release 2: July 2008
 
 Modified and adapted to work with stdnet.
 """
-import sys
 
 
 class PorterStemmer(object):

@@ -3,7 +3,6 @@ import datetime
 import json
 import pickle
 import re
-import sys
 import time
 import uuid
 from warnings import warn
@@ -21,12 +20,9 @@ from walrus.query import Executor
 from walrus.query import FTS
 from walrus.query import Node
 from walrus.search import Tokenizer
-from walrus.utils import basestring_type
 from walrus.utils import decode
 from walrus.utils import decode_dict_keys
 from walrus.utils import encode
-from walrus.utils import PY3
-from walrus.utils import unicode_type
 
 
 class Field(Node):
@@ -168,7 +164,7 @@ class FloatField(_ScalarField):
 class ByteField(Field):
     """Store arbitrary bytes."""
     def db_value(self, value):
-        if isinstance(value, unicode_type):
+        if isinstance(value, str):
             value = value.encode('utf-8')
         elif value is None:
             value = b''
@@ -259,7 +255,7 @@ class DateTimeField(_ScalarField):
     def python_value(self, value):
         if not value:
             return None
-        elif isinstance(value, (basestring_type, int, float)):
+        elif isinstance(value, (str, bytes, int, float)):
             return datetime.datetime.fromtimestamp(float(value))
         else:
             return value
@@ -275,7 +271,7 @@ class DateField(DateTimeField):
     def python_value(self, value):
         if not value:
             return None
-        elif isinstance(value, (basestring_type, int, float)):
+        elif isinstance(value, (str, bytes, int, float)):
             return datetime.datetime.fromtimestamp(float(value)).date()
         else:
             return value
@@ -687,13 +683,13 @@ class Model(_with_metaclass(BaseModel)):
         Example::
 
             for note in Note.all():
-                print note.content
+                print(note.content)
 
         To return models in sorted order, see :py:meth:`Model.query`.
         Example returning all records, sorted newest to oldest::
 
             for note in Note.query(order_by=Note.timestamp.desc()):
-                print note.timestamp, note.content
+                print(note.timestamp, note.content)
         """
         for result in cls._query.all_index():
             yield cls.load(result, convert_key=False)
@@ -797,9 +793,7 @@ class Model(_with_metaclass(BaseModel)):
             primary_key = cls._query.get_primary_hash_key(primary_key)
         if not cls.__database__.hash_exists(primary_key):
             raise KeyError('Object not found.')
-        raw_data = cls.__database__.hgetall(primary_key)
-        if PY3:
-            raw_data = decode_dict_keys(raw_data)
+        raw_data = decode_dict_keys(cls.__database__.hgetall(primary_key))
         data = {}
         for name, field in cls._fields.items():
             if isinstance(field, _ContainerField):

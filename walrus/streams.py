@@ -4,7 +4,6 @@ import time
 
 from walrus.containers import ConsumerGroup
 from walrus.containers import ConsumerGroupStream
-from walrus.utils import basestring_type
 from walrus.utils import decode
 from walrus.utils import decode_dict
 from walrus.utils import make_python_attr
@@ -42,7 +41,7 @@ class Message(object):
 
 
 def normalize_id(message_id):
-    if isinstance(message_id, basestring_type):
+    if isinstance(message_id, (str, bytes)):
         return message_id
     elif isinstance(message_id, datetime.datetime):
         return datetime_to_id(message_id)

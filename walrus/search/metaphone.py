@@ -1,5 +1,4 @@
 #!python
-#coding= utf-8
 #This script implements the Double Metaphone algorithm (c) 1998, 1999 by
 #Lawrence Philips
 #it was translated to Python from the C source written by Kevin Atkinson
@@ -16,17 +15,9 @@
 #   as the original C source that were fixed by his careful attention and
 #   excellent communication.
 #   The script was also updated to use utf-8 rather than latin-1.
-import sys
-try:
-    NNNN = unicode('N')
-    decode = lambda x: x.decode('utf-8', 'ignore')
-except:
-    NNNN = 'N'
-    decode = lambda x: x
-
 CCCC = 'Ç'
-VOWELS = frozenset((decode(x) for x in ('A', 'E', 'I', 'O', 'U', 'Y')))
-GNKN = frozenset((decode(x) for x in ('GN', 'KN', 'PN', 'WR', 'PS')))
+VOWELS = frozenset(('A', 'E', 'I', 'O', 'U', 'Y'))
+GNKN = frozenset(('GN', 'KN', 'PN', 'WR', 'PS'))
 
 
 def dm(st) :
@@ -34,7 +25,6 @@ def dm(st) :
     returns the double metaphone codes for given string - always a tuple
     there are no checks done on the input string, but it should be a single
     word or name."""
-    st = decode(st)
     # st is short for string. I usually prefer descriptive over short,
     # but this var is used a lot!
     st = st.upper()
@@ -286,8 +276,6 @@ def dm(st) :
                 nxt = ('N', 2)
             else :
                 nxt = ('N', 1)
-        elif ch == NNNN:
-            nxt = ('N', 1)
         elif ch == 'P' :
             if st[pos+1] == 'H' :
                 nxt = ('F', 2)

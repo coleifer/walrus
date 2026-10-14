@@ -1,22 +1,12 @@
 from functools import wraps
 import hashlib
 import pickle
-import sys
 import threading
 import time
-try:
-    from Queue import Queue  # Python 2
-except ImportError:
-    from queue import Queue  # Python 3
+from queue import Queue
 
 from walrus.utils import decode
 from walrus.utils import encode
-from walrus.utils import PY3
-
-if PY3:
-    imap = map
-else:
-    from itertools import imap
 
 
 
@@ -163,7 +153,7 @@ class Cache(object):
                 return decode(k)[self.prefix_len:]
         else:
             _clean_key = decode
-        return imap(_clean_key, self.database.keys(self.make_key('') + '*'))
+        return map(_clean_key, self.database.keys(self.make_key('') + '*'))
 
     def flush(self):
         """Remove all cached objects from the database."""
@@ -199,11 +189,11 @@ class Cache(object):
             def add_numbers(a, b):
                 return a + b
 
-            print add_numbers(3, 4)  # Function is called.
-            print add_numbers(3, 4)  # Not called, value is cached.
+            print(add_numbers(3, 4))  # Function is called.
+            print(add_numbers(3, 4))  # Not called, value is cached.
 
             add_numbers.bust(3, 4)  # Clear cache for (3, 4).
-            print add_numbers(3, 4)  # Function is called.
+            print(add_numbers(3, 4))  # Function is called.
 
         The decorated function also gains a new attribute named
         ``bust`` which will clear the cache for the given args.
@@ -265,7 +255,7 @@ class Cache(object):
                     return datetime.datetime.now()
 
             clock = Clock()
-            print clock.now
+            print(clock.now)
         """
         def key_wrapper(a, k):
             instance = a[0]

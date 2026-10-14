@@ -34,7 +34,7 @@ class Tokenizer(object):
             from walrus.search.utils import PorterStemmer
             stemmer = PorterStemmer()
             for word in ['faith', 'faiths', 'faithful']:
-                print s.stem(word, 0, len(word) - 1)
+                print(s.stem(word, 0, len(word) - 1))
 
             # Prints:
             # faith
@@ -55,13 +55,13 @@ class Tokenizer(object):
         Example::
 
             >>> from walrus.search.metaphone import dm as metaphone
-            >>> print metaphone('walrus')
+            >>> print(metaphone('walrus'))
             ('ALRS', 'FLRS')
 
-            >>> print metaphone('python')
+            >>> print(metaphone('python'))
             ('P0N', 'PTN')
 
-            >>> print metaphone('pithonn')
+            >>> print(metaphone('pithonn'))
             ('P0N', 'PTN')
         """
         for word in words:

@@ -67,7 +67,7 @@ class Graph(object):
         results = graph.search(
             {'s': 'charlie', 'p': 'friends', 'o': X},
             {'s': X, 'p': 'lives', 'o': 'Kansas'})
-        print results
+        print(results)
 
         # Prints: {'X': {'huey', 'nuggie'}}
 
@@ -143,7 +143,7 @@ class Graph(object):
         .. code-block:: python
 
             for triple in graph.query(p='lives', o='Kansas'):
-                print triple['s'], 'lives in Kansas!'
+                print(triple['s'], 'lives in Kansas!')
         """
         start, end = self.keys_for_query(s, p, o)
         if end is None:
@@ -182,7 +182,7 @@ class Graph(object):
 
         .. code-block:: python
 
-            print results
+            print(results)
 
             # Result has one key, for our "X" variable. The value is the set
             # of my friends that live in Kansas.

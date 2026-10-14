@@ -4,6 +4,8 @@ This document describes changes to the APIs.
 
 ### master
 
+* Drop Python 2.7 support.
+
 [View changes](https://github.com/coleifer/walrus/compare/0.9.6...HEAD)
 
 ### 0.9.7

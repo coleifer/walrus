@@ -20,11 +20,7 @@ using git:
 
     git clone https://github.com/coleifer/walrus.git
     cd walrus
-    python setup.py install
-
-.. note::
-    On some systems you may need to use ``sudo python setup.py install`` to
-    install walrus system-wide.
+    pip install .
 
 Running tests
 -------------

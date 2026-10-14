@@ -1,7 +1,6 @@
 from functools import wraps
 import glob
 import os
-import sys
 import threading
 import uuid
 

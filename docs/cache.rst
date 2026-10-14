@@ -142,9 +142,11 @@ If we attempt to check the result immediately, there will be no value because th
     >>> result(block=False)
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-      File "/usr/lib/python2.7/Queue.py", line 165, in get
+      File "/home/charles/pypath/walrus/cache.py", line 310, in _get_value
+        result = q.get(block=block, timeout=timeout)
+      File "/usr/lib/python3.13/queue.py", line 199, in get
         raise Empty
-    Queue.Empty
+    _queue.Empty
 
 We can force our code to block until the result is ready, though:
 
@@ -176,11 +178,11 @@ Another trick is passing a timeout to the result function. Let's see what happen
     About to sleep for 5 seconds.
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-      File "/home/charles/pypath/walrus/cache.py", line 160, in _get_value
+      File "/home/charles/pypath/walrus/cache.py", line 310, in _get_value
         result = q.get(block=block, timeout=timeout)
-      File "/usr/lib/python2.7/Queue.py", line 176, in get
+      File "/usr/lib/python3.13/queue.py", line 212, in get
         raise Empty
-    Queue.Empty
+    _queue.Empty
 
 Now let's try with a timeout of 6 seconds (being sure to use a different seed so we trigger the 5 second delay):
 
