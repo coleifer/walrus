@@ -82,7 +82,8 @@ without renewing:
     True
 
 With ``auto_renew=True``, a background thread renews the lock every third of
-its TTL until it is released. Semaphores support all three.
+its TTL until it is released or the thread that acquired it exits. Semaphores
+support all three.
 
 Leader Election
 ---------------

@@ -112,9 +112,11 @@ class TestCache(WalrusTestCase):
         self.assertEqual(counter(), 1)
         self.assertEqual(counter(), 1)
 
-        # An entry at its expiry time is always recomputed.
+        # An entry at its expiry time is always recomputed, as a miss.
         cache.set(counter.make_key((), {}), (1, 0.1, time.time()), 60)
+        misses = cache.metrics['misses']
         self.assertEqual(counter(), 2)
+        self.assertEqual(cache.metrics['misses'], misses + 1)
         self.assertEqual(counter(), 2)
 
         # Early-refresh entries never share keys with plain ones.

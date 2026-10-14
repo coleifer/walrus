@@ -252,6 +252,9 @@ class Cache(object):
                     res, delta, expires = res
                     jitter = delta * -math.log(1 - random.random())
                     if start + jitter >= expires:
+                        # Count the refresh as a miss, as the decorator does.
+                        self.metrics['hits'] -= 1
+                        self.metrics['misses'] += 1
                         res = sentinel
                 if res is sentinel:
                     res = fn(*args, **kwargs)

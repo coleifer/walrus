@@ -5,6 +5,10 @@ from walrus.tests.base import WalrusTestCase
 from walrus.tests.base import db
 
 
+def interrupt(*args):
+    raise KeyboardInterrupt
+
+
 class TestLock(WalrusTestCase):
     def test_lock_edge_cases(self):
         # A waiter retries once an abandoned, short-lived lock expires.
@@ -19,6 +23,17 @@ class TestLock(WalrusTestCase):
         t.start()
         t.join()
         self.assertFalse(lock.release())
+
+        # A release that fails can be retried.
+        lock = db.lock('retry')
+        lock.acquire()
+        lock._script = interrupt
+        self.assertRaises(KeyboardInterrupt, lock.release)
+        del lock._script
+        self.assertTrue(lock.release())
+
+        # Fractional TTLs are truncated to whole milliseconds.
+        self.assertTrue(db.lock('frac', ttl=1500.5).acquire())
 
         # A failed release does not hide the body's exception.
         with self.assertRaises(ValueError):
@@ -125,6 +140,14 @@ class TestLock(WalrusTestCase):
                 self.assertTrue(obj.held())
             self.assertFalse(obj.held())
 
+        # Renewal stops if the thread holding the lock exits.
+        t = threading.Thread(
+            target=db.lock('orphan', ttl=150, auto_renew=True).acquire)
+        t.start()
+        t.join()
+        time.sleep(0.4)
+        self.assertTrue(db.lock('orphan').acquire(block=False))
+
         self.assertRaises(ValueError, db.lock, 'x', auto_renew=True)
 
     def test_event(self):
@@ -160,6 +183,11 @@ class TestLock(WalrusTestCase):
 
         # A caller that times out withdraws.
         self.assertFalse(barrier.wait(0.1))
+        self.assertEqual(db.hget(barrier.key, 'count'), b'0')
+
+        # So does one whose wait is interrupted.
+        barrier._block = interrupt
+        self.assertRaises(KeyboardInterrupt, barrier.wait)
         self.assertEqual(db.hget(barrier.key, 'count'), b'0')
 
     def test_lock_cleanup(self):

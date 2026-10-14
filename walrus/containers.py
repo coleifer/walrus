@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import operator
 import struct
@@ -221,7 +222,11 @@ class Hash(Container):
         """Increment the key by the given amount."""
         return self.database.hincrbyfloat(self.key, key, incr_by)
 
-    def _field_command(self, command, fields, ttl=None):
+    def _field_command(self, command, fields, ttl=None, unit=None):
+        if not fields:
+            return []
+        if isinstance(ttl, datetime.timedelta):
+            ttl //= unit
         args = [command, self.key]
         if ttl is not None:
             args.append(ttl)
@@ -230,27 +235,29 @@ class Hash(Container):
 
     def expire_fields(self, ttl, *fields):
         """
-        Expire the given fields in the given number of seconds. If ``ttl``
-        is ``None``, then any expiry will be cleared and the fields will be
-        persisted. Requires Redis 7.4 or newer.
+        Expire the given fields after ``ttl``, given in seconds or as a
+        ``timedelta``. If ``ttl`` is ``None``, then any expiry will be
+        cleared and the fields will be persisted. Requires Redis 7.4 or newer.
 
         :returns: a list holding one status code per field, such as 1 if
             the expiry was set or cleared and -2 if the field does not exist.
         """
         command = 'HPERSIST' if ttl is None else 'HEXPIRE'
-        return self._field_command(command, fields, ttl)
+        return self._field_command(command, fields, ttl,
+                                   datetime.timedelta(seconds=1))
 
     def pexpire_fields(self, ttl, *fields):
         """
-        Expire the given fields in the given number of milliseconds. If
-        ``ttl`` is ``None``, then any expiry will be cleared and the fields
-        will be persisted. Requires Redis 7.4 or newer.
+        Expire the given fields after ``ttl``, given in milliseconds or as a
+        ``timedelta``. If ``ttl`` is ``None``, then any expiry will be
+        cleared and the fields will be persisted. Requires Redis 7.4 or newer.
 
         :returns: a list holding one status code per field, as in
             :py:meth:`~Hash.expire_fields`.
         """
         command = 'HPERSIST' if ttl is None else 'HPEXPIRE'
-        return self._field_command(command, fields, ttl)
+        return self._field_command(command, fields, ttl,
+                                   datetime.timedelta(milliseconds=1))
 
     def ttl_fields(self, *fields):
         """

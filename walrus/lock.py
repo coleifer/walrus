@@ -58,7 +58,8 @@ class _BaseLock(_Primitive):
         :param str lock_id: Token used by every acquire of this instance. By
             default each acquire uses a new random token.
         :param bool auto_renew: Renew the lock from a background thread
-            every third of its ``ttl`` until it is released.
+            every third of its ``ttl`` until it is released or the thread
+            that acquired it exits.
         :raises: ``ValueError`` if ``auto_renew`` is set without a ``ttl``.
         """
         if auto_renew and not ttl:
@@ -77,23 +78,25 @@ class _BaseLock(_Primitive):
             self._local.stack = []
         return self._local.stack
 
-    def _latest(self, pop=False):
+    def _latest(self):
         stack = self._stack
-        if not stack:
-            return self._lock_id or '', None
-        return stack.pop() if pop else stack[-1]
+        return stack[-1] if stack else (self._lock_id or '', None)
 
     def _script(self, name, token, ttl=None):
+        # PEXPIRE rejects fractional milliseconds.
+        ttl = int(self.ttl if ttl is None else ttl)
         return self.database.run_script(
             '%s_%s' % (self.prefix, name),
             keys=[self.key, self.event],
-            args=[token, self.ttl if ttl is None else ttl, self.value])
+            args=[token, ttl, self.value])
 
     def _renew_in_background(self, token):
         stop = threading.Event()
+        owner = threading.current_thread()
 
         def renew():
-            while not stop.wait(self.ttl / 3000.):
+            # Stop if the owner exits without releasing, so the lock expires.
+            while not stop.wait(self.ttl / 3000.) and owner.is_alive():
                 try:
                     if self._script('renew', token) != 1:
                         return  # The lock was lost.
@@ -150,10 +153,15 @@ class _BaseLock(_Primitive):
 
         :returns: Returns ``True`` if the lock was released.
         """
-        token, stop = self._latest(pop=True)
+        token, stop = self._latest()
         if stop is not None:
             stop.set()
-        return self._script('release', token) != 0
+        # Keep the token until Redis answers, so a failed release can be
+        # retried.
+        released = self._script('release', token) != 0
+        if self._stack:
+            self._stack.pop()
+        return released
 
     def renew(self, ttl=None):
         """
@@ -359,9 +367,9 @@ class Barrier(_Primitive):
         """
         Block until ``parties`` callers are waiting.
 
-        :param float timeout: Seconds to wait. By default, wait forever. On
-            timeout the caller withdraws, so it does not count toward the
-            next release.
+        :param float timeout: Seconds to wait. By default, wait forever. A
+            caller that times out or is interrupted withdraws, so it does
+            not count toward the next release.
         :returns: ``True`` once all parties arrive, ``False`` on timeout.
         """
         gen, released = self._script('arrive')
@@ -371,9 +379,13 @@ class Barrier(_Primitive):
         def done():
             return int(self.database.hget(self.key, 'gen') or 0) > gen
 
-        if self._block(self._signal(gen), timeout, done):
-            return True
-        return self._script('leave', gen) == 0
+        released = False
+        try:
+            released = self._block(self._signal(gen), timeout, done)
+        finally:
+            if not released:
+                released = self._script('leave', gen) == 0
+        return released
 
     def clear(self):
         """
