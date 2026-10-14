@@ -83,9 +83,7 @@ class Graph(object):
         """
         Store a subject-predicate-object triple in the database.
         """
-        with self.walrus.atomic():
-            for key in self.keys_for_values(s, p, o):
-                self._z[key] = 0
+        self.store_many([(s, p, o)])
 
     def store_many(self, items):
         """
@@ -93,15 +91,13 @@ class Graph(object):
 
         :param items: A list of (subj, pred, obj) 3-tuples.
         """
-        with self.walrus.atomic():
-            for item in items:
-                self.store(*item)
+        # One ZADD writes every index key atomically.
+        keys = [key for item in items for key in self.keys_for_values(*item)]
+        self._z.add(dict.fromkeys(keys, 0))
 
     def delete(self, s, p, o):
         """Remove the given subj-pred-obj triple from the database."""
-        with self.walrus.atomic():
-            for key in self.keys_for_values(s, p, o):
-                del self._z[key]
+        self._z.remove(*self.keys_for_values(s, p, o))
 
     def keys_for_values(self, s, p, o):
         parts = [

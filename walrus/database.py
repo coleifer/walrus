@@ -123,9 +123,8 @@ class Database(Redis):
 
     def clear_transaction(self):
         """
-        Clear the currently active transaction (if exists). If the
-        transaction stack is not empty, then a new pipeline will
-        be initialized.
+        Clear the currently active transaction (if exists) and remove
+        it from the transaction stack.
 
         :returns: No return value.
         :raises: ``ValueError`` if no transaction is active.
@@ -137,6 +136,12 @@ class Database(Redis):
             local.abort()
 
     def atomic(self):
+        """
+        Return a context manager whose ``pipe`` queues commands and executes
+        them as a transaction when the block exits, or discards them if the
+        block raises. Only commands sent through ``pipe`` are part of the
+        transaction, and nested blocks commit independently.
+        """
         return _Atomic(self)
 
     def init_scripts(self, script_dir=None):
@@ -443,13 +448,10 @@ class Database(Redis):
 class _Atomic(object):
     def __init__(self, db):
         self.db = db
-
-    @property
-    def pipe(self):
-        return self.db._transaction_local.pipe
+        self.pipe = None
 
     def __enter__(self):
-        self.db.get_transaction()
+        self.pipe = self.db.get_transaction()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -458,13 +460,21 @@ class _Atomic(object):
         else:
             self.commit(False)
 
+    # A pipeline resets itself after execute(), so the block keeps using the
+    # same pipe until it ends.
     def commit(self, begin_new=True):
-        ret = self.db.commit_transaction()
-        if begin_new:
-            self.db.get_transaction()
-        return ret
+        if not begin_new:
+            self._end()
+        return self.pipe.execute()
 
     def clear(self, begin_new=True):
-        self.db.clear_transaction()
-        if begin_new:
-            self.db.get_transaction()
+        if not begin_new:
+            self._end()
+        self.pipe.reset()
+
+    def _end(self):
+        # Blocks nest, so this block's pipe is on top of the stack, unless
+        # commit_transaction() or clear_transaction() already removed it.
+        pipes = self.db._transaction_local.pipes
+        if pipes and pipes[-1] is self.pipe:
+            pipes.pop()

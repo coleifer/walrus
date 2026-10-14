@@ -88,6 +88,16 @@ class TestWalrus(WalrusTestCase):
         self.assertRaises(KeyError, lambda: db['k3'])
         self.assertEqual(db['k4'], b'v4')
 
+        # The outer pipe is still the outer pipe inside a nested block.
+        with db.atomic() as outer:
+            try:
+                with db.atomic():
+                    outer.pipe.set('k5', 'v5')
+                    raise TypeError
+            except TypeError:
+                pass
+        self.assertEqual(db['k5'], b'v5')
+
     def test_clear_transaction(self):
         with db.atomic() as a1:
             a1.pipe.set('k1', 'v1')
