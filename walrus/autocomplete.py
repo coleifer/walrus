@@ -292,7 +292,7 @@ class Autocomplete(object):
 
         results = self.database.ZSet(result_key)
         if all_boosts:
-            for raw_id, score in results[0:0, True]:
+            for raw_id, score in results[:, True]:
                 orig_score = score
                 for identifier in raw_id.split(encode('\x01'), 1):
                     if identifier and identifier in all_boosts:

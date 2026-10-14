@@ -65,6 +65,13 @@ class TestHash(WalrusTestCase):
         hsh = Hash.from_dict(db, 'test', data)
         self.assertEqual(hsh.as_dict(True), data)
 
+    def test_update(self):
+        data = {'k1': 'v1'}
+        self.hsh.update(data, k2='v2')
+        self.hsh.update()
+        self.assertEqual(data, {'k1': 'v1'})
+        self.assertEqual(self.hsh.as_dict(True), {'k1': 'v1', 'k2': 'v2'})
+
     def test_setnx(self):
         key, value = "key_setnx", "value_setnx"
         self.assertTrue(self.hsh.setnx(key, value))
@@ -269,11 +276,27 @@ class TestZSet(WalrusTestCase):
             [(b'i0', 0), (b'i1', 1), (b'i2', 2)])
         self.assertRaises(KeyError, self.zs.__getitem__, (slice('i9'), False))
         self.assertEqual(self.zs[99:, False], [])
+        self.assertEqual(self.zs[:'i0'], [])
+        self.assertEqual(self.zs[1:'i3'], [b'i1', b'i2'])
+        self.assertRaises(ValueError, self.zs.__getitem__, slice(0, 4, 2))
 
+        del self.zs[:'i0']
         del self.zs[:'i2']
         self.assertZSet([(b'i2', 2.), (b'i3', 3.)])
         del self.zs[1:]
         self.assertZSet([(b'i2', 2.)])
+
+    def test_add(self):
+        data = {'i1': 1}
+        self.zs.add(data, i2=2)
+        self.zs.add(i3=3)
+        self.assertEqual(data, {'i1': 1})
+        self.assertZSet([(b'i1', 1.), (b'i2', 2.), (b'i3', 3.)])
+
+    def test_iteration_order(self):
+        # Past 128 members ZSCAN no longer returns members in score order.
+        self.zs.add(dict(('i%03d' % i, i) for i in range(200)))
+        self.assertZSet([(b'i%03d' % i, float(i)) for i in range(200)])
 
     def test_combine_store(self):
         zs2 = db.ZSet('my-zset2')
@@ -342,6 +365,7 @@ class TestList(WalrusTestCase):
         self.assertEqual(self.lst.pop(), b'i3')
         self.assertEqual(self.lst.popleft(), b'ix')
         self.assertEqual(len(self.lst), 4)
+        self.assertEqual(self.lst.extend([]), 4)
 
     def test_item_apis(self):
         self.lst.append('i0')
@@ -363,6 +387,11 @@ class TestList(WalrusTestCase):
         del self.lst['ixxx']
         self.assertList(self.lst, [b'i2x'])
 
+    def test_del_index(self):
+        self.lst.extend(['x', 'y', 'x'])
+        del self.lst[2]
+        self.assertList(self.lst, [b'x', b'y'])
+
     def test_slicing(self):
         self.lst.extend(['i1', 'i2', 'i3', 'i4'])
         self.assertEqual(self.lst[:1], [b'i1'])
@@ -370,14 +399,16 @@ class TestList(WalrusTestCase):
         self.assertEqual(self.lst[:-1], [b'i1', b'i2', b'i3'])
         self.assertEqual(self.lst[1:2], [b'i2'])
         self.assertEqual(self.lst[1:], [b'i2', b'i3', b'i4'])
+        self.assertEqual(self.lst[:0], [])
+        self.assertRaises(ValueError, self.lst.__getitem__, slice(0, 4, 2))
 
         l = db.List('l1')
         l.extend(range(10))
 
-        # LTRIM, preserve the 1st to last (removes the 0th element).
+        # LTRIM, preserve the same items l[1:-1] returns.
         del l[1:-1]
         self.assertEqual([int(decode(i)) for i in l],
-                         [1, 2, 3, 4, 5, 6, 7, 8, 9])
+                         [1, 2, 3, 4, 5, 6, 7, 8])
 
         # Trim the list so that it contains only the values within the
         # specified range.
@@ -392,6 +423,7 @@ class TestList(WalrusTestCase):
 
         self.lst.sort(ordering='DESC', limit=3, store='l_dest')
         self.assertList(db.List('l_dest'), [b'zaizee', b'mickey', b'huey'])
+        self.assertEqual(self.lst.sort(offset=2), [b'mickey', b'zaizee'])
 
     def test_as_list(self):
         self.lst.extend(['foo', 'bar'])

@@ -5,6 +5,9 @@ This document describes changes to the APIs.
 ### master
 
 * Drop Python 2.7 support.
+* `del l[a:b]` trims a `List` to exactly the items `l[a:b]` returns. A
+  negative stop used to be inclusive, so `del l[1:-1]` now also drops the
+  last item.
 
 [View changes](https://github.com/coleifer/walrus/compare/0.9.6...HEAD)
 

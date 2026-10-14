@@ -1,8 +1,10 @@
 import hashlib
 import operator
 import struct
+import uuid
 from functools import reduce
 from functools import wraps
+from itertools import islice
 try:
     from redis.exceptions import ResponseError
 except ImportError:
@@ -23,11 +25,29 @@ def chainable_method(fn):
     return inner
 
 
+def _slice_bounds(s):
+    if s.step not in (None, 1):
+        raise ValueError('Slices with a step are not supported.')
+    return s.start, s.stop
+
+
+def _redis_range(start, stop):
+    """
+    Convert Python slice bounds to an inclusive Redis range. A stop of 0
+    selects nothing, so it maps to (1, 0), which every range command treats
+    as empty.
+    """
+    if stop == 0:
+        return 1, 0
+    return start or 0, -1 if stop is None else stop - 1
+
+
 class Sortable(object):
     def sort(self, pattern=None, limit=None, offset=None, get_pattern=None,
              ordering=None, alpha=True, store=None):
         if limit or offset:
             offset = offset or 0
+            limit = limit or -1
         return self.database.sort(
             self.key,
             start=offset,
@@ -95,10 +115,10 @@ class Hash(Container):
         l = len(self)
         if l > 5:
             # Get a few keys.
-            data = self.database.hscan(self.key, count=5)
+            data = dict(islice(self._scan(count=5), 5))
         else:
             data = self.as_dict()
-        return '<Hash "%s": %s>' % (self.key, data)
+        return '<Hash "%s": %s%s>' % (self.key, data, l > 5 and '...' or '')
 
     def __getitem__(self, item):
         """
@@ -188,11 +208,9 @@ class Hash(Container):
         """
         Update the hash using the given dictionary or key/value pairs.
         """
-        if __data is None:
-            __data = kwargs
-        else:
-            __data.update(kwargs)
-        return self.database.hset(self.key, mapping=__data)
+        data = dict(__data or {}, **kwargs)
+        if data:
+            self.database.hset(self.key, mapping=data)
 
     def incr(self, key, incr_by=1):
         """Increment the key by the given amount."""
@@ -243,12 +261,7 @@ class List(Sortable, Container):
         integer indexes, you can also pass a ``slice``.
         """
         if isinstance(item, slice):
-            start = item.start or 0
-            stop = item.stop
-            if not stop:
-                stop = -1
-            else:
-                stop -= 1
+            start, stop = _redis_range(*_slice_bounds(item))
             return self.database.lrange(self.key, start, stop)
         return self.database.lindex(self.key, item)
 
@@ -264,19 +277,23 @@ class List(Sortable, Container):
         be treated as a value.
 
         If a slice is passed, then the list will be trimmed so that it *ONLY*
-        contains the range specified by the slice start and stop. Note that
-        this differs from the default behavior of Python's `list` type.
+        contains the items ``l[start:stop]`` would return. Note that this
+        differs from the default behavior of Python's `list` type.
         """
         if isinstance(item, slice):
-            start = item.start or 0
-            stop = item.stop or -1
-            if stop > 0:
-                stop -= 1
+            start, stop = _redis_range(*_slice_bounds(item))
             return self.database.ltrim(self.key, start, stop)
         elif isinstance(item, int):
-            item = self[item]
-            if item is None:
-                return
+            # Mark the item, then remove the mark. LSET fails on an index
+            # that is out of range, which leaves nothing to remove.
+            marker = uuid.uuid4().hex
+            _, removed = (self.database.pipeline()
+                          .lset(self.key, item, marker)
+                          .lrem(self.key, 1, marker)
+                          .execute(raise_on_error=False))
+            if isinstance(removed, Exception):
+                raise removed
+            return removed
         return self.database.lrem(self.key, 1, item)
 
     def __len__(self):
@@ -297,6 +314,9 @@ class List(Sortable, Container):
 
     def extend(self, value):
         """Extend the list by the given value."""
+        value = list(value)
+        if not value:
+            return len(self)
         return self.database.rpush(self.key, *value)
 
     def insert(self, value, pivot, where):
@@ -379,6 +399,8 @@ class Set(Sortable, Container):
 
     def add(self, *items):
         """Add the given items to the set."""
+        if not items:
+            return 0
         return self.database.sadd(self.key, *items)
 
     def __delitem__(self, item):
@@ -547,35 +569,21 @@ class ZSet(Sortable, Container):
         Add the given item/score pairs to the ZSet. Arguments are
         specified as a dictionary of item: score, or as keyword arguments.
         """
-        if _mapping is not None:
-            _mapping.update(kwargs)
-            mapping = _mapping
-        else:
-            mapping = _mapping
+        mapping = dict(_mapping or {}, **kwargs)
+        if not mapping:
+            return 0
         return self.database.zadd(self.key, mapping)
 
     def _convert_slice(self, s):
-        def _slice_to_indexes(s):
-            start = s.start
-            stop = s.stop
-            if isinstance(start, int) or isinstance(stop, int):
-                return start, stop
-            if start:
-                start = self.database.zrank(self.key, start)
-                if start is None:
-                    raise KeyError(s.start)
-            if stop:
-                stop = self.database.zrank(self.key, stop)
-                if stop is None:
-                    raise KeyError(s.stop)
-            return start, stop
-        start, stop = _slice_to_indexes(s)
-        start = start or 0
-        if not stop:
-            stop = -1
-        else:
-            stop -= 1
-        return start, stop
+        def _rank(value):
+            if value is None or isinstance(value, int):
+                return value
+            rank = self.database.zrank(self.key, value)
+            if rank is None:
+                raise KeyError(value)
+            return rank
+        start, stop = _slice_bounds(s)
+        return _redis_range(_rank(start), _rank(stop))
 
     def __getitem__(self, item):
         """
@@ -597,8 +605,7 @@ class ZSet(Sortable, Container):
             # with their scores.
             zs['k1':'k10', True]
 
-            # Return the range of items preceding and including 'k5'
-            # without scores.
+            # Return the range of items preceding 'k5' without scores.
             zs[:'k5', False]
         """
         if isinstance(item, tuple) and len(item) == 2:
@@ -653,13 +660,12 @@ class ZSet(Sortable, Container):
 
     def __iter__(self):
         """
-        Return an iterator that will yield (item, score) tuples.
+        Return an iterator that will yield (item, score) tuples in score
+        order.
         """
-        return iter(self._scan())
+        return iter(self.iterator(with_scores=True))
 
     def iterator(self, with_scores=False, reverse=False):
-        if with_scores and not reverse:
-            return self.search(None)
         return self.range(
             0,
             -1,
@@ -820,7 +826,7 @@ class ZSet(Sortable, Container):
         """
         Atomically remove the lowest-scoring item(s) in the set.
 
-        :returns: a list of item, score tuples or ``None`` if the set is empty.
+        :returns: a list of item, score tuples, empty if the set is empty.
         """
         return self.database.zpopmin(self.key, count)
 
@@ -828,7 +834,7 @@ class ZSet(Sortable, Container):
         """
         Atomically remove the highest-scoring item(s) in the set.
 
-        :returns: a list of item, score tuples or ``None`` if the set is empty.
+        :returns: a list of item, score tuples, empty if the set is empty.
         """
         return self.database.zpopmax(self.key, count)
 
@@ -861,7 +867,7 @@ class ZSet(Sortable, Container):
         Atomically remove the lowest-scoring item(s) in the set. Compatible
         with Redis versions < 5.0.
 
-        :returns: a list of item, score tuples or ``None`` if the set is empty.
+        :returns: a list of item, score tuples, empty if the set is empty.
         """
         pipe = self.database.pipeline()
         r1, r2 = (pipe
@@ -875,7 +881,7 @@ class ZSet(Sortable, Container):
         Atomically remove the highest-scoring item(s) in the set. Compatible
         with Redis versions < 5.0.
 
-        :returns: a list of item, score tuples or ``None`` if the set is empty.
+        :returns: a list of item, score tuples, empty if the set is empty.
         """
         pipe = self.database.pipeline()
         r1, r2 = (pipe
