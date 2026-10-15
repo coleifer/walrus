@@ -3,7 +3,10 @@ import os
 import threading
 import time
 
-from redis.exceptions import RedisError
+try:
+    from redis.exceptions import RedisError
+except ImportError:
+    RedisError = Exception
 
 
 class _Primitive(object):
